@@ -14,7 +14,7 @@ import tempfile
 from datetime import datetime
 
 st.set_page_config(page_title="Matriz de Seguimiento SGR", layout="wide")
-st.title("📊 Generador de Matriz de Seguimiento y Evaluación SGR")
+st.title("Generador de Matriz de Seguimiento y Evaluación SGR")
 st.markdown("Sube los archivos necesarios y descarga el Excel generado.")
 
 # ── Subida de archivos ─────────────────────────────────────────────────────────
@@ -306,7 +306,7 @@ def formulas_para_fila(r: int) -> dict:
 todos_subidos = all([archivo_proyectos, archivo_contratos, archivo_cargue, archivo_version_anterior])
 
 if todos_subidos:
-    if st.button("🚀 Generar Matriz Excel", type="primary", use_container_width=True):
+    if st.button("Generar Matriz Excel", type="primary", use_container_width=True):
         with st.spinner("Procesando archivos..."):
             try:
                 # Proyectos
@@ -557,7 +557,7 @@ if todos_subidos:
                 output.seek(0)
 
                 nombre_archivo = f"MatrizSeguimientoEvaluacion{datetime.now():%Y%m%d_%H%M}.xlsx"
-                st.success(f"✅ ¡Archivo generado exitosamente! {N_ROWS} proyectos procesados.")
+                st.success(f"¡Archivo generado exitosamente! {N_ROWS} proyectos procesados.")
                 st.download_button(
                     label="⬇️ Descargar Matriz Excel",
                     data=output,
@@ -568,8 +568,8 @@ if todos_subidos:
                 )
 
             except Exception as e:
-                st.error(f"❌ Error al procesar: {e}")
+                st.error(f"Error al procesar: {e}")
                 st.exception(e)
 else:
-    st.info("⬆️ Por favor sube los 4 archivos para continuar.")
+    st.info("Por favor sube los 4 archivos para continuar.")
 
