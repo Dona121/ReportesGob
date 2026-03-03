@@ -2,4 +2,5 @@ streamlit
 polars
 pandas
 xlsxwriter
+fastexcel
 openpyxl
