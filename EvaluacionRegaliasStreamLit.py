@@ -559,7 +559,7 @@ if todos_subidos:
                 nombre_archivo = f"MatrizSeguimientoEvaluacion{datetime.now():%Y%m%d_%H%M}.xlsx"
                 st.success(f"¡Archivo generado exitosamente! {N_ROWS} proyectos procesados.")
                 st.download_button(
-                    label="⬇️ Descargar Matriz Excel",
+                    label="Descargar Matriz Excel",
                     data=output,
                     file_name=nombre_archivo,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
