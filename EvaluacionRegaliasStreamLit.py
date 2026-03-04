@@ -405,7 +405,7 @@ if todos_subidos:
                     BPINes_version_anterior
                     .join(regalias_proyectos, on="BPIN", how="inner")
                     .join(regalias_contratos, on="BPIN", how="left")
-                    .join(regalias_cargue, on="BPIN", how="inner")
+                    .join(regalias_cargue, on="BPIN", how="left")
                     .select(
                         "BPIN", "ENTIDAD O SECRETARIA", "NOMBRE", "ESTADO PROYECTO",
                         "ESTADO CONTRATO", "TIPO CONTRATO", "VALOR SGR", "VALOR NACIÓN",
