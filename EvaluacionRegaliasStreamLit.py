@@ -396,7 +396,7 @@ if todos_subidos:
                     .select("BPIN", "FECHA APROBACIÓN PROYECTO", "AVANCE FISICO", "AVANCE FINANCIERO")
                     .with_columns(
                         pl.col("FECHA APROBACIÓN PROYECTO").str.head(10).str.to_date(strict=False),
-                        pl.col("AVANCE FISICO", "AVANCE FINANCIERO").cast(pl.Float64)
+                        pl.col("AVANCE FISICO", "AVANCE FINANCIERO").cast(pl.Float64,strict=False)
                     )
                 )
 
