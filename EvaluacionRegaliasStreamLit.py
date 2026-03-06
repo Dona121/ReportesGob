@@ -511,7 +511,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         # Escribir en buffer en memoria
         output_buffer = io.BytesIO()
         workbook = xlsxwriter.Workbook(output_buffer, {"in_memory": True})
-        ws = workbook.add_worksheet("MatrizEvaluacionSeguimiento")
+        ws = workbook.add_worksheet("MatrizSeguimientoEvaluacion")
 
         base = dict(font_name="Roboto", font_size=10, border=1, text_wrap=True)
         def fmt(extra): return workbook.add_format({**base, **extra})
@@ -546,7 +546,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         ws.add_table(
             FILA_HEADER, 0, FILA_HEADER + N_ROWS, N_COLS - 1,
             {
-                "name": "MatrizEvaluacionSeguimiento",
+                "name": "MatrizSeguimientoEvaluacion",
                 "style": "Table Style Medium 2",
                 "autofilter": True,
                 "header_row": True,
