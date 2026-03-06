@@ -392,7 +392,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
             "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA SUSCRIPCION",
             "FECHA ACTA INICIO", "FECHA DE CORTE GESPROY",
             "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
-            "FECHA DE INCORPORACIÓN DE RECURSOS", "FECHA DE RECIBO DE INFORMACIÓN",
+            "FECHA DE INCORPORACIÓN DE RECURSOS", 
             "FECHA DE FINALIZACIÓN",
         }
         columnas_numero = {
