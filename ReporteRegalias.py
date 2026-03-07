@@ -50,28 +50,11 @@ html, body, [class*="css"] {{
 
 /* Controlar padding del contenedor principal de Streamlit */
 .block-container {{
-    padding-top: 0 !important;
+    padding-top: 1rem !important;
     padding-left: 1rem !important;
     padding-right: 1rem !important;
     padding-bottom: 3rem !important;
     max-width: 100% !important;
-}}
-/* Matar TODOS los paddings/margins superiores que Streamlit inyecta */
-header[data-testid="stHeader"] {{
-    display: none !important;
-}}
-.block-container,
-.block-container > div,
-[data-testid="stAppViewBlockContainer"],
-[data-testid="stVerticalBlock"],
-[data-testid="stVerticalBlockBorderWrapper"] {{
-    padding-top: 0 !important;
-    margin-top: 0 !important;
-}}
-.element-container:first-of-type,
-.stMarkdown:first-of-type {{
-    margin-top: 0 !important;
-    padding-top: 0 !important;
 }}
 
 /* ── Sidebar oscuro ── */
@@ -158,11 +141,11 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 /* ── Header ── */
 .page-header {{
     background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
-    border-radius: 0;
-    margin: -6rem -1rem 1.6rem -1rem;
-    padding: 6.5rem 2rem 1.8rem 2rem;
+    border-radius: 12px;
+    margin: 0 0 1.4rem 0;
+    padding: 1.8rem 2rem;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     box-shadow: 0 4px 24px rgba(0,61,108,0.22);
     position: relative;
