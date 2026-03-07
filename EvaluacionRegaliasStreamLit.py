@@ -14,6 +14,143 @@ st.set_page_config(
 st.title("Matriz de Seguimiento y Evaluación — Regalías SGR")
 st.markdown("Carga los archivos fuente para generar la matriz mensual.")
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── Esquemas esperados por archivo / tabla ────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Cada entrada es:  columna → (tipo_legible, tipo_polars_esperado_o_None)
+# tipo_polars_esperado = None significa que se valida solo presencia,
+#   no el tipo (p.ej. texto libre).
+# ──────────────────────────────────────────────────────────────────────────────
+
+ESQUEMA_GESPROY_PROYECTOS = {
+    "BPIN":                        ("Texto",  None),
+    "NOMBRE PROYECTO":             ("Texto",  None),
+    "SECTOR":                      ("Texto",  None),
+    "ESTADO PROYECTO":             ("Texto",  None),
+    "VALOR SGR":                   ("Número", None),
+    "VALOR NACIÓN":                ("Número", None),
+    "VALOR OTROS":                 ("Número", None),
+    "VALOR OTRAS FUENTES NO SUIFP":("Número", None),
+    "VALOR TOTAL PROYECTO":        ("Número", None),
+    "VALOR PAGOS":                 ("Número", None),
+}
+
+ESQUEMA_GESPROY_CONTRATOS = {
+    "BPIN":                   ("Texto",  None),
+    "FECHA ACT ADTIVO APERT": ("Fecha",  None),
+    "ESTADO CONTRATO":        ("Texto",  None),
+    "FECHA INICIAL":          ("Fecha",  None),
+    "FECHA SUSCRIPCION":      ("Fecha",  None),
+    "ULTIMA FECHA PAGO":      ("Fecha",  None),
+    "TIPO CONTRATO":          ("Texto",  None),
+    "VALOR TOTAL FUENTES SGR":("Número", None),
+}
+
+ESQUEMA_GESPROY_CARGUE = {
+    "BPIN":                        ("Texto",  None),
+    "FECHA APROBACIÓN PROYECTO":   ("Fecha",  None),
+    "AVANCE FISICO":               ("Número", None),
+    "AVANCE FINANCIERO":           ("Número", None),
+}
+
+ESQUEMA_MATRIZ_H1 = {
+    "BPIN":                               ("Texto", None),
+    "ALCANCE DEL PROYECTO":               ("Texto", None),
+    "FUENTE DE FINANCIACIÓN":             ("Texto", None),
+    "ENTIDAD O SECRETARIA":               ("Texto", None),
+    "INDICADOR DE PRODUCTO MGA":          ("Texto", None),
+    "FECHA DE MIGRACIÓN A GESPROY":       ("Fecha", None),
+    "FECHA DE ASIGNACIÓN DE RECURSOS":    ("Fecha", None),
+    "FECHA DE INCORPORACIÓN DE RECURSOS": ("Fecha", None),
+    "HORIZONTE DEL PROYECTO":             ("Texto", None),
+    "FECHA DE FINALIZACIÓN":              ("Fecha", None),
+}
+
+ESQUEMA_MATRIZ_DESC = {
+    "BPIN":                                        ("Texto",  None),
+    "EJECUTOR":                                    ("Texto",  None),
+    "NOMBRE DEL PROYECTO":                         ("Texto",  None),
+    "ALCANCE":                                     ("Texto",  None),
+    "SECTOR":                                      ("Texto",  None),
+    "FUENTE":                                      ("Texto",  None),
+    "ESTADO PROYECTO":                             ("Texto",  None),
+    "ESTADO CONTRATO":                             ("Texto",  None),
+    "VALOR SGR":                                   ("Número", None),
+    "VALOR OTROS ":                                ("Número", None),
+    "VALOR TOTAL":                                 ("Número", None),
+    "FECHA DE MIGRACIÓN A GESPROY":                ("Fecha",  None),
+    "FECHA DE ASIGNACIÓN DE RECURSOS":             ("Fecha",  None),
+    "FECHA DE INCORPORACIÓN DE RECUROS":           ("Fecha",  None),
+    "AVANCE FÍSICO":                               ("Número", None),
+    "AVANCE FINANCIERO":                           ("Número", None),
+    "CPI (DATOS DE PRUEBA)":                       ("Número", None),
+    "SPI (DATOS DE PRUEBA)":                       ("Número", None),
+    "FECHA APROBACIÓN PROYECTO":                   ("Fecha",  None),
+    "FECHA DE APERTURA DEL PRIMER PROCESO":        ("Fecha",  None),
+    "FECHA SUSCRIPCION":                           ("Fecha",  None),
+    "FECHA ACTA INICIO":                           ("Fecha",  None),
+    "FECHA DE CORTE GESPROY":                      ("Fecha",  None),
+    "CALIFICACIÓN DESEMPEÑO EN LA CONTRATACIÓN":   ("Número", None),
+    "CALIFICACIÓN INFORMACIÓN A TIEMPO":           ("Número", None),
+    "CALIFICACIÓN CALIDAD INFORMACIÓN":            ("Número", None),
+    "CONTROL EXTERNALIDADES":                      ("Número", None),
+    "COMENTARIOS CALIFICACIÓN":                    ("Texto",  None),
+}
+
+ESQUEMA_MATRIZ_MUN = {
+    "BPIN":                              ("Texto",  None),
+    "EJECUTOR":                          ("Texto",  None),
+    "NOMBRE DEL PROYECTO":               ("Texto",  None),
+    "ALCANCE":                           ("Texto",  None),
+    "SECTOR":                            ("Texto",  None),
+    "FUENTE":                            ("Texto",  None),
+    "ESTADO PROYECTO":                   ("Texto",  None),
+    "ESTADO CONTRATO":                   ("Texto",  None),
+    "VALOR SGR":                         ("Número", None),
+    "VALOR OTROS":                       ("Número", None),
+    "VALOR TOTAL":                       ("Número", None),
+    "FECHA APROBACIÓN PROYECTO":         ("Fecha",  None),
+    "FECHA DE ASIGNACIÓN DE RECURSOS":   ("Fecha",  None),
+    "FECHA DE INCORPORACIÓN DE RECUROS": ("Fecha",  None),
+    "FECHA ACTA INICIO":                 ("Fecha",  None),
+    "AVANCE FÍSICO":                     ("Número", None),
+    "AVANCE FINANCIERO":                 ("Número", None),
+    "COMENTARIOS ":                      ("Texto",  None),
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── Función de validación ─────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+def validar_columnas(df: pl.DataFrame, esquema: dict, nombre_fuente: str) -> list[str]:
+    """
+    Verifica que el DataFrame tenga todas las columnas del esquema.
+    Devuelve lista de mensajes de error (vacía si todo está bien).
+    """
+    errores = []
+    columnas_df = set(df.columns)
+    for col, (tipo_legible, _) in esquema.items():
+        if col not in columnas_df:
+            errores.append(
+                f"**'{nombre_fuente}'** — Columna faltante: `{col}` (se esperaba tipo: *{tipo_legible}*)"
+            )
+    return errores
+
+
+def mostrar_esquema(esquema: dict, nombre: str):
+    """Expander con tabla de columnas esperadas y sus tipos."""
+    with st.expander(f"Ver columnas esperadas: {nombre}"):
+        filas = [{"Columna": col, "Tipo esperado": tipo} for col, (tipo, _) in esquema.items()]
+        st.dataframe(
+            pandas.DataFrame(filas),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # ── Funciones de Ayuda ────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
@@ -550,45 +687,77 @@ with col2:
         key="version_anterior",
     )
 
+# ── Expanders de referencia (siempre visibles) ─────────────────────────────────
+st.divider()
+with st.expander("Referencia: columnas esperadas por archivo"):
+    t1, t2, t3, t4, t5 = st.tabs([
+        "CG-proy", "CG-cttos", "CG-carga",
+        "Matriz — Hoja 1", "Matriz — Desc. / Mun.",
+    ])
+    with t1:
+        mostrar_esquema(ESQUEMA_GESPROY_PROYECTOS,  "CG-proy")
+    with t2:
+        mostrar_esquema(ESQUEMA_GESPROY_CONTRATOS,  "CG-cttos")
+    with t3:
+        mostrar_esquema(ESQUEMA_GESPROY_CARGUE,     "CG-carga")
+    with t4:
+        mostrar_esquema(ESQUEMA_MATRIZ_H1,           "MatrizSeguimientoEvaluacion")
+    with t5:
+        c_d, c_m = st.columns(2)
+        with c_d:
+            mostrar_esquema(ESQUEMA_MATRIZ_DESC, "OtrosEjecutoresDescentralizadas")
+        with c_m:
+            mostrar_esquema(ESQUEMA_MATRIZ_MUN,  "OtrosEjecutoresMunicipios")
+
 st.divider()
 st.header("Generar Matriz")
 
 if st.button("Generar Matriz", type="primary", use_container_width=True):
 
-    errores = []
+    # ── Validación de archivos presentes ──────────────────────────────────────
+    errores_archivos = []
     if not uploads_gesproy:
-        errores.append("Faltan los archivos de Gesproy (CG-proy, CG-cttos, CG-carga).")
+        errores_archivos.append("Faltan los archivos de Gesproy (CG-proy, CG-cttos, CG-carga).")
     else:
         nombres_gesproy = [f.name for f in uploads_gesproy]
         nombre_proy  = ruta_reciente(nombres_gesproy, "CG-proy")
         nombre_cttos = ruta_reciente(nombres_gesproy, "CG-cttos")
         nombre_carga = ruta_reciente(nombres_gesproy, "CG-carga")
-        if not nombre_proy:  errores.append("No se encontró archivo CG-proy.")
-        if not nombre_cttos: errores.append("No se encontró archivo CG-cttos.")
-        if not nombre_carga: errores.append("No se encontró archivo CG-carga.")
+        if not nombre_proy:  errores_archivos.append("No se encontró archivo **CG-proy** (debe iniciar con ese prefijo y contener una fecha de 8 dígitos, p.ej. `CG-proy_20260301.xlsx`).")
+        if not nombre_cttos: errores_archivos.append("No se encontró archivo **CG-cttos**.")
+        if not nombre_carga: errores_archivos.append("No se encontró archivo **CG-carga**.")
     if not upload_version_anterior:
-        errores.append("Falta el archivo de la versión anterior de la Matriz.")
+        errores_archivos.append("Falta el archivo de la **versión anterior de la Matriz**.")
 
-    if errores:
-        for e in errores:
-            st.error(e)
+    if errores_archivos:
+        st.error("**No se puede generar la Matriz. Revisa los archivos cargados:**")
+        for e in errores_archivos:
+            st.markdown(f"- {e}")
         st.stop()
 
     gesproy_bytes    = {f.name: f.read() for f in uploads_gesproy}
-    version_anterior = upload_version_anterior.read()  # bytes reutilizables sin seek()
+    version_anterior = upload_version_anterior.read()  # bytes reutilizables
 
     progress = st.progress(0, text="Iniciando...")
+    todos_los_errores_validacion: list[str] = []
 
     try:
-        # ── Proyectos ──────────────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Proyectos ─────────────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
         progress.progress(8, text="Leyendo proyectos...")
+        try:
+            df_proy_raw = leer_excel_regalias(gesproy_bytes[nombre_proy])
+        except Exception as e:
+            st.error(f"**Error al leer el archivo CG-proy** (`{nombre_proy}`): {e}")
+            st.stop()
+
+        errores_proy = validar_columnas(df_proy_raw, ESQUEMA_GESPROY_PROYECTOS, f"CG-proy ({nombre_proy})")
+        todos_los_errores_validacion.extend(errores_proy)
+
         regalias_proyectos = (
-            leer_excel_regalias(gesproy_bytes[nombre_proy])
-            .select(
-                "BPIN", "NOMBRE PROYECTO", "SECTOR", "ESTADO PROYECTO",
-                "VALOR SGR", "VALOR NACIÓN", "VALOR OTROS",
-                "VALOR OTRAS FUENTES NO SUIFP", "VALOR TOTAL PROYECTO", "VALOR PAGOS",
-            )
+            df_proy_raw
+            .select(list(ESQUEMA_GESPROY_PROYECTOS.keys()))
             .filter(~pl.col("ESTADO PROYECTO").is_in(["CERRADO", "DESAPROBADO"]))
             .with_columns(
                 pl.col(
@@ -596,52 +765,85 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                     "VALOR TOTAL PROYECTO", "VALOR SGR", "VALOR PAGOS",
                 ).cast(pl.Float64, strict=False)
             )
-        )
+        ) if not errores_proy else None
 
-        # ── Versión anterior ───────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Versión anterior ──────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
         progress.progress(18, text="Leyendo versión anterior...")
+
+        # Hoja 1
+        try:
+            df_h1_raw = pl.read_excel(io.BytesIO(version_anterior), table_name="MatrizSeguimientoEvaluacion")
+        except Exception as e:
+            st.error(f"**Error al leer la tabla 'MatrizSeguimientoEvaluacion'** del archivo de versión anterior: {e}\n\nVerifica que el archivo tenga una tabla con ese nombre exacto.")
+            st.stop()
+
+        errores_h1 = validar_columnas(df_h1_raw, ESQUEMA_MATRIZ_H1, "MatrizSeguimientoEvaluacion")
+        todos_los_errores_validacion.extend(errores_h1)
+
         BPINes_version_anterior = (
-            pl.read_excel(io.BytesIO(version_anterior), table_name="MatrizSeguimientoEvaluacion")
-            .select(
-                "BPIN", "ALCANCE DEL PROYECTO", "FUENTE DE FINANCIACIÓN",
-                "ENTIDAD O SECRETARIA", "INDICADOR DE PRODUCTO MGA",
-                "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
-                "FECHA DE INCORPORACIÓN DE RECURSOS", "HORIZONTE DEL PROYECTO",
-                "FECHA DE FINALIZACIÓN",
-            )
-        )
+            df_h1_raw.select(list(ESQUEMA_MATRIZ_H1.keys()))
+        ) if not errores_h1 else None
 
-        otros_ejecutores_descentralizadas = (
-            pl.read_excel(io.BytesIO(version_anterior), table_name="OtrosEjecutoresDescentralizadas")
-            .drop("FECHA DE CORTE GESPROY")
-            .with_columns(
-                pl.col(
-                    "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
-                    "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA APROBACIÓN PROYECTO",
-                    "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
-                ).str.to_date("%Y-%m-%d", strict=False)
-            )
-        )
+        # Hoja 2
+        try:
+            df_desc_raw = pl.read_excel(io.BytesIO(version_anterior), table_name="OtrosEjecutoresDescentralizadas")
+        except Exception as e:
+            st.error(f"**Error al leer la tabla 'OtrosEjecutoresDescentralizadas'**: {e}")
+            st.stop()
 
-        otros_ejecutores_municipios = (
-            pl.read_excel(io.BytesIO(version_anterior), table_name="OtrosEjecutoresMunicipios")
-            .with_columns(
-                pl.col(
-                    "FECHA APROBACIÓN PROYECTO", "FECHA DE ASIGNACIÓN DE RECURSOS",
-                    "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
-                ).str.to_date("%Y-%m-%d", strict=False)
-            )
-        )
+        errores_desc = validar_columnas(df_desc_raw, ESQUEMA_MATRIZ_DESC, "OtrosEjecutoresDescentralizadas")
+        todos_los_errores_validacion.extend(errores_desc)
+
+        # Hoja 3
+        try:
+            df_mun_raw = pl.read_excel(io.BytesIO(version_anterior), table_name="OtrosEjecutoresMunicipios")
+        except Exception as e:
+            st.error(f"**Error al leer la tabla 'OtrosEjecutoresMunicipios'**: {e}")
+            st.stop()
+
+        errores_mun = validar_columnas(df_mun_raw, ESQUEMA_MATRIZ_MUN, "OtrosEjecutoresMunicipios")
+        todos_los_errores_validacion.extend(errores_mun)
 
         # ── Contratos ──────────────────────────────────────────────────────────
-        progress.progress(30, text="Procesando contratos...")
+        progress.progress(30, text="Leyendo contratos...")
+        try:
+            df_cttos_raw = leer_excel_regalias(gesproy_bytes[nombre_cttos])
+        except Exception as e:
+            st.error(f"**Error al leer el archivo CG-cttos** (`{nombre_cttos}`): {e}")
+            st.stop()
+
+        errores_cttos = validar_columnas(df_cttos_raw, ESQUEMA_GESPROY_CONTRATOS, f"CG-cttos ({nombre_cttos})")
+        todos_los_errores_validacion.extend(errores_cttos)
+
+        # ── Cargue ─────────────────────────────────────────────────────────────
+        progress.progress(40, text="Leyendo cargue...")
+        try:
+            df_carga_raw = leer_excel_regalias(gesproy_bytes[nombre_carga])
+        except Exception as e:
+            st.error(f"**Error al leer el archivo CG-carga** (`{nombre_carga}`): {e}")
+            st.stop()
+
+        errores_carga = validar_columnas(df_carga_raw, ESQUEMA_GESPROY_CARGUE, f"CG-carga ({nombre_carga})")
+        todos_los_errores_validacion.extend(errores_carga)
+
+        # ── Mostrar todos los errores de columnas y detener si hay alguno ───────
+        if todos_los_errores_validacion:
+            progress.empty()
+            st.error(f"**Se encontraron {len(todos_los_errores_validacion)} problema(s) en los archivos cargados.** Corrígelos y vuelve a intentarlo.")
+            for msg in todos_los_errores_validacion:
+                st.markdown(f"- {msg}")
+            st.info("Despliega la sección **'Referencia: columnas esperadas por archivo'** (arriba) para ver el listado completo de columnas requeridas.")
+            st.stop()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Procesamiento de contratos ────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        progress.progress(50, text="Procesando contratos...")
         regalias_contratos = (
-            leer_excel_regalias(gesproy_bytes[nombre_cttos])
-            .select(
-                "BPIN", "FECHA ACT ADTIVO APERT", "ESTADO CONTRATO",
-                "FECHA INICIAL", "FECHA SUSCRIPCION", "ULTIMA FECHA PAGO",
-                "TIPO CONTRATO", "VALOR TOTAL FUENTES SGR",
-            )
+            df_cttos_raw
+            .select(list(ESQUEMA_GESPROY_CONTRATOS.keys()))
             .with_columns(
                 pl.col(
                     "FECHA INICIAL", "FECHA ACT ADTIVO APERT",
@@ -692,19 +894,45 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 contratos.append(condicion_filtro.head(1).drop("PRIORIZADO", "PRIORIZADO_2", "NIVEL"))
         regalias_contratos = pl.concat(contratos)
 
-        # ── Cargue ─────────────────────────────────────────────────────────────
-        progress.progress(45, text="Leyendo cargue...")
+        # ── Cargue (procesamiento) ─────────────────────────────────────────────
         regalias_cargue = (
-            leer_excel_regalias(gesproy_bytes[nombre_carga])
-            .select("BPIN", "FECHA APROBACIÓN PROYECTO", "AVANCE FISICO", "AVANCE FINANCIERO")
+            df_carga_raw
+            .select(list(ESQUEMA_GESPROY_CARGUE.keys()))
             .with_columns(
                 pl.col("FECHA APROBACIÓN PROYECTO").str.head(10).str.to_date(strict=False),
                 pl.col("AVANCE FISICO", "AVANCE FINANCIERO").cast(pl.Float64, strict=False),
             )
         )
 
-        # ── Consolidación ──────────────────────────────────────────────────────
-        progress.progress(55, text="Consolidando datos...")
+        # ── Versión anterior (procesamiento) ───────────────────────────────────
+        otros_ejecutores_descentralizadas = (
+            df_desc_raw
+            .drop("FECHA DE CORTE GESPROY")
+            .with_columns(
+                pl.col(
+                    "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
+                    "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA APROBACIÓN PROYECTO",
+                    "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
+                ).str.to_date("%Y-%m-%d", strict=False)
+            )
+        )
+
+        otros_ejecutores_municipios = (
+            df_mun_raw
+            .with_columns(
+                pl.col(
+                    "FECHA APROBACIÓN PROYECTO", "FECHA DE ASIGNACIÓN DE RECURSOS",
+                    "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
+                ).str.to_date("%Y-%m-%d", strict=False)
+            )
+        )
+
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Consolidación ─────────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        progress.progress(60, text="Consolidando datos...")
+        fecha_corte = pl.date(datetime.now().year, datetime.now().month, 15)
+
         BPINes_version_anterior = (
             regalias_proyectos
             .join(BPINes_version_anterior, on="BPIN", how="left")
@@ -741,7 +969,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "FECHA ACTA INICIO",
                 "HORIZONTE DEL PROYECTO",
                 "FECHA DE FINALIZACIÓN",
-                pl.date(datetime.now().year, datetime.now().month, 15).alias("FECHA DE CORTE GESPROY"),
+                fecha_corte.alias("FECHA DE CORTE GESPROY"),
                 pl.lit("").alias("INFORMACIÓN SOLICITADA"),
                 pl.lit("").alias("INFORMACIÓN RECIBIDA"),
                 pl.lit("").alias("FECHA DE RECIBO DE INFORMACIÓN"),
@@ -759,11 +987,13 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         )
 
         otros_ejecutores_descentralizadas = otros_ejecutores_descentralizadas.with_columns(
-            pl.date(datetime.now().year, datetime.now().month, 15).alias("FECHA DE CORTE GESPROY")
+            fecha_corte.alias("FECHA DE CORTE GESPROY")
         )
 
-        # ── Cálculos ───────────────────────────────────────────────────────────
-        progress.progress(65, text="Calculando indicadores...")
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Cálculos de días y calificación ───────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        progress.progress(70, text="Calculando indicadores...")
 
         BPINes_version_anterior = (
             BPINes_version_anterior
@@ -805,8 +1035,10 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
             )
         )
 
-        # ── Vista previa ───────────────────────────────────────────────────────
-        progress.progress(75, text="Preparando vista previa...")
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Vista previa ──────────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        progress.progress(80, text="Preparando vista previa...")
         st.divider()
         st.header("Vista previa de datos")
         cols_preview = [
@@ -823,27 +1055,21 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
             height=300,
         )
 
-        # ── Preparar datos para Excel ──────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Preparar DataFrames para Excel ────────────────────────────────────
         # Las columnas de días ya son Int64 (las funciones aplican .dt.total_days()
-        # directamente), así que se pasan a pandas sin conversión adicional.
-        progress.progress(82, text="Preparando datos para Excel...")
+        # internamente), no se necesita conversión adicional.
+        # ══════════════════════════════════════════════════════════════════════
+        progress.progress(86, text="Preparando datos para Excel...")
 
-        datos_h1 = (
-            BPINes_version_anterior
-            .select(todas_las_columnas)
-            .to_pandas()
-        )
+        datos_h1   = BPINes_version_anterior.select(todas_las_columnas).to_pandas()
+        datos_desc = otros_ejecutores_descentralizadas.select(todas_desc).to_pandas()
+        datos_mun  = otros_ejecutores_municipios.select(cols_mun).to_pandas()
 
-        datos_desc = (
-            otros_ejecutores_descentralizadas
-            .select(todas_desc)
-            .to_pandas()
-        )
-
-        datos_mun = otros_ejecutores_municipios.select(cols_mun).to_pandas()
-
-        # ── Generar Excel ──────────────────────────────────────────────────────
-        progress.progress(88, text="Generando Excel...")
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Generar Excel ─────────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+        progress.progress(90, text="Generando Excel...")
 
         output_buffer = io.BytesIO()
         workbook = xlsxwriter.Workbook(output_buffer, {"in_memory": True})
@@ -947,5 +1173,5 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
     except Exception as e:
         progress.empty()
-        st.error(f"Error al procesar los archivos: {e}")
+        st.error(f"**Error inesperado durante el procesamiento:** {e}")
         st.exception(e)
