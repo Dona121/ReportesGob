@@ -30,10 +30,10 @@ C = {
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Sora:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
 html, body, [class*="css"] {{
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     background: {C['bg']};
     color: {C['text']};
 }}
@@ -61,7 +61,7 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {{
     color: {C['text']} !important;
 }}
 .sidebar-section {{
-    font-family: 'Sora', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -78,7 +78,7 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {{
     margin-bottom: 2rem;
 }}
 .page-header h1 {{
-    font-family: 'Sora', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.75rem;
     font-weight: 800;
     color: white;
@@ -107,7 +107,7 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {{
     margin-bottom: 0.35rem;
 }}
 .kpi-value {{
-    font-family: 'Sora', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.9rem;
     font-weight: 800;
     line-height: 1;
@@ -118,7 +118,7 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {{
     color: {C['muted']};
 }}
 .section-heading {{
-    font-family: 'Sora', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -143,7 +143,7 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {{
 }}
 .summary-table th {{
     padding: 0.75rem 1rem;
-    font-family: 'Sora', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -192,7 +192,7 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {{
 .detail-table th {{
     background: #f1f5f9;
     color: {C['azul_oscuro']};
-    font-family: 'Sora', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.66rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -254,7 +254,7 @@ div[data-testid="stExpander"] > details > div {{
     border: none !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
-    font-family: 'DM Sans', sans-serif !important;
+    font-family: 'Montserrat', sans-serif !important;
     font-size: 0.85rem !important;
     padding: 0.5rem 1.4rem !important;
 }}
@@ -328,7 +328,7 @@ section[data-testid="stSidebar"] [data-baseweb="select"] [class*="placeholder"] 
     transform: translateX(-50%);
     background: {C['text']};
     color: white;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.75rem;
     font-weight: 400;
     line-height: 1.55;
@@ -493,11 +493,11 @@ if uploaded is None:
 df = procesar(uploaded.read())
 
 HITOS = {
-    "Hito 1 — Sin contratar sin apertura":    ("hito_1_val", "clasi_1"),
-    "Hito 2 — Sin contratar con apertura":    ("hito_2_val", "clasi_2"),
-    "Hito 3 — Contratado sin acta de inicio": ("hito_3_val", "clasi_3"),
-    "Hito 4 — En ejecución":                  ("hito_4_val", "clasi_4"),
-    "Hito 5 — Proyectos terminados":           ("hito_5_val", "clasi_5"),
+    "H1 · Sin contratar sin apertura":    ("hito_1_val", "clasi_1"),
+    "H2 · Sin contratar con apertura":    ("hito_2_val", "clasi_2"),
+    "H3 · Contratado sin acta de inicio": ("hito_3_val", "clasi_3"),
+    "H4 · En ejecución rezagado":         ("hito_4_val", "clasi_4"),
+    "H5 · Proyectos terminados":          ("hito_5_val", "clasi_5"),
 }
 
 with st.sidebar:
@@ -651,24 +651,24 @@ st.markdown(f"""
 <table class="summary-table">
 <thead><tr>
     <th>Entidad / Secretaría</th>
-    {th("Hito 1",
-        "Sin contratar · sin apertura",
+    {th("Sin contratar<br>sin apertura",
+        "Hito 1 · Sin contratar sin apertura",
         "Promedio de días entre la <b>Fecha de aprobación</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = SIN CONTRATAR y sin fecha de apertura del primer proceso."
     )}
-    {th("Hito 2",
-        "Sin contratar · con apertura",
+    {th("Sin contratar<br>con apertura",
+        "Hito 2 · Sin contratar con apertura",
         "Promedio de días entre la <b>Fecha de apertura del primer proceso</b> y la <b>Fecha de acta de inicio</b>.<br><br>Condición: Estado = SIN CONTRATAR y con fecha de apertura registrada."
     )}
-    {th("Hito 3",
-        "Contratado · sin acta de inicio",
+    {th("Contratado<br>sin acta de inicio",
+        "Hito 3 · Contratado sin acta de inicio",
         "Promedio de días entre la <b>Fecha de suscripción</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO SIN ACTA DE INICIO."
     )}
-    {th("Hito 4",
-        "En ejecución · rezagado",
+    {th("En ejecución<br>rezagado",
+        "Hito 4 · En ejecución rezagado",
         "Promedio de días entre el <b>Horizonte del proyecto</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO EN EJECUCIÓN, CPI = 0, SPI = 0 y horizonte vencido."
     )}
-    {th("Hito 5",
-        "Proyectos terminados",
+    {th("Proyectos<br>terminados",
+        "Hito 5 · Proyectos terminados",
         "Promedio de días entre la <b>Fecha de finalización</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Fecha de finalización registrada."
     )}
     {th("Suspendidos",
