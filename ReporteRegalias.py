@@ -48,6 +48,18 @@ section[data-testid="stSidebar"] span,
 section[data-testid="stSidebar"] div {{
     color: rgba(255,255,255,0.85) !important;
 }}
+/* File uploader — caja blanca con texto oscuro */
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
+    background: white !important;
+    border-radius: 8px !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section *,
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section span,
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section p,
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section div,
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {{
+    color: {C['text']} !important;
+}}
 .sidebar-section {{
     font-family: 'Sora', sans-serif;
     font-size: 0.68rem;
