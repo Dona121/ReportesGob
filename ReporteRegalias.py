@@ -442,9 +442,9 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
 .col-missing {{
     background: #fee2e2;
     color: #991b1b;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-family: 'Montserrat', monospace;
+    font-size: 0.73rem;
+    font-weight: 700;
     padding: 3px 10px;
     border-radius: 4px;
     border: 1px solid #fca5a5;
@@ -452,12 +452,45 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
 .col-wrong-type {{
     background: #fff7ed;
     color: #9a3412;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-family: 'Montserrat', monospace;
+    font-size: 0.73rem;
+    font-weight: 700;
     padding: 3px 10px;
     border-radius: 4px;
     border: 1px solid #fed7aa;
+}}
+/* Tabla de referencia de columnas */
+.ref-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin-top: 0.8rem;
+    border-radius: 8px;
+    overflow: hidden;
+}}
+.ref-table th {{
+    background: #f1f5f9;
+    color: {C['azul_oscuro']};
+    font-weight: 700;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 0.45rem 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid {C['border']};
+}}
+.ref-table td {{
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid {C['border']};
+    color: {C['text']};
+}}
+.ref-table tr:last-child td {{ border-bottom: none; }}
+.ref-table code {{
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    color: {C['azul_medio']};
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -690,6 +723,16 @@ file_bytes = uploaded.read()
 df_raw, errores = validar_archivo(file_bytes)
 
 if errores:
+    ref_rows = "".join(
+        f"<tr><td><code>{col}</code></td><td>{TIPO_LABEL[tipo]}</td></tr>"
+        for col, (tipo, _) in COLUMNAS_ESPERADAS.items()
+    )
+    ref_table = f"""
+    <table class="ref-table">
+        <thead><tr><th>Nombre exacto de la columna</th><th>Tipo de dato esperado</th></tr></thead>
+        <tbody>{ref_rows}</tbody>
+    </table>"""
+
     st.markdown(f"""
     <div style="background:{C['white']};border-radius:12px;padding:1.5rem 1.8rem;
                 box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-top:0.5rem">
@@ -701,6 +744,17 @@ if errores:
             Se encontraron los siguientes problemas. Corrígelos en Excel y vuelve a cargar el archivo.
         </div>
         {"".join(errores)}
+        <details style="margin-top:1.2rem">
+            <summary style="font-size:0.8rem;font-weight:600;color:{C['azul_medio']};
+                            cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+                &#9432; Ver referencia completa de columnas esperadas
+            </summary>
+            <div style="margin-top:0.6rem;font-size:0.8rem;color:{C['muted']};margin-bottom:0.4rem">
+                La tabla <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;
+                color:{C['azul_medio']}">{TABLA_ESPERADA}</code> debe contener exactamente estas columnas:
+            </div>
+            {ref_table}
+        </details>
     </div>
     """, unsafe_allow_html=True)
     st.stop()
