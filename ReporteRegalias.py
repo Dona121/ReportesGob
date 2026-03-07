@@ -42,32 +42,41 @@ html, body, [class*="css"] {{
 
 /* ── Sidebar oscuro ── */
 section[data-testid="stSidebar"] > div {{
-    background: {C['azul_oscuro']};
+    background: #001f3f;
     padding-top: 1.5rem;
 }}
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] span:not([data-baseweb="tag"] span),
 section[data-testid="stSidebar"] div {{
-    color: rgba(255,255,255,0.85) !important;
+    color: rgba(255,255,255,0.95) !important;
 }}
 /* File uploader — caja blanca con texto oscuro */
 section[data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
-    background: white !important;
+    background: rgba(255,255,255,0.08) !important;
+    border: 1.5px dashed rgba(255,255,255,0.25) !important;
     border-radius: 8px !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stFileUploader"] section *{{
-    color: {C['text']} !important;
+    color: rgba(255,255,255,0.85) !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] button {{
+    background: rgba(255,255,255,0.12) !important;
+    color: white !important;
+    border: 1px solid rgba(255,255,255,0.3) !important;
+    border-radius: 6px !important;
 }}
 /* Tags del multiselect */
 span[data-baseweb="tag"] {{
-    background: rgba(71,177,213,0.3) !important;
+    background: {C['azul_medio']} !important;
     color: white !important;
     max-width: 100% !important;
+    border-radius: 4px !important;
 }}
 span[data-baseweb="tag"] span {{
     color: white !important;
-    font-size: 0.75rem !important;
+    font-size: 0.74rem !important;
+    font-weight: 600 !important;
     overflow: visible !important;
     white-space: normal !important;
 }}
@@ -75,15 +84,26 @@ span[data-baseweb="tag"] span {{
 section[data-testid="stSidebar"] [data-baseweb="select"] > div:first-child {{
     flex-wrap: wrap !important;
     gap: 4px !important;
-    padding: 4px 6px !important;
-    background: rgba(255,255,255,0.1) !important;
-    border-color: rgba(255,255,255,0.2) !important;
+    padding: 6px 8px !important;
+    background: rgba(255,255,255,0.07) !important;
+    border-color: rgba(255,255,255,0.18) !important;
     border-radius: 6px !important;
 }}
 /* Selectbox valor visible */
 section[data-testid="stSidebar"] [data-baseweb="select"] [class*="singleValue"],
 section[data-testid="stSidebar"] [data-baseweb="select"] [class*="placeholder"] {{
-    color: rgba(255,255,255,0.9) !important;
+    color: white !important;
+    font-weight: 500 !important;
+}}
+/* Labels de filtros */
+section[data-testid="stSidebar"] .stMultiSelect label,
+section[data-testid="stSidebar"] .stSelectbox label {{
+    color: rgba(255,255,255,0.6) !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    margin-bottom: 0.2rem !important;
 }}
 /* Sección título sidebar */
 .sidebar-section {{
@@ -93,9 +113,9 @@ section[data-testid="stSidebar"] [data-baseweb="select"] [class*="placeholder"] 
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: {C['cian']} !important;
-    margin: 1.5rem 0 0.5rem 0;
+    margin: 1.5rem 0 0.7rem 0;
     padding-bottom: 0.4rem;
-    border-bottom: 1px solid rgba(71,177,213,0.25);
+    border-bottom: 1px solid rgba(71,177,213,0.3);
 }}
 
 /* ── Header ── */
