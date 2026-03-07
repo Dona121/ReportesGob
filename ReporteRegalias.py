@@ -134,12 +134,13 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 /* ── Header ── */
 .page-header {{
     background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
-    border-radius: 12px;
-    padding: 1.5rem 2rem;
-    margin-bottom: 1.5rem;
+    border-radius: 0px;
+    margin: -1.8rem -1rem 1.2rem -1rem;
+    padding: 1.8rem 2.4rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(0,61,108,0.18);
 }}
 .page-header h1 {{
     font-family: 'Montserrat', sans-serif;
@@ -252,7 +253,9 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 
 /* ── Tabs ── */
 div[data-testid="stTabs"] [role="tablist"] {{
-    background: {C['white']};
+    background: rgba(255,255,255,0.70);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-radius: 10px 10px 0 0;
     padding: 0 1rem;
     border-bottom: 2px solid {C['border']};
@@ -272,9 +275,7 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
     border-bottom-color: {C['cian']} !important;
 }}
 div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
-    background: rgba(255,255,255,0.88);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: #ffffff;
     border-radius: 0 0 12px 12px;
     padding: 1.4rem;
     box-shadow: 0 4px 24px rgba(0,40,90,0.10), 0 1px 4px rgba(0,0,0,0.06);
@@ -285,6 +286,9 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
     width: 100%;
     border-collapse: collapse;
     font-size: 0.83rem;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
 }}
 .summary-table thead tr {{
     background: {C['azul_oscuro']};
@@ -305,9 +309,10 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
     padding: 0.65rem 0.9rem;
     border-bottom: 1px solid {C['border']};
     vertical-align: middle;
+    background: #ffffff;
 }}
 .summary-table tbody tr:last-child td {{ border-bottom: none; }}
-.summary-table tbody tr:hover td {{ background: #f0f7ff; }}
+.summary-table tbody tr:hover td {{ background: #f0f7ff !important; }}
 .entidad-name {{
     font-weight: 600;
     font-size: 0.83rem;
