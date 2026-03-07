@@ -64,7 +64,7 @@ def dias_desde_aprobacion_hasta_primer_proceso(estado_proyecto, fecha_aprobacion
     condicion_fechas = (~pl.col(fecha_aprobacion).is_null()) & (~pl.col(fecha_corte_gesproy).is_null())
     return (
         pl.when(condicion_estado & condicion_fechas)
-        .then(pl.col(fecha_corte_gesproy) - pl.col(fecha_aprobacion))
+        .then( ( pl.col(fecha_corte_gesproy) - pl.col(fecha_aprobacion) ).dt.total_days() )
         .otherwise(None)
     )
 
@@ -74,7 +74,7 @@ def dias_desde_apertura_hasta_primer_contrato(estado_proyecto, fecha_acta_inicio
     condicion_fechas = ~pl.col(fecha_primer_proceso).is_null()
     return (
         pl.when(condicion_estado & condicion_fechas)
-        .then(pl.col(fecha_acta_inicio) - pl.col(fecha_primer_proceso))
+        .then( ( pl.col(fecha_acta_inicio) - pl.col(fecha_primer_proceso) ).dt.total_days() )
         .otherwise(None)
     )
 
@@ -83,7 +83,7 @@ def dias_desde_suscripcion_hasta_fecha_acta_inicio(estado_proyecto, fecha_corte_
     condicion_estado = pl.col(estado_proyecto) == "CONTRATADO SIN ACTA DE INICIO"
     return (
         pl.when(condicion_estado)
-        .then(pl.col(fecha_corte_gesproy) - pl.col(fecha_suscripcion))
+        .then( ( pl.col(fecha_corte_gesproy) - pl.col(fecha_suscripcion) ).dt.total_days() )
         .otherwise(None)
     )
 
