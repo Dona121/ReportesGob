@@ -296,6 +296,74 @@ section[data-testid="stSidebar"] [data-baseweb="select"] [class*="singleValue"],
 section[data-testid="stSidebar"] [data-baseweb="select"] [class*="placeholder"] {{
     color: rgba(255,255,255,0.9) !important;
 }}
+/* ── Tooltips en encabezados ── */
+.th-wrap {{
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: default;
+    position: relative;
+}}
+.th-icon {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    cursor: help;
+    line-height: 1;
+}}
+.th-tooltip {{
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: {C['text']};
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.55;
+    padding: 0.65rem 0.9rem;
+    border-radius: 8px;
+    white-space: normal;
+    width: 240px;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+    z-index: 9999;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.28);
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}}
+.th-tooltip strong {{
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.78rem;
+    color: {C['cian']};
+}}
+.th-tooltip::before {{
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top: none;
+    border-bottom-color: {C['text']};
+}}
+.th-wrap:hover .th-tooltip {{
+    visibility: visible;
+    opacity: 1;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -567,12 +635,51 @@ for row in agrupacion.to_dicts():
         <td style="text-align:center;font-weight:700;color:{C['azul_oscuro']}">{int(row['Total'])}</td>
     </tr>"""
 
+def th(label, titulo, descripcion):
+    return f"""<th>
+        <div class="th-wrap">
+            {label}
+            <span class="th-icon">?</span>
+            <div class="th-tooltip">
+                <strong>{titulo}</strong>
+                {descripcion}
+            </div>
+        </div>
+    </th>"""
+
 st.markdown(f"""
 <table class="summary-table">
 <thead><tr>
     <th>Entidad / Secretaría</th>
-    <th>Hito 1</th><th>Hito 2</th><th>Hito 3</th><th>Hito 4</th><th>Hito 5</th>
-    <th>Suspendidos</th><th>Para cierre</th><th>Total</th>
+    {th("Hito 1",
+        "Sin contratar · sin apertura",
+        "Promedio de días entre la <b>Fecha de aprobación</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = SIN CONTRATAR y sin fecha de apertura del primer proceso."
+    )}
+    {th("Hito 2",
+        "Sin contratar · con apertura",
+        "Promedio de días entre la <b>Fecha de apertura del primer proceso</b> y la <b>Fecha de acta de inicio</b>.<br><br>Condición: Estado = SIN CONTRATAR y con fecha de apertura registrada."
+    )}
+    {th("Hito 3",
+        "Contratado · sin acta de inicio",
+        "Promedio de días entre la <b>Fecha de suscripción</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO SIN ACTA DE INICIO."
+    )}
+    {th("Hito 4",
+        "En ejecución · rezagado",
+        "Promedio de días entre el <b>Horizonte del proyecto</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO EN EJECUCIÓN, CPI = 0, SPI = 0 y horizonte vencido."
+    )}
+    {th("Hito 5",
+        "Proyectos terminados",
+        "Promedio de días entre la <b>Fecha de finalización</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Fecha de finalización registrada."
+    )}
+    {th("Suspendidos",
+        "Proyectos suspendidos",
+        "Conteo de proyectos con Estado = SUSPENDIDO en la entidad."
+    )}
+    {th("Para cierre",
+        "Proyectos para cierre",
+        "Conteo de proyectos con Estado = PARA CIERRE en la entidad."
+    )}
+    <th>Total</th>
 </tr></thead>
 <tbody>{rows_html}</tbody>
 </table>
