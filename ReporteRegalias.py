@@ -56,6 +56,19 @@ html, body, [class*="css"] {{
     padding-bottom: 3rem !important;
     max-width: 100% !important;
 }}
+/* Eliminar todos los gaps superiores de Streamlit */
+.block-container > div:first-child,
+[data-testid="stAppViewBlockContainer"],
+[data-testid="stVerticalBlock"] > div:first-child,
+[data-testid="stVerticalBlockBorderWrapper"]:first-child {{
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}}
+/* Gap que Streamlit agrega antes del primer elemento */
+.element-container:first-child {{
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}}
 
 /* ── Sidebar oscuro ── */
 section[data-testid="stSidebar"] > div {{
@@ -143,11 +156,13 @@ section[data-testid="stSidebar"] .stSelectbox label {{
     background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
     border-radius: 0;
     margin: 0 -1.5rem 1.6rem -1.5rem;
-    padding: 1.8rem 1.5rem;
+    padding: 2rem 2rem 1.8rem 2rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     box-shadow: 0 4px 24px rgba(0,61,108,0.22);
+    position: relative;
+    z-index: 1;
 }}
 .page-header h1 {{
     font-family: 'Montserrat', sans-serif;
