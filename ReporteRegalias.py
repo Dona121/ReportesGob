@@ -51,21 +51,25 @@ html, body, [class*="css"] {{
 /* Controlar padding del contenedor principal de Streamlit */
 .block-container {{
     padding-top: 0 !important;
-    padding-left: 1.5rem !important;
-    padding-right: 1.5rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
     padding-bottom: 3rem !important;
     max-width: 100% !important;
 }}
-/* Eliminar todos los gaps superiores de Streamlit */
-.block-container > div:first-child,
+/* Matar TODOS los paddings/margins superiores que Streamlit inyecta */
+header[data-testid="stHeader"] {{
+    display: none !important;
+}}
+.block-container,
+.block-container > div,
 [data-testid="stAppViewBlockContainer"],
-[data-testid="stVerticalBlock"] > div:first-child,
-[data-testid="stVerticalBlockBorderWrapper"]:first-child {{
+[data-testid="stVerticalBlock"],
+[data-testid="stVerticalBlockBorderWrapper"] {{
     padding-top: 0 !important;
     margin-top: 0 !important;
 }}
-/* Gap que Streamlit agrega antes del primer elemento */
-.element-container:first-child {{
+.element-container:first-of-type,
+.stMarkdown:first-of-type {{
     margin-top: 0 !important;
     padding-top: 0 !important;
 }}
@@ -155,10 +159,10 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 .page-header {{
     background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
     border-radius: 0;
-    margin: 0 -1.5rem 1.6rem -1.5rem;
-    padding: 2rem 2rem 1.8rem 2rem;
+    margin: -6rem -1rem 1.6rem -1rem;
+    padding: 6.5rem 2rem 1.8rem 2rem;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     box-shadow: 0 4px 24px rgba(0,61,108,0.22);
     position: relative;
