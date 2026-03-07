@@ -392,6 +392,73 @@ span[data-baseweb="tag"] {{
     border-radius: 4px !important;
 }}
 span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !important; }}
+/* ── Tarjeta de error ── */
+.error-card {{
+    background: #fff5f5;
+    border: 1.5px solid #fca5a5;
+    border-left: 5px solid #dc2626;
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin: 1rem 0;
+}}
+.error-card .error-title {{
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #991b1b;
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}}
+.error-card .error-body {{
+    font-size: 0.83rem;
+    color: #7f1d1d;
+    line-height: 1.6;
+    margin-bottom: 0.8rem;
+}}
+.error-card .error-fix {{
+    background: #fef2f2;
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.8rem;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}}
+.error-card .error-fix strong {{
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #dc2626;
+}}
+.error-cols {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}}
+.col-missing {{
+    background: #fee2e2;
+    color: #991b1b;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid #fca5a5;
+}}
+.col-wrong-type {{
+    background: #fff7ed;
+    color: #9a3412;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid #fed7aa;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -415,7 +482,7 @@ def clasificar(col, intervalos):
 
 @st.cache_data
 def procesar(file_bytes):
-    df = pl.read_excel(io.BytesIO(file_bytes), table_name="MatrizSeguimientoEvaluacion")
+    df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
     df = (
         df.select(
             "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO",
@@ -492,6 +559,113 @@ def th(label, titulo, desc):
     <div class="th-tooltip"><strong>{titulo}</strong>{desc}</div></div></th>"""
 
 # ─────────────────────────────────────────────────────────────────────────────
+# VALIDACIÓN
+# ─────────────────────────────────────────────────────────────────────────────
+TABLA_ESPERADA = "MatrizSeguimientoEvaluacion"
+
+COLUMNAS_ESPERADAS = {
+    "ENTIDAD O SECRETARIA":                 ("texto",  [pl.Utf8, pl.String]),
+    "BPIN":                                 ("texto",  [pl.Utf8, pl.String]),
+    "NOMBRE PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
+    "ESTADO PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
+    "CPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
+    "SPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
+    "FECHA APROBACIÓN PROYECTO":            ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA DE APERTURA DEL PRIMER PROCESO": ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA SUSCRIPCION":                    ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA ACTA INICIO":                    ("fecha",  [pl.Date, pl.Datetime]),
+    "HORIZONTE DEL PROYECTO":               ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA DE FINALIZACIÓN":                ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA DE CORTE GESPROY":               ("fecha",  [pl.Date, pl.Datetime]),
+}
+
+TIPO_LABEL = {
+    "texto":  "Texto (Utf8)",
+    "número": "Número (Float / Int)",
+    "fecha":  "Fecha (Date / Datetime)",
+}
+
+def error_card(titulo, cuerpo, solucion):
+    return f"""
+    <div class="error-card">
+        <div class="error-title">&#9888; {titulo}</div>
+        <div class="error-body">{cuerpo}</div>
+        <div class="error-fix"><strong>Cómo solucionarlo</strong>{solucion}</div>
+    </div>"""
+
+def validar_archivo(file_bytes):
+    """Retorna (df, errores_html). Si hay errores, df es None."""
+    errores = []
+
+    # 1. Verificar que la tabla existe
+    try:
+        df_raw = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
+    except Exception as e:
+        msg = str(e)
+        if "table" in msg.lower() or "not found" in msg.lower() or "name" in msg.lower():
+            errores.append(error_card(
+                "Tabla no encontrada",
+                f"No se encontró una tabla con el nombre <b>{TABLA_ESPERADA}</b> en el archivo. "
+                f"Es posible que el nombre haya sido cambiado o que los datos no estén definidos como tabla de Excel.",
+                f"En Excel, selecciona el rango de datos → <b>Insertar → Tabla</b>, y asegúrate de que el nombre "
+                f"sea exactamente <code>{TABLA_ESPERADA}</code> (sin espacios adicionales, respetando mayúsculas)."
+            ))
+        else:
+            errores.append(error_card(
+                "Error al leer el archivo",
+                f"El archivo no pudo ser leído correctamente. Detalle técnico: <code>{msg}</code>",
+                "Verifica que el archivo no esté dañado, que tenga extensión <b>.xlsx</b> y que no esté abierto en Excel al momento de cargarlo."
+            ))
+        return None, errores
+
+    cols_actuales = set(df_raw.columns)
+
+    # 2. Columnas faltantes
+    faltantes = [c for c in COLUMNAS_ESPERADAS if c not in cols_actuales]
+    if faltantes:
+        chips = "".join(f"<span class='col-missing'>{c}</span>" for c in faltantes)
+        errores.append(error_card(
+            f"{'Columna faltante' if len(faltantes) == 1 else f'{len(faltantes)} columnas faltantes'}",
+            f"Las siguientes columnas no fueron encontradas en la tabla:<div class='error-cols'>{chips}</div>",
+            "Verifica que los encabezados de la tabla coincidan exactamente con los nombres esperados "
+            "(respeta mayúsculas, tildes y espacios). No renombres las columnas originales de la matriz."
+        ))
+
+    # 3. Tipo de datos incorrecto — solo columnas que sí existen
+    tipo_incorrecto = []
+    for col, (tipo_label, tipos_validos) in COLUMNAS_ESPERADAS.items():
+        if col not in cols_actuales:
+            continue
+        dtype = df_raw[col].dtype
+        # fechas: también aceptar Utf8 que se pueda castear (se parsea luego con strict=False)
+        if tipo_label == "fecha":
+            continue  # el cast strict=False maneja esto en procesar
+        if dtype not in tipos_validos:
+            tipo_incorrecto.append((col, tipo_label, str(dtype)))
+
+    if tipo_incorrecto:
+        chips = "".join(
+            f"<span class='col-wrong-type' title='Tipo actual: {dtype_actual}'>{col}</span>"
+            for col, _, dtype_actual in tipo_incorrecto
+        )
+        detalles = "".join(
+            f"<li><b>{col}</b>: se encontró <code>{dtype_actual}</code>, se esperaba <code>{TIPO_LABEL[tipo_label]}</code></li>"
+            for col, tipo_label, dtype_actual in tipo_incorrecto
+        )
+        errores.append(error_card(
+            f"{'Tipo de dato incorrecto' if len(tipo_incorrecto) == 1 else f'Tipos de datos incorrectos en {len(tipo_incorrecto)} columnas'}",
+            f"Las siguientes columnas tienen un tipo de dato inesperado:<div class='error-cols'>{chips}</div><ul style='margin-top:0.5rem;font-size:0.8rem'>{detalles}</ul>",
+            "En Excel, selecciona la columna indicada y verifica su formato de celda. "
+            "Las columnas CPI y SPI deben ser <b>numéricas</b>. "
+            "Si los valores aparecen como texto (alineados a la izquierda), selecciona la columna → <b>Datos → Texto en columnas</b> y elige formato General o Número."
+        ))
+
+    if errores:
+        return None, errores
+
+    return df_raw, []
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HEADER
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -512,7 +686,26 @@ if uploaded is None:
     st.info("Carga el archivo Excel de la Matriz de Seguimiento para comenzar.")
     st.stop()
 
-df = procesar(uploaded.read())
+file_bytes = uploaded.read()
+df_raw, errores = validar_archivo(file_bytes)
+
+if errores:
+    st.markdown(f"""
+    <div style="background:{C['white']};border-radius:12px;padding:1.5rem 1.8rem;
+                box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-top:0.5rem">
+        <div style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:700;
+                    color:{C['azul_oscuro']};margin-bottom:0.3rem">
+            No se pudo cargar el archivo
+        </div>
+        <div style="font-size:0.83rem;color:{C['muted']};margin-bottom:1rem">
+            Se encontraron los siguientes problemas. Corrígelos en Excel y vuelve a cargar el archivo.
+        </div>
+        {"".join(errores)}
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
+df = procesar(file_bytes)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FILTROS HORIZONTALES
