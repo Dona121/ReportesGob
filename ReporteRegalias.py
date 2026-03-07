@@ -253,6 +253,17 @@ span[data-baseweb="tag"] {{
     background: rgba(71,177,213,0.2) !important;
     color: white !important;
 }}
+/* Selectbox text visible in dark sidebar */
+section[data-testid="stSidebar"] [data-baseweb="select"] div,
+section[data-testid="stSidebar"] [data-baseweb="select"] span,
+section[data-testid="stSidebar"] [data-baseweb="select"] input {{
+    color: {C['text']} !important;
+    background: white !important;
+}}
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {{
+    background: white !important;
+    border-radius: 6px !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -395,7 +406,9 @@ with st.sidebar:
     sel_entidades = st.multiselect("Entidad / Secretaría", entidades, default=entidades)
 
     estados = sorted(df["ESTADO PROYECTO"].drop_nulls().unique().to_list())
-    sel_estados = st.multiselect("Estado del proyecto", estados, default=estados)
+    tiene_sin_estado = df["ESTADO PROYECTO"].is_null().any() or (df["ESTADO PROYECTO"] == "").any()
+    opciones_estado = estados + (["(Sin estado)"] if tiene_sin_estado else [])
+    sel_estados = st.multiselect("Estado del proyecto", opciones_estado, default=opciones_estado)
 
     st.markdown("<div class='sidebar-section'>Vista de detalle</div>", unsafe_allow_html=True)
     sel_hito_label = st.selectbox("Hito a detallar", list(HITOS.keys()), label_visibility="collapsed")
@@ -407,7 +420,24 @@ sel_hito_col, sel_clasi_col = HITOS[sel_hito_label]
 # ─────────────────────────────────────────────────────────────────────────────
 filter_expr = pl.col("ENTIDAD O SECRETARIA").is_in(sel_entidades)
 if sel_estados:
-    filter_expr = filter_expr & pl.col("ESTADO PROYECTO").is_in(sel_estados)
+    incluir_sin_estado = "(Sin estado)" in sel_estados
+    estados_reales = [e for e in sel_estados if e != "(Sin estado)"]
+    if estados_reales and incluir_sin_estado:
+        estado_expr = (
+            pl.col("ESTADO PROYECTO").is_in(estados_reales) |
+            pl.col("ESTADO PROYECTO").is_null() |
+            (pl.col("ESTADO PROYECTO") == "")
+        )
+    elif estados_reales:
+        estado_expr = pl.col("ESTADO PROYECTO").is_in(estados_reales)
+    elif incluir_sin_estado:
+        estado_expr = (
+            pl.col("ESTADO PROYECTO").is_null() |
+            (pl.col("ESTADO PROYECTO") == "")
+        )
+    else:
+        estado_expr = pl.lit(False)
+    filter_expr = filter_expr & estado_expr
 df_f = df.filter(filter_expr)
 
 # ─────────────────────────────────────────────────────────────────────────────
