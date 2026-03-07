@@ -83,15 +83,18 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] button {{
 span[data-baseweb="tag"] {{
     background: {C['azul_medio']} !important;
     color: white !important;
-    max-width: 100% !important;
+    max-width: 160px !important;
     border-radius: 4px !important;
 }}
 span[data-baseweb="tag"] span {{
     color: white !important;
-    font-size: 0.74rem !important;
+    font-size: 0.72rem !important;
     font-weight: 600 !important;
-    overflow: visible !important;
-    white-space: normal !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    max-width: 130px !important;
+    display: block !important;
 }}
 /* Contenedor multiselect en sidebar */
 section[data-testid="stSidebar"] [data-baseweb="select"] > div:first-child {{
@@ -134,13 +137,13 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 /* ── Header ── */
 .page-header {{
     background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
-    border-radius: 0px;
-    margin: -1.8rem -1rem 1.2rem -1rem;
-    padding: 1.8rem 2.4rem;
+    border-radius: 0;
+    margin: -3.5rem -4rem 1.4rem -4rem;
+    padding: 2rem 3rem 1.8rem 3rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 4px 20px rgba(0,61,108,0.18);
+    box-shadow: 0 4px 24px rgba(0,61,108,0.22);
 }}
 .page-header h1 {{
     font-family: 'Montserrat', sans-serif;
@@ -209,13 +212,11 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 
 /* ── KPI secundario ── */
 .kpi-sec {{
-    background: rgba(255,255,255,0.82);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: #ffffff;
     border-radius: 10px;
-    padding: 0.9rem 1.1rem;
-    border-left: 3px solid;
-    box-shadow: 0 2px 12px rgba(0,40,90,0.10), 0 1px 3px rgba(0,0,0,0.06);
+    padding: 1rem 1.2rem;
+    border-left: 4px solid;
+    box-shadow: 0 3px 16px rgba(0,40,90,0.13), 0 1px 3px rgba(0,0,0,0.07);
     height: 100%;
 }}
 .kpi-sec .label {{
@@ -311,8 +312,19 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
     vertical-align: middle;
     background: #ffffff;
 }}
+.summary-table tbody tr:nth-child(even) td {{ background: #f7fafd; }}
 .summary-table tbody tr:last-child td {{ border-bottom: none; }}
-.summary-table tbody tr:hover td {{ background: #f0f7ff !important; }}
+.summary-table tbody tr:hover td {{ background: #e8f3ff !important; transition: background 0.15s; }}
+/* Columna Total destacada */
+.summary-table td:last-child,
+.summary-table th:last-child {{
+    background: rgba(0,61,108,0.05);
+    font-weight: 800;
+    color: {C['azul_oscuro']};
+    border-left: 2px solid {C['border']};
+    text-align: center;
+}}
+.summary-table tbody tr:hover td:last-child {{ background: #d8ecff !important; }}
 .entidad-name {{
     font-weight: 600;
     font-size: 0.83rem;
@@ -385,26 +397,40 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
 }}
 
 /* ── Expander ── */
-div[data-testid="stExpander"] > details > summary {{
-    background: #f8fafc !important;
-    border: 1px solid {C['border']} !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-    font-size: 0.85rem !important;
-    color: {C['azul_oscuro']} !important;
-    padding: 0.55rem 1rem !important;
+div[data-testid="stExpander"] > details {{
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 10px rgba(0,40,90,0.08) !important;
+    margin-bottom: 0.5rem !important;
+    border: none !important;
 }}
-div[data-testid="stExpander"] > details > summary:hover {{ background: #f0f7ff !important; }}
+div[data-testid="stExpander"] > details > summary {{
+    background: #ffffff !important;
+    border: none !important;
+    border-left: 4px solid {C['azul_oscuro']} !important;
+    border-radius: 10px !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.84rem !important;
+    color: {C['azul_oscuro']} !important;
+    padding: 0.75rem 1.1rem !important;
+    transition: background 0.15s, border-color 0.15s !important;
+}}
+div[data-testid="stExpander"] > details > summary:hover {{
+    background: #f0f7ff !important;
+    border-left-color: {C['cian']} !important;
+}}
 div[data-testid="stExpander"] > details[open] > summary {{
-    border-radius: 8px 8px 0 0 !important;
-    border-bottom-color: {C['cian']} !important;
+    border-radius: 10px 10px 0 0 !important;
+    border-left-color: {C['cian']} !important;
+    background: #f8fbff !important;
 }}
 div[data-testid="stExpander"] > details > div {{
-    border: 1px solid {C['border']} !important;
-    border-top: none !important;
-    border-radius: 0 0 8px 8px !important;
-    background: {C['white']} !important;
-    padding: 0 1rem 0.5rem 1rem !important;
+    border: none !important;
+    border-left: 4px solid {C['cian']} !important;
+    border-radius: 0 0 10px 10px !important;
+    background: #ffffff !important;
+    padding: 0.2rem 1rem 0.8rem 1rem !important;
 }}
 
 /* ── Tooltip ── */
