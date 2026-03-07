@@ -8,7 +8,7 @@ from datetime import date
 st.set_page_config(
     page_title="Seguimiento Regalías",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 C = {
@@ -38,6 +38,64 @@ html, body, [class*="css"] {{
     font-family: 'Montserrat', sans-serif;
     background: {C['bg']};
     color: {C['text']};
+}}
+
+/* ── Sidebar oscuro ── */
+section[data-testid="stSidebar"] > div {{
+    background: {C['azul_oscuro']};
+    padding-top: 1.5rem;
+}}
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span:not([data-baseweb="tag"] span),
+section[data-testid="stSidebar"] div {{
+    color: rgba(255,255,255,0.85) !important;
+}}
+/* File uploader — caja blanca con texto oscuro */
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
+    background: white !important;
+    border-radius: 8px !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section *{{
+    color: {C['text']} !important;
+}}
+/* Tags del multiselect */
+span[data-baseweb="tag"] {{
+    background: rgba(71,177,213,0.3) !important;
+    color: white !important;
+    max-width: 100% !important;
+}}
+span[data-baseweb="tag"] span {{
+    color: white !important;
+    font-size: 0.75rem !important;
+    overflow: visible !important;
+    white-space: normal !important;
+}}
+/* Contenedor multiselect en sidebar */
+section[data-testid="stSidebar"] [data-baseweb="select"] > div:first-child {{
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    padding: 4px 6px !important;
+    background: rgba(255,255,255,0.1) !important;
+    border-color: rgba(255,255,255,0.2) !important;
+    border-radius: 6px !important;
+}}
+/* Selectbox valor visible */
+section[data-testid="stSidebar"] [data-baseweb="select"] [class*="singleValue"],
+section[data-testid="stSidebar"] [data-baseweb="select"] [class*="placeholder"] {{
+    color: rgba(255,255,255,0.9) !important;
+}}
+/* Sección título sidebar */
+.sidebar-section {{
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: {C['cian']} !important;
+    margin: 1.5rem 0 0.5rem 0;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(71,177,213,0.25);
 }}
 
 /* ── Header ── */
@@ -973,9 +1031,8 @@ for entidad in agrupacion["ENTIDAD O SECRETARIA"].to_list():
 # ─────────────────────────────────────────────────────────────────────────────
 # TABS: Resumen | Gráfico | Detalle | Exportar
 # ─────────────────────────────────────────────────────────────────────────────
-tab_resumen, tab_grafico, tab_detalle, tab_exportar = st.tabs([
+tab_resumen, tab_detalle, tab_exportar = st.tabs([
     "Resumen por entidad",
-    "Comparativo por hito",
     f"Detalle · {sel_hito_label}",
     "Exportar",
 ])
@@ -1027,93 +1084,7 @@ with tab_resumen:
     </table>
     """, unsafe_allow_html=True)
 
-# ── TAB 2: Gráfico comparativo ────────────────────────────────────────────────
-with tab_grafico:
-    HITO_LABELS = [
-        "Sin contratar sin apertura",
-        "Sin contratar con apertura",
-        "Contratado sin acta",
-        "En ejecución rezagado",
-        "Proyectos terminados",
-    ]
-    HITO_COLS = ["Hito 1 (días)", "Hito 2 (días)", "Hito 3 (días)", "Hito 4 (días)", "Hito 5 (días)"]
-
-    agr_pd    = agrupacion.to_pandas()
-    entidades_g = agr_pd["ENTIDAD O SECRETARIA"].tolist()
-
-    g_col1, g_col2 = st.columns([2, 1])
-
-    with g_col1:
-        st.markdown("<div class='section-heading'>Días promedio por hito y entidad</div>", unsafe_allow_html=True)
-        fig = go.Figure()
-        for i, (hcol, hlabel, color) in enumerate(zip(HITO_COLS, HITO_LABELS, HITO_COLORS)):
-            vals = agr_pd[hcol].tolist()
-            fig.add_trace(go.Bar(
-                name=hlabel,
-                x=entidades_g,
-                y=vals,
-                marker_color=color,
-                marker_line_width=0,
-                text=[f"{v:.0f}d" if pd.notna(v) else "" for v in vals],
-                textposition="outside",
-                textfont=dict(size=10, family="Montserrat"),
-            ))
-
-        fig.update_layout(
-            barmode="group",
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font=dict(family="Montserrat", size=11, color=C["text"]),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom", y=1.02,
-                xanchor="left", x=0,
-                font=dict(size=10),
-            ),
-            xaxis=dict(
-                tickfont=dict(size=10),
-                gridcolor=C["border"],
-                linecolor=C["border"],
-            ),
-            yaxis=dict(
-                title="Días promedio",
-                gridcolor=C["border"],
-                linecolor=C["border"],
-                tickfont=dict(size=10),
-            ),
-            margin=dict(t=50, b=20, l=10, r=10),
-            height=380,
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    with g_col2:
-        st.markdown("<div class='section-heading'>Ranking por hito seleccionado</div>", unsafe_allow_html=True)
-
-        hito_sel_col = HITO_COLS[list(HITOS.keys()).index(sel_hito_label)]
-        ranking = agr_pd[["ENTIDAD O SECRETARIA", hito_sel_col]].dropna(subset=[hito_sel_col])
-        ranking = ranking.sort_values(hito_sel_col, ascending=False)
-
-        if len(ranking) == 0:
-            st.info("No hay datos para este hito.")
-        else:
-            max_val = ranking[hito_sel_col].max()
-            rank_rows = ""
-            for i, (_, r) in enumerate(ranking.iterrows()):
-                pct = (r[hito_sel_col] / max_val * 100) if max_val > 0 else 0
-                bar_color = C["salmon"] if pct > 66 else (C["naranja"] if pct > 33 else C["verde_medio"])
-                rank_rows += f"""
-                <div style="margin-bottom:0.8rem">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-                        <span style="font-size:0.78rem;font-weight:600;color:{C['azul_oscuro']}">{r['ENTIDAD O SECRETARIA']}</span>
-                        <span style="font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:600;color:{C['text']}">{r[hito_sel_col]:.1f}d</span>
-                    </div>
-                    <div style="background:{C['border']};border-radius:4px;height:7px;overflow:hidden">
-                        <div style="background:{bar_color};width:{pct:.1f}%;height:100%;border-radius:4px;transition:width 0.3s"></div>
-                    </div>
-                </div>"""
-            st.markdown(f"<div style='padding-top:0.3rem'>{rank_rows}</div>", unsafe_allow_html=True)
-
-# ── TAB 3: Detalle ────────────────────────────────────────────────────────────
+# ── TAB 2: Detalle ────────────────────────────────────────────────────────────
 with tab_detalle:
     df_det = (
         df_f
@@ -1152,7 +1123,7 @@ with tab_detalle:
                 <tbody>{det_rows}</tbody>
                 </table>""", unsafe_allow_html=True)
 
-# ── TAB 4: Exportar ───────────────────────────────────────────────────────────
+# ── TAB 3: Exportar ───────────────────────────────────────────────────────────
 with tab_exportar:
     st.markdown("<div class='section-heading'>Descargar reporte</div>", unsafe_allow_html=True)
     st.markdown("El archivo incluye dos hojas: **Resumen por entidad** con los promedios por hito, y **Detalle proyectos** con el registro completo filtrado.", unsafe_allow_html=False)
