@@ -496,6 +496,39 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CONSTANTES DE VALIDACIÓN — deben ir ANTES de procesar()
+# ─────────────────────────────────────────────────────────────────────────────
+TABLA_ESPERADA = "MatrizSeguimientoEvaluacion"
+
+COLUMNAS_ESPERADAS = {
+    "ENTIDAD O SECRETARIA":                 ("texto",  [pl.Utf8, pl.String]),
+    "BPIN":                                 ("texto",  [pl.Utf8, pl.String]),
+    "NOMBRE PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
+    "ESTADO PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
+    "CPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
+    "SPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
+    "FECHA APROBACIÓN PROYECTO":            ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA DE APERTURA DEL PRIMER PROCESO": ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA SUSCRIPCION":                    ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA ACTA INICIO":                    ("fecha",  [pl.Date, pl.Datetime]),
+    "HORIZONTE DEL PROYECTO":               ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA DE FINALIZACIÓN":                ("fecha",  [pl.Date, pl.Datetime]),
+    "FECHA DE CORTE GESPROY":               ("fecha",  [pl.Date, pl.Datetime]),
+}
+
+TIPO_LABEL = {
+    "texto":  "Texto",
+    "número": "Número decimal",
+    "fecha":  "Fecha",
+}
+
+TIPO_EJEMPLO = {
+    "texto":  "Ej: «Infraestructura», «SIN CONTRATAR»",
+    "número": "Ej: 0, 1.5, 0.87  (sin letras ni símbolos)",
+    "fecha":  "Ej: 15/03/2024  (formato fecha de Excel)",
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # LÓGICA
 # ─────────────────────────────────────────────────────────────────────────────
 INTERVALOS = {
@@ -594,35 +627,6 @@ def th(label, titulo, desc):
 # ─────────────────────────────────────────────────────────────────────────────
 # VALIDACIÓN
 # ─────────────────────────────────────────────────────────────────────────────
-TABLA_ESPERADA = "MatrizSeguimientoEvaluacion"
-
-COLUMNAS_ESPERADAS = {
-    "ENTIDAD O SECRETARIA":                 ("texto",  [pl.Utf8, pl.String]),
-    "BPIN":                                 ("texto",  [pl.Utf8, pl.String]),
-    "NOMBRE PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
-    "ESTADO PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
-    "CPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
-    "SPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
-    "FECHA APROBACIÓN PROYECTO":            ("fecha",  [pl.Date, pl.Datetime]),
-    "FECHA DE APERTURA DEL PRIMER PROCESO": ("fecha",  [pl.Date, pl.Datetime]),
-    "FECHA SUSCRIPCION":                    ("fecha",  [pl.Date, pl.Datetime]),
-    "FECHA ACTA INICIO":                    ("fecha",  [pl.Date, pl.Datetime]),
-    "HORIZONTE DEL PROYECTO":               ("fecha",  [pl.Date, pl.Datetime]),
-    "FECHA DE FINALIZACIÓN":                ("fecha",  [pl.Date, pl.Datetime]),
-    "FECHA DE CORTE GESPROY":               ("fecha",  [pl.Date, pl.Datetime]),
-}
-
-TIPO_LABEL = {
-    "texto":  "Texto",
-    "número": "Número decimal",
-    "fecha":  "Fecha",
-}
-
-TIPO_EJEMPLO = {
-    "texto":  "Ej: «Infraestructura», «SIN CONTRATAR»",
-    "número": "Ej: 0, 1.5, 0.87  (sin letras ni símbolos)",
-    "fecha":  "Ej: 15/03/2024  (formato fecha de Excel)",
-}
 
 def error_card(titulo, cuerpo, solucion):
     return f"""
@@ -802,7 +806,38 @@ if errores:
     """, unsafe_allow_html=True)
     st.stop()
 
-df = procesar(file_bytes)
+try:
+    df = procesar(file_bytes)
+except Exception as e:
+    msg = str(e)
+    # Detectar columna faltante en procesar (por si pasó la validación pero falla el select)
+    col_hint = ""
+    for col in COLUMNAS_ESPERADAS:
+        if col.lower() in msg.lower():
+            col_hint = f"<br>Columna relacionada: <code>{col}</code>"
+            break
+    st.markdown(f"""
+    <div style="background:{C['white']};border-radius:12px;padding:1.5rem 1.8rem;
+                box-shadow:0 1px 6px rgba(0,0,0,0.07);margin-top:0.5rem">
+        <div style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:700;
+                    color:{C['azul_oscuro']};margin-bottom:0.8rem">
+            Error al procesar el archivo
+        </div>
+        <div class="error-card">
+            <div class="error-title">&#9888; Problema inesperado al leer los datos</div>
+            <div class="error-body">
+                El archivo fue cargado pero ocurrió un error al procesar su contenido.{col_hint}
+            </div>
+            <div class="error-fix">
+                <strong>Cómo solucionarlo</strong>
+                Verifica que ninguna columna haya sido renombrada o eliminada en la tabla
+                <code>{TABLA_ESPERADA}</code>. Si el problema persiste, intenta exportar el archivo
+                de nuevo desde el sistema origen y cargarlo sin modificaciones.
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FILTROS HORIZONTALES
