@@ -636,6 +636,15 @@ def error_card(titulo, cuerpo, solucion):
         <div class="error-fix"><strong>Cómo solucionarlo</strong>{solucion}</div>
     </div>"""
 
+def _tipo_amigable(dtype_str):
+    """Convierte tipo técnico de Polars a nombre comprensible."""
+    d = dtype_str.lower()
+    if "utf" in d or "str" in d or "cat" in d: return "Texto"
+    if "float" in d or "int" in d:             return "Número"
+    if "date" in d or "time" in d:             return "Fecha"
+    if "bool" in d:                            return "Verdadero/Falso"
+    return dtype_str
+
 def validar_archivo(file_bytes):
     """Retorna (df, errores_html). Si hay errores, df es None."""
     errores = []
@@ -713,15 +722,6 @@ def validar_archivo(file_bytes):
 
     return df_raw, []
 
-def _tipo_amigable(dtype_str):
-    """Convierte tipo técnico de Polars a nombre comprensible."""
-    d = dtype_str.lower()
-    if "utf" in d or "str" in d or "cat" in d:  return "Texto"
-    if "float" in d or "int" in d:               return "Número"
-    if "date" in d or "time" in d:               return "Fecha"
-    if "bool" in d:                              return "Verdadero/Falso"
-    return dtype_str
-
 # ─────────────────────────────────────────────────────────────────────────────
 # HEADER
 # ─────────────────────────────────────────────────────────────────────────────
@@ -747,10 +747,11 @@ file_bytes = uploaded.read()
 df_raw, errores = validar_archivo(file_bytes)
 
 if errores:
+    muted = C["muted"]
     ref_rows = "".join(
         f"<tr><td><code>{col}</code></td>"
         f"<td><b>{TIPO_LABEL[tipo]}</b></td>"
-        f"<td style='color:{C[\"muted\"]}'>{TIPO_EJEMPLO[tipo]}</td></tr>"
+        f"<td style='color:{muted}'>{TIPO_EJEMPLO[tipo]}</td></tr>"
         for col, (tipo, _) in COLUMNAS_ESPERADAS.items()
     )
     ref_table = f"""
