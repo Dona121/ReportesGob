@@ -50,7 +50,7 @@ html, body, [class*="css"] {{
 
 /* Controlar padding del contenedor principal de Streamlit */
 .block-container {{
-    padding-top: 1rem !important;
+    padding-top: 2.5rem !important;
     padding-left: 1rem !important;
     padding-right: 1rem !important;
     padding-bottom: 3rem !important;
