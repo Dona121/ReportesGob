@@ -51,8 +51,8 @@ html, body, [class*="css"] {{
 /* Controlar padding del contenedor principal de Streamlit */
 .block-container {{
     padding-top: 0 !important;
-    padding-left: 2.5rem !important;
-    padding-right: 2.5rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
     padding-bottom: 3rem !important;
     max-width: 100% !important;
 }}
@@ -142,8 +142,8 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 .page-header {{
     background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
     border-radius: 0;
-    margin: 0 -2.5rem 1.6rem -2.5rem;
-    padding: 1.8rem 2.5rem;
+    margin: 0 -1.5rem 1.6rem -1.5rem;
+    padding: 1.8rem 1.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
