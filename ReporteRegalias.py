@@ -723,6 +723,15 @@ def validar_archivo(file_bytes):
     return df_raw, []
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SIDEBAR — carga y filtros
+# ─────────────────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("<div class='sidebar-section'>📁 Datos</div>", unsafe_allow_html=True)
+    uploaded = st.file_uploader("Archivo Excel", type=["xlsx"], label_visibility="collapsed")
+    if uploaded:
+        st.success("Archivo cargado correctamente")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HEADER
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -734,13 +743,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CARGA
-# ─────────────────────────────────────────────────────────────────────────────
-uploaded = st.file_uploader("Cargar archivo Excel", type=["xlsx"], label_visibility="collapsed")
-
 if uploaded is None:
-    st.info("Carga el archivo Excel de la Matriz de Seguimiento para comenzar.")
+    st.info("Carga el archivo Excel de la Matriz de Seguimiento en el panel izquierdo para comenzar.")
     st.stop()
 
 file_bytes = uploaded.read()
@@ -841,13 +845,8 @@ except Exception as e:
     st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FILTROS HORIZONTALES
+# FILTROS EN SIDEBAR
 # ─────────────────────────────────────────────────────────────────────────────
-entidades    = sorted(df["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
-estados_raw  = sorted(df["ESTADO PROYECTO"].drop_nulls().unique().to_list())
-tiene_sin    = df["ESTADO PROYECTO"].is_null().any() or (df["ESTADO PROYECTO"] == "").any()
-opciones_est = estados_raw + (["(Sin estado)"] if tiene_sin else [])
-
 HITOS = {
     "H1 · Sin contratar sin apertura":    ("hito_1_val", "clasi_1"),
     "H2 · Sin contratar con apertura":    ("hito_2_val", "clasi_2"),
@@ -856,16 +855,19 @@ HITOS = {
     "H5 · Proyectos terminados":          ("hito_5_val", "clasi_5"),
 }
 
-fc1, fc2, fc3 = st.columns([2, 2, 1.5])
-with fc1:
-    st.caption("**Entidad / Secretaría**")
-    sel_entidades = st.multiselect("Entidad", entidades, default=entidades, label_visibility="collapsed")
-with fc2:
-    st.caption("**Estado del proyecto**")
-    sel_estados = st.multiselect("Estado", opciones_est, default=opciones_est, label_visibility="collapsed")
-with fc3:
-    st.caption("**Vista de detalle**")
-    sel_hito_label = st.selectbox("Hito", list(HITOS.keys()), label_visibility="collapsed")
+with st.sidebar:
+    st.markdown("<div class='sidebar-section'>Filtros</div>", unsafe_allow_html=True)
+
+    entidades   = sorted(df["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
+    sel_entidades = st.multiselect("Entidad / Secretaría", entidades, default=entidades)
+
+    estados_raw  = sorted(df["ESTADO PROYECTO"].drop_nulls().unique().to_list())
+    tiene_sin    = df["ESTADO PROYECTO"].is_null().any() or (df["ESTADO PROYECTO"] == "").any()
+    opciones_est = estados_raw + (["(Sin estado)"] if tiene_sin else [])
+    sel_estados  = st.multiselect("Estado del proyecto", opciones_est, default=opciones_est)
+
+    st.markdown("<div class='sidebar-section'>Vista de detalle</div>", unsafe_allow_html=True)
+    sel_hito_label = st.selectbox("Hito a detallar", list(HITOS.keys()), label_visibility="collapsed")
 
 sel_hito_col, sel_clasi_col = HITOS[sel_hito_label]
 
