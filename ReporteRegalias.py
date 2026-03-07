@@ -21,7 +21,7 @@ C = {
     "naranja_osc":  "#cf7000",
     "cafe":         "#9b5b1e",
     "salmon":       "#e68878",
-    "bg":           "#f2f5f8",
+    "bg":           "#e8edf5",
     "white":        "#ffffff",
     "text":         "#1a2332",
     "muted":        "#6b7280",
@@ -36,8 +36,21 @@ st.markdown(f"""
 
 html, body, [class*="css"] {{
     font-family: 'Montserrat', sans-serif;
-    background: {C['bg']};
     color: {C['text']};
+}}
+
+/* ── Fondo del área principal con gradiente institucional ── */
+.stApp {{
+    background:
+        radial-gradient(ellipse at 0% 0%, rgba(0,61,108,0.10) 0%, transparent 55%),
+        radial-gradient(ellipse at 100% 100%, rgba(0,89,49,0.08) 0%, transparent 55%),
+        linear-gradient(160deg, #dde5f0 0%, #e8edf5 40%, #eaf0f0 100%);
+    min-height: 100vh;
+}}
+
+/* Área de contenido principal — leve separación del sidebar */
+section.main > div {{
+    padding-top: 1.8rem !important;
 }}
 
 /* ── Sidebar oscuro ── */
@@ -170,6 +183,7 @@ section[data-testid="stSidebar"] .stSelectbox label {{
     padding: 1.4rem 1.6rem;
     color: white;
     height: 100%;
+    box-shadow: 0 4px 20px rgba(0,61,108,0.22), 0 1px 4px rgba(0,0,0,0.1);
 }}
 .kpi-main .label {{
     font-size: 0.68rem;
@@ -194,11 +208,13 @@ section[data-testid="stSidebar"] .stSelectbox label {{
 
 /* ── KPI secundario ── */
 .kpi-sec {{
-    background: {C['white']};
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-radius: 10px;
     padding: 0.9rem 1.1rem;
     border-left: 3px solid;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgba(0,40,90,0.10), 0 1px 3px rgba(0,0,0,0.06);
     height: 100%;
 }}
 .kpi-sec .label {{
@@ -256,10 +272,12 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
     border-bottom-color: {C['cian']} !important;
 }}
 div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
-    background: {C['white']};
-    border-radius: 0 0 10px 10px;
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 0 0 12px 12px;
     padding: 1.4rem;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 24px rgba(0,40,90,0.10), 0 1px 4px rgba(0,0,0,0.06);
 }}
 
 /* ── Summary table ── */
