@@ -1,7 +1,6 @@
 import streamlit as st
 import polars as pl
 import pandas as pd
-import plotly.graph_objects as go
 import io
 from datetime import date
 
@@ -27,8 +26,6 @@ C = {
     "muted":        "#6b7280",
     "border":       "#e2e8f0",
 }
-
-HITO_COLORS = [C["azul_medio"], C["cian"], C["naranja"], C["verde_medio"], C["cafe"]]
 
 st.markdown(f"""
 <style>
