@@ -249,20 +249,40 @@ div[data-testid="stExpander"] > details > div {{
 .stDownloadButton > button:hover {{
     background: {C['verde_medio']} !important;
 }}
+/* Multiselect tags — texto completo sin cortar */
 span[data-baseweb="tag"] {{
-    background: rgba(71,177,213,0.2) !important;
+    background: rgba(71,177,213,0.25) !important;
+    color: white !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+}}
+span[data-baseweb="tag"] span {{
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: unset !important;
+    font-size: 0.75rem !important;
+}}
+/* Contenedor del multiselect — evita corte de tags */
+section[data-testid="stSidebar"] [data-baseweb="select"] {{
+    min-height: 38px !important;
+}}
+section[data-testid="stSidebar"] [data-baseweb="select"] > div:first-child {{
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    padding: 4px 6px !important;
+    background: rgba(255,255,255,0.1) !important;
+    border-color: rgba(255,255,255,0.2) !important;
+    border-radius: 6px !important;
+}}
+/* Selectbox (selector de hito) — texto visible */
+section[data-testid="stSidebar"] [data-baseweb="select"] [data-testid="stSelectboxVirtualDropdown"],
+section[data-testid="stSidebar"] [data-baseweb="select"] input,
+section[data-testid="stSidebar"] [data-baseweb="select"] [aria-selected] {{
     color: white !important;
 }}
-/* Selectbox text visible in dark sidebar */
-section[data-testid="stSidebar"] [data-baseweb="select"] div,
-section[data-testid="stSidebar"] [data-baseweb="select"] span,
-section[data-testid="stSidebar"] [data-baseweb="select"] input {{
-    color: {C['text']} !important;
-    background: white !important;
-}}
-section[data-testid="stSidebar"] [data-baseweb="select"] > div {{
-    background: white !important;
-    border-radius: 6px !important;
+section[data-testid="stSidebar"] [data-baseweb="select"] [class*="singleValue"],
+section[data-testid="stSidebar"] [data-baseweb="select"] [class*="placeholder"] {{
+    color: rgba(255,255,255,0.9) !important;
 }}
 </style>
 """, unsafe_allow_html=True)
