@@ -342,18 +342,112 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
 
 /* ── Badges ── */
 .badge {{
-    display: inline-block;
-    padding: 2px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
     border-radius: 20px;
     font-size: 0.68rem;
     font-weight: 700;
     margin-left: 5px;
     vertical-align: middle;
+    cursor: help;
+    position: relative;
 }}
 .badge-green  {{ background: #d1fae5; color: #065f46; }}
 .badge-yellow {{ background: #fef3c7; color: #92400e; }}
 .badge-orange {{ background: #ffedd5; color: #9a3412; }}
 .badge-red    {{ background: #fee2e2; color: #991b1b; }}
+/* Punto de color semáforo */
+.badge-dot {{
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}}
+.badge-green  .badge-dot {{ background: #059669; }}
+.badge-yellow .badge-dot {{ background: #d97706; }}
+.badge-orange .badge-dot {{ background: #ea580c; }}
+.badge-red    .badge-dot {{ background: #dc2626; }}
+/* Tooltip del semáforo */
+.badge-tooltip {{
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: {C['text']};
+    color: white;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.5;
+    padding: 0.55rem 0.8rem;
+    border-radius: 8px;
+    width: 240px;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+    z-index: 9999;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    white-space: normal;
+}}
+.badge-tooltip::after {{
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: {C['text']};
+}}
+.badge:hover .badge-tooltip {{ visibility: visible; opacity: 1; }}
+
+/* ── Evaluación — calificación card ── */
+.eval-card {{
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 2px 12px rgba(0,40,90,0.09);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}}
+.eval-bar-wrap {{
+    flex: 1;
+}}
+.eval-label {{
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: {C['muted']};
+    margin-bottom: 0.3rem;
+}}
+.eval-bar-bg {{
+    background: {C['border']};
+    border-radius: 6px;
+    height: 10px;
+    overflow: hidden;
+    margin-bottom: 0.2rem;
+}}
+.eval-bar-fill {{
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.4s ease;
+}}
+.eval-score {{
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-width: 3rem;
+    text-align: right;
+    color: {C['azul_oscuro']};
+}}
 
 /* ── Detail table ── */
 .detail-table {{
@@ -635,6 +729,7 @@ COLUMNAS_ESPERADAS = {
     "BPIN":                                 ("texto",  [pl.Utf8, pl.String]),
     "NOMBRE PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
     "ESTADO PROYECTO":                      ("texto",  [pl.Utf8, pl.String]),
+    "ESTADO CONTRATO":                      ("texto",  [pl.Utf8, pl.String]),
     "CPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
     "SPI":                                  ("número", [pl.Float32, pl.Float64, pl.Int32, pl.Int64]),
     "FECHA APROBACIÓN PROYECTO":            ("fecha",  [pl.Date, pl.Datetime]),
@@ -665,9 +760,68 @@ INTERVALOS = {
     "hito_1_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
     "hito_2_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
     "hito_3_val": [("0-30",  0,  30), ("31-45",   31,  45), ("46-60",   46,  60),  (">60",  61, None)],
-    "hito_4_val": [("0-30",  0,  30), ("31-90",   31,  90), ("91-180",  91, 180),  (">180", 181, None)],
+    "hito_4_val": [("0-1",   0,   1), ("1.1-3",    2,   3), ("3.1-6",    4,   6),  (">6",    7, None)],
     "hito_5_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
 }
+
+# Semáforos: colores y mensajes por hito e intervalo
+SEMAFOROS = {
+    "hito_1_val": {
+        "0-100":   ("green",  "Verde",   "Proyecto dentro de los tiempos para su primera apertura del proceso de contratación."),
+        "101-150": ("yellow", "Naranja", "Proyecto en alerta: más de 100 días sin apertura del primer proceso precontractual."),
+        "151-180": ("orange", "Rojo",    "Proyecto en alerta roja: más de 150 días sin apertura del primer proceso precontractual."),
+        ">180":    ("red",    "Negro",   "Proyecto en alerta negra: más de 180 días sin apertura del primer proceso precontractual."),
+    },
+    "hito_2_val": {
+        "0-100":   ("green",  "Verde",   "Proyecto dentro de los tiempos para la firma del primer contrato."),
+        "101-150": ("yellow", "Naranja", "Proyecto en alerta: más de 100 días sin firma del primer contrato."),
+        "151-180": ("orange", "Rojo",    "Proyecto en alerta roja: más de 150 días sin firma del primer contrato."),
+        ">180":    ("red",    "Negro",   "Proyecto en alerta negra: más de 180 días sin firma del primer contrato."),
+    },
+    "hito_3_val": {
+        "0-30":  ("green",  "Verde",   "Proyecto dentro de los tiempos para la firma del acta de inicio."),
+        "31-45": ("yellow", "Naranja", "Proyecto en alerta: más de 30 días sin firma del acta de inicio."),
+        "46-60": ("orange", "Rojo",    "Proyecto en alerta roja: más de 45 días sin firma del acta de inicio."),
+        ">60":   ("red",    "Negro",   "Proyecto en alerta negra: más de 60 días sin firma del acta de inicio."),
+    },
+    "hito_4_val": {
+        "0-1":   ("green",  "Verde",   "Proyecto presenta horizonte vigente."),
+        "1.1-3": ("yellow", "Naranja", "Proyecto con horizonte vencido entre 1 y 3 meses."),
+        "3.1-6": ("orange", "Rojo",    "Proyecto con horizonte vencido mayor a 3 meses."),
+        ">6":    ("red",    "Negro",   "Proyecto con horizonte vencido mayor a 6 meses."),
+    },
+    "hito_5_val": {
+        "0-100":   ("green",  "Verde",   "Proyecto dentro de los tiempos para pasar a estado 'Para cierre'."),
+        "101-150": ("yellow", "Naranja", "Proyecto en alerta: más de 100 días desde su terminación sin pasar a 'Para cierre'."),
+        "151-180": ("orange", "Rojo",    "Proyecto en alerta roja: más de 150 días desde su terminación."),
+        ">180":    ("red",    "Negro",   "Proyecto en alerta negra: más de 180 días desde su terminación."),
+    },
+}
+
+TABLA_DESCENTRALIZADAS = "OtrosEjecutoresDescentralizadas"
+COLS_EVAL = [
+    "CALIFICACIÓN DESEMPEÑO EN LA CONTRATACIÓN",
+    "CALIFICACIÓN INFORMACIÓN A TIEMPO",
+    "CALIFICACIÓN EJECUCIÓN DEL PROYECTO",
+    "CALIFICACIÓN CALIDAD INFORMACIÓN",
+]
+COLS_EVAL_LABELS = [
+    "Desempeño en contratación",
+    "Información a tiempo",
+    "Ejecución del proyecto",
+    "Calidad de la información",
+]
+
+def clasificar_hito4_meses(col):
+    """Hito 4 se clasifica en meses (días / 30), no en días directos."""
+    meses = pl.col(col) / 30.0
+    return (
+        pl.when(pl.col(col).is_null()).then(None)
+        .when(meses <= 1).then(pl.lit("0-1"))
+        .when(meses <= 3).then(pl.lit("1.1-3"))
+        .when(meses <= 6).then(pl.lit("3.1-6"))
+        .otherwise(pl.lit(">6"))
+    )
 
 def clasificar(col, intervalos):
     expr = pl.when(pl.col(col).is_null()).then(None)
@@ -681,7 +835,8 @@ def procesar(file_bytes):
     df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
     df = (
         df.select(
-            "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO",
+            "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO",
+            "ESTADO PROYECTO", "ESTADO CONTRATO",
             "CPI", "SPI",
             "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
             "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "HORIZONTE DEL PROYECTO",
@@ -695,53 +850,95 @@ def procesar(file_bytes):
             ).cast(pl.Date, strict=False)
         )
         .with_columns(
+            # Hito 1
             pl.when(
                 ((pl.col("ESTADO PROYECTO") == "SIN CONTRATAR") | pl.col("ESTADO PROYECTO").is_null() | (pl.col("ESTADO PROYECTO") == "")) &
                 (~pl.col("FECHA APROBACIÓN PROYECTO").is_null()) & (~pl.col("FECHA DE CORTE GESPROY").is_null())
             ).then((pl.col("FECHA DE CORTE GESPROY") - pl.col("FECHA APROBACIÓN PROYECTO")).dt.total_days()).otherwise(None).alias("hito_1_val"),
-
+            # Hito 2
             pl.when(
                 ((pl.col("ESTADO PROYECTO") == "SIN CONTRATAR") | pl.col("ESTADO PROYECTO").is_null() | (pl.col("ESTADO PROYECTO") == "")) &
                 (~pl.col("FECHA DE APERTURA DEL PRIMER PROCESO").is_null())
             ).then((pl.col("FECHA ACTA INICIO") - pl.col("FECHA DE APERTURA DEL PRIMER PROCESO")).dt.total_days()).otherwise(None).alias("hito_2_val"),
-
+            # Hito 3
             pl.when(
                 (pl.col("ESTADO PROYECTO") == "CONTRATADO SIN ACTA DE INICIO") &
                 (~pl.col("FECHA SUSCRIPCION").is_null())
             ).then((pl.col("FECHA DE CORTE GESPROY") - pl.col("FECHA SUSCRIPCION")).dt.total_days()).otherwise(None).alias("hito_3_val"),
-
+            # Hito 4
             pl.when(
                 (pl.col("ESTADO PROYECTO") == "CONTRATADO EN EJECUCIÓN") &
                 (pl.col("CPI") == 0) & (pl.col("SPI") == 0) &
                 (pl.col("HORIZONTE DEL PROYECTO") <= pl.col("FECHA DE CORTE GESPROY"))
             ).then((pl.col("FECHA DE CORTE GESPROY") - pl.col("HORIZONTE DEL PROYECTO")).dt.total_days()).otherwise(None).alias("hito_4_val"),
-
+            # Hito 5
             pl.when(~pl.col("FECHA DE FINALIZACIÓN").is_null()).then(
                 (pl.col("FECHA DE CORTE GESPROY") - pl.col("FECHA DE FINALIZACIÓN")).dt.total_days()
             ).otherwise(None).alias("hito_5_val"),
-
-            pl.when(pl.col("ESTADO PROYECTO") == "SUSPENDIDO").then(pl.lit(1)).otherwise(None).alias("Suspendidos"),
+            # Suspendidos — basado en ESTADO CONTRATO
+            pl.when(
+                pl.col("ESTADO CONTRATO").str.strip_chars().str.to_uppercase() == "SUSPENDIDO"
+            ).then(pl.lit(1)).otherwise(None).alias("Suspendidos"),
+            # Para cierre
             pl.when(pl.col("ESTADO PROYECTO") == "PARA CIERRE").then(pl.lit(1)).otherwise(None).alias("Para cierre"),
         )
         .with_columns(
             clasificar("hito_1_val", INTERVALOS["hito_1_val"]).alias("clasi_1"),
             clasificar("hito_2_val", INTERVALOS["hito_2_val"]).alias("clasi_2"),
             clasificar("hito_3_val", INTERVALOS["hito_3_val"]).alias("clasi_3"),
-            clasificar("hito_4_val", INTERVALOS["hito_4_val"]).alias("clasi_4"),
+            clasificar_hito4_meses("hito_4_val").alias("clasi_4"),
             clasificar("hito_5_val", INTERVALOS["hito_5_val"]).alias("clasi_5"),
         )
     )
     return df
 
-def badge_html(val):
+@st.cache_data
+def procesar_descentralizadas(file_bytes):
+    """Lee la tabla de descentralizadas y calcula promedios de calificación por EJECUTOR."""
+    try:
+        df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_DESCENTRALIZADAS)
+        cols_disponibles = [c for c in COLS_EVAL if c in df.columns]
+        if not cols_disponibles or "EJECUTOR" not in df.columns:
+            return None
+        agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_disponibles]
+        return df.group_by("EJECUTOR").agg(agg_exprs).sort("EJECUTOR")
+    except Exception:
+        return None
+
+@st.cache_data
+def procesar_eval_sucre(file_bytes):
+    """Calcula promedios de calificación por ENTIDAD O SECRETARIA (tabla Sucre)."""
+    df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
+    cols_disponibles = [c for c in COLS_EVAL if c in df.columns]
+    if not cols_disponibles or "ENTIDAD O SECRETARIA" not in df.columns:
+        return None
+    agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_disponibles]
+    return df.group_by("ENTIDAD O SECRETARIA").agg(agg_exprs).sort("ENTIDAD O SECRETARIA")
+
+def badge_html(val, hito_key=None):
+    """Genera badge con punto de color semáforo y tooltip con mensaje."""
     if val is None: return ""
-    cls = {
-        "0-100": "badge-green", "0-30": "badge-green",
-        "101-150": "badge-yellow", "31-45": "badge-yellow", "31-90": "badge-yellow",
-        "151-180": "badge-orange", "46-60": "badge-orange", "91-180": "badge-orange",
-        ">180": "badge-red", ">60": "badge-red",
-    }.get(str(val), "badge-yellow")
-    return f"<span class='badge {cls}'>{val}</span>"
+    val_str = str(val)
+    cls_map = {
+        "0-100": "badge-green",  "0-30":  "badge-green",  "0-1":   "badge-green",
+        "101-150": "badge-yellow","31-45": "badge-yellow", "1.1-3": "badge-yellow",
+        "151-180": "badge-orange","46-60": "badge-orange", "3.1-6": "badge-orange",
+        ">180": "badge-red",     ">60":   "badge-red",    ">6":    "badge-red",
+    }
+    cls = cls_map.get(val_str, "badge-yellow")
+
+    tooltip_html = ""
+    if hito_key and hito_key in SEMAFOROS and val_str in SEMAFOROS[hito_key]:
+        _, color_nombre, mensaje = SEMAFOROS[hito_key][val_str]
+        tooltip_html = f'<span class="badge-tooltip"><strong style="color:#47b1d5;display:block;margin-bottom:3px">● {color_nombre}</strong>{mensaje}</span>'
+
+    return (
+        f'<span class="badge {cls}">'
+        f'<span class="badge-dot"></span>'
+        f'{val_str}'
+        f'{tooltip_html}'
+        f'</span>'
+    )
 
 def generar_excel(df_det, df_agr):
     buf = io.BytesIO()
@@ -1101,13 +1298,23 @@ for entidad in agrupacion["ENTIDAD O SECRETARIA"].to_list():
         clasi_por_entidad[entidad][cc] = vals.value_counts().sort("count", descending=True)[0, 0] if len(vals) > 0 else None
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TABS: Resumen | Gráfico | Detalle | Exportar
+# TABS
 # ─────────────────────────────────────────────────────────────────────────────
-tab_resumen, tab_detalle, tab_exportar = st.tabs([
+tab_resumen, tab_detalle, tab_evaluacion, tab_exportar = st.tabs([
     "Resumen por entidad",
     f"Detalle · {sel_hito_label}",
+    "Evaluación del modelo",
     "Exportar",
 ])
+
+# HITO key map para badge_html
+HITO_KEY_MAP = {
+    "clasi_1": "hito_1_val",
+    "clasi_2": "hito_2_val",
+    "clasi_3": "hito_3_val",
+    "clasi_4": "hito_4_val",
+    "clasi_5": "hito_5_val",
+}
 
 # ── TAB 1: Tabla resumen ──────────────────────────────────────────────────────
 with tab_resumen:
@@ -1115,7 +1322,8 @@ with tab_resumen:
         if dias_val is None or (isinstance(dias_val, float) and dias_val != dias_val):
             return "<td class='null-cell'>—</td>"
         clasi = clasi_por_entidad[entidad].get(clasi_key)
-        return f"<td><span class='dias-val'>{dias_val:.1f} d</span>{badge_html(clasi)}</td>"
+        hito_k = HITO_KEY_MAP.get(clasi_key)
+        return f"<td><span class='dias-val'>{dias_val:.1f} d</span>{badge_html(clasi, hito_k)}</td>"
 
     rows_html = ""
     for row in agrupacion.to_dicts():
@@ -1145,10 +1353,10 @@ with tab_resumen:
         {th("Contratado<br>sin acta de inicio", "Hito 3 · Contratado sin acta de inicio",
             "Promedio de días entre la <b>Fecha de suscripción</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO SIN ACTA DE INICIO.")}
         {th("En ejecución<br>rezagado", "Hito 4 · En ejecución rezagado",
-            "Promedio de días entre el <b>Horizonte del proyecto</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO EN EJECUCIÓN, CPI = 0, SPI = 0 y horizonte vencido.")}
+            "Meses entre el <b>Horizonte del proyecto</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO EN EJECUCIÓN, CPI = 0, SPI = 0 y horizonte vencido.")}
         {th("Proyectos<br>terminados", "Hito 5 · Proyectos terminados",
             "Promedio de días entre la <b>Fecha de finalización</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Fecha de finalización registrada.")}
-        {th("Suspendidos", "Proyectos suspendidos", "Conteo de proyectos con Estado = SUSPENDIDO.")}
+        {th("Suspendidos", "Proyectos suspendidos", "Conteo de proyectos cuyo <b>Estado contrato</b> = SUSPENDIDO.")}
         {th("Para cierre", "Proyectos para cierre", "Conteo de proyectos con Estado = PARA CIERRE.")}
         <th>Total</th>
     </tr></thead>
@@ -1158,6 +1366,9 @@ with tab_resumen:
 
 # ── TAB 2: Detalle ────────────────────────────────────────────────────────────
 with tab_detalle:
+    # Identificar hito_key para badge_html según columna de clasificación seleccionada
+    hito_key_detalle = HITO_KEY_MAP.get(sel_clasi_col, None)
+
     df_det = (
         df_f
         .filter(~pl.col(sel_hito_col).is_null())
@@ -1185,7 +1396,7 @@ with tab_detalle:
                         <td style="font-size:0.81rem">{r['NOMBRE PROYECTO'] or '—'}</td>
                         <td><span class="estado-tag">{r['ESTADO PROYECTO'] or '(Sin estado)'}</span></td>
                         <td style="font-family:'DM Mono',monospace;font-weight:600;font-size:0.8rem">{dias_str}</td>
-                        <td>{badge_html(clasi_v)}</td>
+                        <td>{badge_html(clasi_v, hito_key_detalle)}</td>
                     </tr>"""
                 st.markdown(f"""
                 <table class="detail-table">
@@ -1195,7 +1406,77 @@ with tab_detalle:
                 <tbody>{det_rows}</tbody>
                 </table>""", unsafe_allow_html=True)
 
-# ── TAB 3: Exportar ───────────────────────────────────────────────────────────
+# ── TAB 3: Evaluación del modelo ──────────────────────────────────────────────
+with tab_evaluacion:
+    st.markdown("<div class='section-heading'>Evaluación del modelo ejecutor</div>", unsafe_allow_html=True)
+
+    # Selector de modelo
+    modelo_sel = st.radio(
+        "Ejecutor",
+        ["Departamento de Sucre", "Descentralizadas"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
+
+    # Cargar datos según selección
+    if modelo_sel == "Departamento de Sucre":
+        df_eval = procesar_eval_sucre(file_bytes)
+        col_entidad = "ENTIDAD O SECRETARIA"
+        label_entidad = "Entidad / Secretaría"
+    else:
+        df_eval = procesar_descentralizadas(file_bytes)
+        col_entidad = "EJECUTOR"
+        label_entidad = "Ejecutor"
+
+    if df_eval is None or df_eval.height == 0:
+        st.info(f"No se encontraron datos de evaluación para «{modelo_sel}».")
+    else:
+        # Colores para barra según puntaje (escala 0-5 asumida)
+        def eval_bar_color(score, max_score=5.0):
+            ratio = score / max_score if max_score > 0 else 0
+            if ratio >= 0.8:   return C["verde_medio"],  "Sobresaliente"
+            elif ratio >= 0.6: return C["cian"],         "Satisfactorio"
+            elif ratio >= 0.4: return C["naranja"],      "Aceptable"
+            else:              return C["salmon"],        "Por mejorar"
+
+        cols_disp = [c for c in COLS_EVAL if c in df_eval.columns]
+        max_score = 5.0  # máximo posible por calificación
+
+        for row in df_eval.to_dicts():
+            nombre_ent = row[col_entidad] or "Sin nombre"
+            scores = [(COLS_EVAL_LABELS[i], row[c]) for i, c in enumerate(COLS_EVAL) if c in row and row[c] is not None]
+
+            if not scores:
+                continue
+
+            prom_general = sum(s for _, s in scores) / len(scores)
+            color_prom, nivel_prom = eval_bar_color(prom_general, max_score)
+
+            with st.expander(
+                f"{nombre_ent}   ·   Promedio general: {prom_general:.2f}   ·   {nivel_prom}",
+                expanded=False
+            ):
+                eval_rows_html = ""
+                for label_cal, score in scores:
+                    if score is None: continue
+                    color_bar, nivel = eval_bar_color(score, max_score)
+                    pct = min(100, round((score / max_score) * 100, 1))
+                    eval_rows_html += f"""
+                    <div class="eval-card">
+                        <div class="eval-bar-wrap">
+                            <div class="eval-label">{label_cal}</div>
+                            <div class="eval-bar-bg">
+                                <div class="eval-bar-fill" style="width:{pct}%;background:{color_bar}"></div>
+                            </div>
+                            <div style="font-size:0.68rem;color:{C['muted']};margin-top:2px">{nivel} · {pct}% del máximo</div>
+                        </div>
+                        <div class="eval-score" style="color:{color_bar}">{score:.2f}</div>
+                    </div>"""
+
+                st.markdown(eval_rows_html, unsafe_allow_html=True)
+
+# ── TAB 4: Exportar ───────────────────────────────────────────────────────────
 with tab_exportar:
     st.markdown("<div class='section-heading'>Descargar reporte</div>", unsafe_allow_html=True)
     st.markdown("El archivo incluye dos hojas: **Resumen por entidad** con los promedios por hito, y **Detalle proyectos** con el registro completo filtrado.", unsafe_allow_html=False)
