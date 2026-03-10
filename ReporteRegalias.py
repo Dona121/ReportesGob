@@ -760,7 +760,6 @@ INTERVALOS = {
     "hito_1_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
     "hito_2_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
     "hito_3_val": [("0-30",  0,  30), ("31-45",   31,  45), ("46-60",   46,  60),  (">60",  61, None)],
-    "hito_4_val": [("0-1",   0,   1), ("1.1-3",    2,   3), ("3.1-6",    4,   6),  (">6",    7, None)],
     "hito_5_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
 }
 
@@ -938,32 +937,44 @@ def _validar_cols_eval(df, cols, col_agrup):
 
 def _render_eval_errors(errores, contexto=""):
     """Muestra tarjetas de error amigables para columnas de calificación no numéricas."""
+    tipo_amigable = {
+        "string": "texto", "utf8": "texto", "str": "texto",
+        "bool": "verdadero/falso", "date": "fecha", "datetime": "fecha",
+    }
     st.warning(
-        f"⚠️ Algunas columnas de calificación{' de ' + contexto if contexto else ''} "
-        f"no pudieron convertirse a número. Se omitieron del cálculo.",
+        f"⚠️ Algunas calificaciones{' de ' + contexto if contexto else ''} "
+        f"tienen datos que no pudieron leerse como números. "
+        f"Esas columnas se excluyeron del cálculo.",
         icon=None,
     )
     for e in errores:
         pct = round(e["perdidos"] / e["total"] * 100, 1) if e["total"] else 0
-        ejemplos_str = ", ".join([f'«{v}»' for v in e["ejemplos"]])
+        # Convertir tipo técnico a lenguaje amigable
+        tipo_raw = e["tipo"].lower()
+        tipo_legible = next((v for k, v in tipo_amigable.items() if k in tipo_raw), "no numérico")
+        # Formatear ejemplos
+        ejemplos_str = " · ".join([f'<code>{v}</code>' for v in e["ejemplos"]])
         st.markdown(f"""
 <div class="error-card">
-  <div class="error-title">&#9888; Columna con valores no numéricos</div>
+  <div class="error-title">&#9888; Calificación con valores incorrectos</div>
   <div class="error-body">
-    <strong>{e['col']}</strong><br>
-    Tipo detectado: <code>{e['tipo']}</code> &nbsp;·&nbsp;
-    Registros afectados: <strong>{e['perdidos']} de {e['total']}</strong> ({pct}%)<br>
-    Ejemplos de valores problemáticos: {ejemplos_str}
+    La columna <strong>{e['col']}</strong> contiene valores de tipo <strong>{tipo_legible}</strong>
+    en lugar de números.<br>
+    Se encontraron <strong>{e['perdidos']} registro(s) con problemas</strong>
+    de un total de {e['total']} ({pct}%).<br>
+    Ejemplos de valores problemáticos encontrados: {ejemplos_str}
   </div>
   <div class="error-fix">
-    <strong>Cómo solucionarlo</strong>
-    Abre el archivo Excel, ubica la columna <strong>{e['col']}</strong>
-    y verifica que todos los valores sean números (ej: <code>3.5</code>, <code>4</code>, <code>2.75</code>).
-    Elimina textos, símbolos o celdas en blanco con formato incorrecto, guarda el archivo y vuelve a cargarlo.
+    <strong>Cómo corregirlo en Excel</strong>
+    Abre el archivo, busca la columna <strong>{e['col']}</strong> y revisa
+    que cada celda contenga únicamente un número (por ejemplo: <code>3.5</code>, <code>4</code> o <code>2.75</code>).
+    Reemplaza cualquier texto, guion, «N/A» o celda vacía con el valor numérico correspondiente.
+    Guarda el archivo y vuelve a cargarlo aquí.
   </div>
 </div>""", unsafe_allow_html=True)
 
 
+@st.cache_data
 def procesar_descentralizadas(file_bytes):
     """Lee la tabla de descentralizadas y calcula promedios de calificación por EJECUTOR."""
     try:
@@ -1494,7 +1505,6 @@ with tab_detalle:
 with tab_evaluacion:
     st.markdown("<div class='section-heading'>Evaluación del modelo ejecutor</div>", unsafe_allow_html=True)
 
-    # Selector de modelo
     modelo_sel = st.radio(
         "Ejecutor",
         ["Departamento de Sucre", "Descentralizadas"],
@@ -1503,66 +1513,159 @@ with tab_evaluacion:
     )
     st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
-    # Cargar datos según selección
     if modelo_sel == "Departamento de Sucre":
         df_eval, cols_eval_ok, eval_errores = procesar_eval_sucre(file_bytes)
-        col_entidad = "ENTIDAD O SECRETARIA"
+        col_entidad    = "ENTIDAD O SECRETARIA"
+        label_entidad  = "Entidad / Secretaría"
         contexto_error = "Departamento de Sucre"
     else:
         df_eval, cols_eval_ok, eval_errores = procesar_descentralizadas(file_bytes)
-        col_entidad = "EJECUTOR"
+        col_entidad    = "EJECUTOR"
+        label_entidad  = "Ejecutor"
         contexto_error = "Descentralizadas"
 
-    # Mostrar errores de columnas no numéricas si los hay
     if eval_errores:
         _render_eval_errors(eval_errores, contexto_error)
 
     if df_eval is None or df_eval.height == 0:
         st.info(f"No se encontraron datos de evaluación para «{modelo_sel}».")
     else:
-        # Colores para barra según puntaje (escala 0-5 asumida)
-        def eval_bar_color(score, max_score=5.0):
+        # ── Colores de calificación (escala 0-5) ──
+        def eval_color(score, max_score=5.0):
             ratio = score / max_score if max_score > 0 else 0
             if ratio >= 0.8:   return C["verde_medio"],  "Sobresaliente"
             elif ratio >= 0.6: return C["cian"],         "Satisfactorio"
             elif ratio >= 0.4: return C["naranja"],      "Aceptable"
             else:              return C["salmon"],        "Por mejorar"
 
-        cols_disp = cols_eval_ok
-        max_score = 5.0  # máximo posible por calificación
+        max_score = 5.0
 
-        for row in df_eval.to_dicts():
-            nombre_ent = row[col_entidad] or "Sin nombre"
-            scores = [(COLS_EVAL_LABELS[i], row[c]) for i, c in enumerate(COLS_EVAL) if c in row and row[c] is not None]
+        # ── CSS extra para tabla de evaluación ──
+        st.markdown(f"""
+        <style>
+        .eval-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }}
+        .eval-table thead tr {{ background: {C['azul_oscuro']}; color: white; }}
+        .eval-table th {{
+            padding: 0.65rem 1rem;
+            font-size: 0.63rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            text-align: left;
+        }}
+        .eval-table td {{
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid {C['border']};
+            vertical-align: middle;
+            background: #ffffff;
+        }}
+        .eval-table tbody tr:nth-child(even) td {{ background: #f7fafd; }}
+        .eval-table tbody tr:last-child td {{ border-bottom: none; }}
+        .eval-table tbody tr:hover td {{ background: #e8f3ff !important; }}
+        .eval-mini-bar {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .eval-mini-bar-bg {{
+            flex: 1;
+            background: {C['border']};
+            border-radius: 4px;
+            height: 8px;
+            overflow: hidden;
+            min-width: 80px;
+        }}
+        .eval-mini-bar-fill {{
+            height: 100%;
+            border-radius: 4px;
+        }}
+        .eval-mini-score {{
+            font-family: 'DM Mono', monospace;
+            font-weight: 700;
+            font-size: 0.82rem;
+            min-width: 2.5rem;
+            text-align: right;
+        }}
+        .eval-nivel {{
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
-            if not scores:
-                continue
+        # ── 4 sub-pestañas, una por calificación ──
+        tabs_eval = st.tabs([
+            "Desempeño en contratación",
+            "Información a tiempo",
+            "Ejecución del proyecto",
+            "Calidad de la información",
+        ])
 
-            prom_general = sum(s for _, s in scores) / len(scores)
-            color_prom, nivel_prom = eval_bar_color(prom_general, max_score)
+        for i, (col_cal, label_cal) in enumerate(zip(COLS_EVAL, COLS_EVAL_LABELS)):
+            with tabs_eval[i]:
+                if col_cal not in cols_eval_ok:
+                    st.info(f"No hay datos disponibles para «{label_cal}» debido a errores en el archivo.")
+                    continue
 
-            with st.expander(
-                f"{nombre_ent}   ·   Promedio general: {prom_general:.2f}   ·   {nivel_prom}",
-                expanded=False
-            ):
-                eval_rows_html = ""
-                for label_cal, score in scores:
-                    if score is None: continue
-                    color_bar, nivel = eval_bar_color(score, max_score)
+                filas = []
+                for row in df_eval.sort(col_cal, descending=True).to_dicts():
+                    nombre = row.get(col_entidad) or "Sin nombre"
+                    score  = row.get(col_cal)
+                    if score is None:
+                        continue
+                    color_bar, nivel = eval_color(score, max_score)
                     pct = min(100, round((score / max_score) * 100, 1))
-                    eval_rows_html += f"""
-                    <div class="eval-card">
-                        <div class="eval-bar-wrap">
-                            <div class="eval-label">{label_cal}</div>
-                            <div class="eval-bar-bg">
-                                <div class="eval-bar-fill" style="width:{pct}%;background:{color_bar}"></div>
-                            </div>
-                            <div style="font-size:0.68rem;color:{C['muted']};margin-top:2px">{nivel} · {pct}% del máximo</div>
-                        </div>
-                        <div class="eval-score" style="color:{color_bar}">{score:.2f}</div>
-                    </div>"""
 
-                st.markdown(eval_rows_html, unsafe_allow_html=True)
+                    # Color de fondo suave para el nivel
+                    nivel_bg = {
+                        "Sobresaliente": "#d1fae5", "Satisfactorio": "#e0f7fa",
+                        "Aceptable":     "#fff7ed", "Por mejorar":   "#fee2e2",
+                    }.get(nivel, "#f1f5f9")
+                    nivel_color = {
+                        "Sobresaliente": "#065f46", "Satisfactorio": "#005931",
+                        "Aceptable":     "#9a3412", "Por mejorar":   "#991b1b",
+                    }.get(nivel, C["muted"])
+
+                    filas.append(f"""<tr>
+                        <td class="entidad-name">{nombre}</td>
+                        <td>
+                            <div class="eval-mini-bar">
+                                <div class="eval-mini-bar-bg">
+                                    <div class="eval-mini-bar-fill" style="width:{pct}%;background:{color_bar}"></div>
+                                </div>
+                                <span class="eval-mini-score" style="color:{color_bar}">{score:.2f}</span>
+                            </div>
+                        </td>
+                        <td style="text-align:center">
+                            <span class="eval-nivel" style="background:{nivel_bg};color:{nivel_color}">{nivel}</span>
+                        </td>
+                    </tr>""")
+
+                if not filas:
+                    st.info("No hay registros con calificación para este criterio.")
+                else:
+                    st.markdown(f"""
+                    <table class="eval-table">
+                    <thead><tr>
+                        <th>{label_entidad}</th>
+                        <th>Calificación promedio &nbsp;(escala 0 – {max_score:.0f})</th>
+                        <th style="text-align:center">Nivel</th>
+                    </tr></thead>
+                    <tbody>{"".join(filas)}</tbody>
+                    </table>
+                    """, unsafe_allow_html=True)
+
 
 # ── TAB 4: Exportar ───────────────────────────────────────────────────────────
 with tab_exportar:
