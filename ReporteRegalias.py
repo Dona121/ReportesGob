@@ -893,27 +893,111 @@ def procesar(file_bytes):
     return df
 
 @st.cache_data
+def _validar_cols_eval(df, cols, col_agrup):
+    """
+    Intenta castear las columnas de calificación a Float64.
+    Retorna (df_casteado, errores) donde errores es lista de dicts con info de cada columna problemática.
+    """
+    errores = []
+    cols_ok  = []
+    for c in cols:
+        if c not in df.columns:
+            continue
+        dtype_actual = str(df[c].dtype)
+        # Verificar si ya es numérico
+        if df[c].dtype in (pl.Float32, pl.Float64, pl.Int32, pl.Int64, pl.Int16, pl.UInt32):
+            cols_ok.append(c)
+            continue
+        # Intentar cast — contar cuántos valores se perderían
+        casteada = df[c].cast(pl.Float64, strict=False)
+        nulos_antes  = df[c].is_null().sum()
+        nulos_despues = casteada.is_null().sum()
+        perdidos = int(nulos_despues - nulos_antes)
+        if perdidos > 0:
+            # Mostrar hasta 3 ejemplos de valores problemáticos
+            ejemplos = (
+                df.filter(df[c].is_not_null() & casteada.is_null())[c]
+                .head(3).to_list()
+            )
+            errores.append({
+                "col":        c,
+                "tipo":       dtype_actual,
+                "perdidos":   perdidos,
+                "total":      df.height,
+                "ejemplos":   ejemplos,
+            })
+        else:
+            cols_ok.append(c)
+
+    if cols_ok:
+        df = df.with_columns([
+            pl.col(c).cast(pl.Float64, strict=False) for c in cols_ok
+        ])
+    return df, cols_ok, errores
+
+
+def _render_eval_errors(errores, contexto=""):
+    """Muestra tarjetas de error amigables para columnas de calificación no numéricas."""
+    st.warning(
+        f"⚠️ Algunas columnas de calificación{' de ' + contexto if contexto else ''} "
+        f"no pudieron convertirse a número. Se omitieron del cálculo.",
+        icon=None,
+    )
+    for e in errores:
+        pct = round(e["perdidos"] / e["total"] * 100, 1) if e["total"] else 0
+        ejemplos_str = ", ".join([f'«{v}»' for v in e["ejemplos"]])
+        st.markdown(f"""
+<div class="error-card">
+  <div class="error-title">&#9888; Columna con valores no numéricos</div>
+  <div class="error-body">
+    <strong>{e['col']}</strong><br>
+    Tipo detectado: <code>{e['tipo']}</code> &nbsp;·&nbsp;
+    Registros afectados: <strong>{e['perdidos']} de {e['total']}</strong> ({pct}%)<br>
+    Ejemplos de valores problemáticos: {ejemplos_str}
+  </div>
+  <div class="error-fix">
+    <strong>Cómo solucionarlo</strong>
+    Abre el archivo Excel, ubica la columna <strong>{e['col']}</strong>
+    y verifica que todos los valores sean números (ej: <code>3.5</code>, <code>4</code>, <code>2.75</code>).
+    Elimina textos, símbolos o celdas en blanco con formato incorrecto, guarda el archivo y vuelve a cargarlo.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+
 def procesar_descentralizadas(file_bytes):
     """Lee la tabla de descentralizadas y calcula promedios de calificación por EJECUTOR."""
     try:
         df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_DESCENTRALIZADAS)
         cols_disponibles = [c for c in COLS_EVAL if c in df.columns]
         if not cols_disponibles or "EJECUTOR" not in df.columns:
-            return None
-        agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_disponibles]
-        return df.group_by("EJECUTOR").agg(agg_exprs).sort("EJECUTOR")
+            return None, [], []
+        df, cols_ok, errores = _validar_cols_eval(df, cols_disponibles, "EJECUTOR")
+        if not cols_ok:
+            return None, [], errores
+        agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_ok]
+        resultado = df.group_by("EJECUTOR").agg(agg_exprs).sort("EJECUTOR")
+        return resultado, cols_ok, errores
     except Exception:
-        return None
+        return None, [], []
+
 
 @st.cache_data
 def procesar_eval_sucre(file_bytes):
     """Calcula promedios de calificación por ENTIDAD O SECRETARIA (tabla Sucre)."""
-    df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
-    cols_disponibles = [c for c in COLS_EVAL if c in df.columns]
-    if not cols_disponibles or "ENTIDAD O SECRETARIA" not in df.columns:
-        return None
-    agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_disponibles]
-    return df.group_by("ENTIDAD O SECRETARIA").agg(agg_exprs).sort("ENTIDAD O SECRETARIA")
+    try:
+        df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
+        cols_disponibles = [c for c in COLS_EVAL if c in df.columns]
+        if not cols_disponibles or "ENTIDAD O SECRETARIA" not in df.columns:
+            return None, [], []
+        df, cols_ok, errores = _validar_cols_eval(df, cols_disponibles, "ENTIDAD O SECRETARIA")
+        if not cols_ok:
+            return None, [], errores
+        agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_ok]
+        resultado = df.group_by("ENTIDAD O SECRETARIA").agg(agg_exprs).sort("ENTIDAD O SECRETARIA")
+        return resultado, cols_ok, errores
+    except Exception:
+        return None, [], []
+
 
 def badge_html(val, hito_key=None):
     """Genera badge con punto de color semáforo y tooltip con mensaje."""
@@ -1421,13 +1505,17 @@ with tab_evaluacion:
 
     # Cargar datos según selección
     if modelo_sel == "Departamento de Sucre":
-        df_eval = procesar_eval_sucre(file_bytes)
+        df_eval, cols_eval_ok, eval_errores = procesar_eval_sucre(file_bytes)
         col_entidad = "ENTIDAD O SECRETARIA"
-        label_entidad = "Entidad / Secretaría"
+        contexto_error = "Departamento de Sucre"
     else:
-        df_eval = procesar_descentralizadas(file_bytes)
+        df_eval, cols_eval_ok, eval_errores = procesar_descentralizadas(file_bytes)
         col_entidad = "EJECUTOR"
-        label_entidad = "Ejecutor"
+        contexto_error = "Descentralizadas"
+
+    # Mostrar errores de columnas no numéricas si los hay
+    if eval_errores:
+        _render_eval_errors(eval_errores, contexto_error)
 
     if df_eval is None or df_eval.height == 0:
         st.info(f"No se encontraron datos de evaluación para «{modelo_sel}».")
@@ -1440,7 +1528,7 @@ with tab_evaluacion:
             elif ratio >= 0.4: return C["naranja"],      "Aceptable"
             else:              return C["salmon"],        "Por mejorar"
 
-        cols_disp = [c for c in COLS_EVAL if c in df_eval.columns]
+        cols_disp = cols_eval_ok
         max_score = 5.0  # máximo posible por calificación
 
         for row in df_eval.to_dicts():
