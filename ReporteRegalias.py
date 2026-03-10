@@ -1958,7 +1958,7 @@ with tab_exportar:
     st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
 
     st.download_button(
-        label="⬇️  Descargar reporte Excel",
+        label="Descargar reporte Excel",
         data=generar_excel(df_f, agrupacion, clasi_por_entidad),
         file_name=f"regalias_seguimiento_{date.today().strftime('%Y%m%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
