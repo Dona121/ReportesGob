@@ -358,6 +358,7 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
 .badge-yellow {{ background: #fef3c7; color: #92400e; }}
 .badge-orange {{ background: #ffedd5; color: #9a3412; }}
 .badge-red    {{ background: #fee2e2; color: #991b1b; }}
+.badge-black  {{ background: #1e293b; color: #f1f5f9; }}
 /* Punto de color semáforo */
 .badge-dot {{
     width: 8px; height: 8px;
@@ -369,6 +370,7 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
 .badge-yellow .badge-dot {{ background: #d97706; }}
 .badge-orange .badge-dot {{ background: #ea580c; }}
 .badge-red    .badge-dot {{ background: #dc2626; }}
+.badge-black  .badge-dot {{ background: #94a3b8; }}
 /* Tooltip del semáforo */
 .badge-tooltip {{
     visibility: hidden;
@@ -769,31 +771,31 @@ SEMAFOROS = {
         "0-100":   ("green",  "Verde",   "Proyecto dentro de los tiempos para su primera apertura del proceso de contratación."),
         "101-150": ("yellow", "Naranja", "Proyecto en alerta: más de 100 días sin apertura del primer proceso precontractual."),
         "151-180": ("orange", "Rojo",    "Proyecto en alerta roja: más de 150 días sin apertura del primer proceso precontractual."),
-        ">180":    ("red",    "Negro",   "Proyecto en alerta negra: más de 180 días sin apertura del primer proceso precontractual."),
+        ">180":    ("black",  "Negro",   "Proyecto en alerta negra: más de 180 días sin apertura del primer proceso precontractual."),
     },
     "hito_2_val": {
         "0-100":   ("green",  "Verde",   "Proyecto dentro de los tiempos para la firma del primer contrato."),
         "101-150": ("yellow", "Naranja", "Proyecto en alerta: más de 100 días sin firma del primer contrato."),
         "151-180": ("orange", "Rojo",    "Proyecto en alerta roja: más de 150 días sin firma del primer contrato."),
-        ">180":    ("red",    "Negro",   "Proyecto en alerta negra: más de 180 días sin firma del primer contrato."),
+        ">180":    ("black",  "Negro",   "Proyecto en alerta negra: más de 180 días sin firma del primer contrato."),
     },
     "hito_3_val": {
         "0-30":  ("green",  "Verde",   "Proyecto dentro de los tiempos para la firma del acta de inicio."),
         "31-45": ("yellow", "Naranja", "Proyecto en alerta: más de 30 días sin firma del acta de inicio."),
         "46-60": ("orange", "Rojo",    "Proyecto en alerta roja: más de 45 días sin firma del acta de inicio."),
-        ">60":   ("red",    "Negro",   "Proyecto en alerta negra: más de 60 días sin firma del acta de inicio."),
+        ">60":   ("black",  "Negro",   "Proyecto en alerta negra: más de 60 días sin firma del acta de inicio."),
     },
     "hito_4_val": {
         "0-1":   ("green",  "Verde",   "Proyecto presenta horizonte vigente."),
         "1.1-3": ("yellow", "Naranja", "Proyecto con horizonte vencido entre 1 y 3 meses."),
         "3.1-6": ("orange", "Rojo",    "Proyecto con horizonte vencido mayor a 3 meses."),
-        ">6":    ("red",    "Negro",   "Proyecto con horizonte vencido mayor a 6 meses."),
+        ">6":    ("black",  "Negro",   "Proyecto con horizonte vencido mayor a 6 meses."),
     },
     "hito_5_val": {
         "0-100":   ("green",  "Verde",   "Proyecto dentro de los tiempos para pasar a estado 'Para cierre'."),
         "101-150": ("yellow", "Naranja", "Proyecto en alerta: más de 100 días desde su terminación sin pasar a 'Para cierre'."),
         "151-180": ("orange", "Rojo",    "Proyecto en alerta roja: más de 150 días desde su terminación."),
-        ">180":    ("red",    "Negro",   "Proyecto en alerta negra: más de 180 días desde su terminación."),
+        ">180":    ("black",  "Negro",   "Proyecto en alerta negra: más de 180 días desde su terminación."),
     },
 }
 
@@ -1015,10 +1017,10 @@ def badge_html(val, hito_key=None):
     if val is None: return ""
     val_str = str(val)
     cls_map = {
-        "0-100": "badge-green",  "0-30":  "badge-green",  "0-1":   "badge-green",
-        "101-150": "badge-yellow","31-45": "badge-yellow", "1.1-3": "badge-yellow",
-        "151-180": "badge-orange","46-60": "badge-orange", "3.1-6": "badge-orange",
-        ">180": "badge-red",     ">60":   "badge-red",    ">6":    "badge-red",
+        "0-100":   "badge-green",  "0-30":  "badge-green",  "0-1":   "badge-green",
+        "101-150": "badge-yellow", "31-45": "badge-yellow", "1.1-3": "badge-yellow",
+        "151-180": "badge-orange", "46-60": "badge-orange", "3.1-6": "badge-orange",
+        ">180":    "badge-black",  ">60":   "badge-black",  ">6":    "badge-black",
     }
     cls = cls_map.get(val_str, "badge-yellow")
 
@@ -1570,36 +1572,13 @@ with tab_evaluacion:
         .eval-table tbody tr:nth-child(even) td {{ background: #f7fafd; }}
         .eval-table tbody tr:last-child td {{ border-bottom: none; }}
         .eval-table tbody tr:hover td {{ background: #e8f3ff !important; }}
-        .eval-mini-bar {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }}
-        .eval-mini-bar-bg {{
-            flex: 1;
-            background: {C['border']};
-            border-radius: 4px;
-            height: 8px;
-            overflow: hidden;
-            min-width: 80px;
-        }}
-        .eval-mini-bar-fill {{
-            height: 100%;
-            border-radius: 4px;
-        }}
-        .eval-mini-score {{
+        .eval-score-pill {{
             font-family: 'DM Mono', monospace;
             font-weight: 700;
-            font-size: 0.82rem;
-            min-width: 2.5rem;
-            text-align: right;
-        }}
-        .eval-nivel {{
-            font-size: 0.68rem;
-            font-weight: 600;
-            padding: 2px 7px;
+            font-size: 0.88rem;
+            padding: 3px 12px;
             border-radius: 20px;
-            white-space: nowrap;
+            display: inline-block;
         }}
         </style>
         """, unsafe_allow_html=True)
@@ -1619,36 +1598,31 @@ with tab_evaluacion:
                     continue
 
                 filas = []
-                for row in df_eval.sort(col_cal, descending=True).to_dicts():
+                for row in df_eval.sort(col_cal, descending=True, nulls_last=True).to_dicts():
                     nombre = row.get(col_entidad) or "Sin nombre"
                     score  = row.get(col_cal)
-                    if score is None:
-                        continue
-                    color_bar, nivel = eval_color(score, max_score)
-                    pct = min(100, round((score / max_score) * 100, 1))
 
-                    # Color de fondo suave para el nivel
-                    nivel_bg = {
-                        "Sobresaliente": "#d1fae5", "Satisfactorio": "#e0f7fa",
-                        "Aceptable":     "#fff7ed", "Por mejorar":   "#fee2e2",
-                    }.get(nivel, "#f1f5f9")
-                    nivel_color = {
-                        "Sobresaliente": "#065f46", "Satisfactorio": "#005931",
-                        "Aceptable":     "#9a3412", "Por mejorar":   "#991b1b",
-                    }.get(nivel, C["muted"])
+                    if score is None:
+                        filas.append(f"""<tr>
+                            <td class="entidad-name">{nombre}</td>
+                            <td style="color:{C['muted']}">—</td>
+                        </tr>""")
+                        continue
+
+                    color_bar, _ = eval_color(score, max_score)
+                    # Fondo suave proporcional al color
+                    bg_map = {
+                        C["verde_medio"]: "#d1fae5", C["cian"]: "#e0f7fa",
+                        C["naranja"]:     "#fff7ed", C["salmon"]: "#fee2e2",
+                    }
+                    bg = bg_map.get(color_bar, "#f1f5f9")
 
                     filas.append(f"""<tr>
                         <td class="entidad-name">{nombre}</td>
                         <td>
-                            <div class="eval-mini-bar">
-                                <div class="eval-mini-bar-bg">
-                                    <div class="eval-mini-bar-fill" style="width:{pct}%;background:{color_bar}"></div>
-                                </div>
-                                <span class="eval-mini-score" style="color:{color_bar}">{score:.2f}</span>
-                            </div>
-                        </td>
-                        <td style="text-align:center">
-                            <span class="eval-nivel" style="background:{nivel_bg};color:{nivel_color}">{nivel}</span>
+                            <span class="eval-score-pill" style="background:{bg};color:{color_bar}">
+                                {score:.2f}
+                            </span>
                         </td>
                     </tr>""")
 
@@ -1660,7 +1634,6 @@ with tab_evaluacion:
                     <thead><tr>
                         <th>{label_entidad}</th>
                         <th>Calificación promedio &nbsp;(escala 0 – {max_score:.0f})</th>
-                        <th style="text-align:center">Nivel</th>
                     </tr></thead>
                     <tbody>{"".join(filas)}</tbody>
                     </table>
