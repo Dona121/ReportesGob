@@ -377,15 +377,19 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
 .summary-table tbody tr:last-child td {{ border-bottom: none; }}
 .summary-table tbody tr:hover td {{ background: #e8f3ff !important; transition: background 0.15s; }}
 /* Columna Total destacada */
-.summary-table td:last-child,
-.summary-table th:last-child {{
-    background: rgba(0,61,108,0.05);
+.summary-table .col-total {{
+    background: {C['azul_oscuro']} !important;
+    font-family: 'DM Mono', monospace;
     font-weight: 800;
-    color: {C['azul_oscuro']};
-    border-left: 2px solid {C['border']};
+    font-size: 0.92rem;
+    color: #ffffff !important;
+    border-left: 2px solid rgba(255,255,255,0.15);
     text-align: center;
 }}
-.summary-table tbody tr:hover td:last-child {{ background: #d8ecff !important; }}
+.summary-table thead .col-total {{
+    background: {C['azul_medio']} !important;
+}}
+.summary-table tbody tr:hover .col-total {{ background: {C['azul_medio']} !important; }}
 .entidad-name {{
     font-weight: 600;
     font-size: 0.83rem;
@@ -1811,7 +1815,7 @@ with tab_resumen:
             {hito_cell(row['Hito 5 (días)'], e, 'clasi_5')}
             <td style="text-align:center;font-weight:500">{susp}</td>
             <td style="text-align:center;font-weight:500">{pc}</td>
-            <td style="text-align:center;font-weight:700;color:{C['azul_oscuro']}">{int(row['Total'])}</td>
+            <td class="col-total">{int(row['Total'])}</td>
         </tr>"""
 
     st.markdown(f"""
@@ -1830,7 +1834,7 @@ with tab_resumen:
             "Promedio de días entre la <b>Fecha de finalización</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Fecha de finalización registrada.")}
         {th("Suspendidos", "Proyectos suspendidos", "Conteo de proyectos cuyo <b>Estado contrato</b> = SUSPENDIDO.")}
         {th("Para cierre", "Proyectos para cierre", "Conteo de proyectos con Estado = PARA CIERRE.")}
-        <th>Total</th>
+        <th class="col-total">Total</th>
     </tr></thead>
     <tbody>{rows_html}</tbody>
     </table>
@@ -1922,20 +1926,26 @@ with tab_proyectos:
     with fc1:
         busqueda = st.text_input(
             "busqueda_proy",
-            placeholder="🔍  Buscar por BPIN o nombre del proyecto…",
+            placeholder="Buscar por BPIN o nombre del proyecto…",
             label_visibility="collapsed",
         )
     with fc2:
-        entidades_proy   = ["Todas"] + sorted(df_f["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
-        sel_ent_proy = st.selectbox("Entidad", entidades_proy, label_visibility="collapsed")
+        entidades_proy = sorted(df_f["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
+        sel_ent_proy   = st.multiselect("Entidad", entidades_proy,
+                                        placeholder="Todas las entidades",
+                                        label_visibility="collapsed")
     with fc3:
-        estados_proy_opts = ["Todos los estados"] + sorted(df_f["ESTADO PROYECTO"].drop_nulls().unique().to_list())
-        sel_est_proy = st.selectbox("Estado proyecto", estados_proy_opts, label_visibility="collapsed")
+        estados_proy_opts = sorted(df_f["ESTADO PROYECTO"].drop_nulls().unique().to_list())
+        sel_est_proy      = st.multiselect("Estado proyecto", estados_proy_opts,
+                                           placeholder="Todos los estados",
+                                           label_visibility="collapsed")
 
     fc4, fc5 = st.columns([1.4, 4.4])
     with fc4:
-        estados_cont_opts = ["Todos los contratos"] + sorted(df_f["ESTADO CONTRATO"].drop_nulls().unique().to_list())
-        sel_cont_proy = st.selectbox("Estado contrato", estados_cont_opts, label_visibility="collapsed")
+        estados_cont_opts = sorted(df_f["ESTADO CONTRATO"].drop_nulls().unique().to_list())
+        sel_cont_proy     = st.multiselect("Estado contrato", estados_cont_opts,
+                                           placeholder="Todos los contratos",
+                                           label_visibility="collapsed")
 
     # ── Datos filtrados ───────────────────────────────────────────────────────
     df_proy = df_f.select(
@@ -1948,12 +1958,12 @@ with tab_proyectos:
             pl.col("NOMBRE PROYECTO").str.to_lowercase().str.contains(term) |
             pl.col("BPIN").cast(pl.Utf8).str.to_lowercase().str.contains(term)
         )
-    if sel_ent_proy != "Todas":
-        df_proy = df_proy.filter(pl.col("ENTIDAD O SECRETARIA") == sel_ent_proy)
-    if sel_est_proy != "Todos los estados":
-        df_proy = df_proy.filter(pl.col("ESTADO PROYECTO") == sel_est_proy)
-    if sel_cont_proy != "Todos los contratos":
-        df_proy = df_proy.filter(pl.col("ESTADO CONTRATO") == sel_cont_proy)
+    if sel_ent_proy:
+        df_proy = df_proy.filter(pl.col("ENTIDAD O SECRETARIA").is_in(sel_ent_proy))
+    if sel_est_proy:
+        df_proy = df_proy.filter(pl.col("ESTADO PROYECTO").is_in(sel_est_proy))
+    if sel_cont_proy:
+        df_proy = df_proy.filter(pl.col("ESTADO CONTRATO").is_in(sel_cont_proy))
 
     df_proy = df_proy.sort(["ENTIDAD O SECRETARIA", "NOMBRE PROYECTO"])
     n_proy  = df_proy.height
@@ -2199,7 +2209,7 @@ with tab_exportar:
     st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
 
     st.download_button(
-        label="⬇️  Descargar reporte Excel",
+        label="Descargar reporte Excel",
         data=generar_excel(df_f, agrupacion, clasi_por_entidad),
         file_name=f"regalias_seguimiento_{date.today().strftime('%Y%m%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
