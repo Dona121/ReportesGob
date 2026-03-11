@@ -48,10 +48,10 @@ html, body, [class*="css"] {{
 /* Controlar padding del contenedor principal de Streamlit */
 .block-container {{
     padding-top: 3.5rem !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
+    padding-left: 2.5rem !important;
+    padding-right: 2.5rem !important;
     padding-bottom: 3rem !important;
-    max-width: 100% !important;
+    max-width: 1400px !important;
 }}
 
 /* ── Sidebar oscuro ── */
@@ -278,26 +278,33 @@ section[data-testid="stSidebar"] .stSelectbox label {{
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.22rem 0;
+    padding: 0.28rem 0;
     border-bottom: 1px solid {C['border']};
     font-size: 0.78rem;
 }}
 .estado-kpi-row:last-child {{ border-bottom: none; }}
 .estado-kpi-label {{
-    color: {C['text']};
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: {C['muted']};
     font-weight: 500;
+    font-size: 0.72rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 78%;
+    max-width: 80%;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }}
 .estado-kpi-n {{
     font-family: 'DM Mono', monospace;
-    font-weight: 700;
-    font-size: 0.82rem;
-    color: {C['azul_medio']};
-    min-width: 1.8rem;
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: {C['azul_oscuro']};
+    min-width: 2rem;
     text-align: right;
+    line-height: 1;
 }}
 
 /* ── Section heading ── */
@@ -544,7 +551,13 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
     vertical-align: middle;
 }}
 .detail-table tbody tr:last-child td {{ border-bottom: none; }}
-.detail-table tbody tr:hover td {{ background: #f8fbff; }}
+.detail-table tbody tr:hover td {{ background: #f0f6ff; }}
+/* Franja semáforo al lado izquierdo */
+.detail-table tbody tr td:first-child {{ padding-left: 1rem; }}
+.detail-table tbody tr.row-green  td:first-child {{ border-left: 4px solid #059669; }}
+.detail-table tbody tr.row-yellow td:first-child {{ border-left: 4px solid #d97706; }}
+.detail-table tbody tr.row-orange td:first-child {{ border-left: 4px solid #ea580c; }}
+.detail-table tbody tr.row-black  td:first-child {{ border-left: 4px solid #334155; }}
 .bpin-tag {{
     font-family: 'DM Mono', monospace;
     font-size: 0.7rem;
@@ -1873,7 +1886,22 @@ with tab_detalle:
                     dias_v   = r[sel_hito_col]
                     clasi_v  = r[sel_clasi_col]
                     dias_str = f"{dias_v:.1f} d" if dias_v is not None else "—"
-                    det_rows += f"""<tr>
+                    # Clase de fila según semáforo
+                    _row_cls_map = {
+                        "badge-green":  "row-green",
+                        "badge-yellow": "row-yellow",
+                        "badge-orange": "row-orange",
+                        "badge-black":  "row-black",
+                    }
+                    _cls_badge_map = {
+                        "0-100": "badge-green",  "0-30":  "badge-green",  "0-1":   "badge-green",
+                        "101-150": "badge-yellow","31-45": "badge-yellow", "1.1-3": "badge-yellow",
+                        "151-180": "badge-orange","46-60": "badge-orange", "3.1-6": "badge-orange",
+                        ">180":    "badge-black", ">60":   "badge-black",  ">6":    "badge-black",
+                    }
+                    badge_cls = _cls_badge_map.get(str(clasi_v), "badge-yellow") if clasi_v else ""
+                    row_cls   = _row_cls_map.get(badge_cls, "")
+                    det_rows += f"""<tr class="{row_cls}">
                         <td><span class="bpin-tag">{r['BPIN'] or '—'}</span></td>
                         <td style="font-size:0.81rem">{r['NOMBRE PROYECTO'] or '—'}</td>
                         <td><span class="estado-tag">{r['ESTADO PROYECTO'] or '(Sin estado)'}</span></td>
@@ -1919,14 +1947,28 @@ with tab_proyectos:
                 f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
                 f'{texto}</span>')
 
-    # ── Filtros ──────────────────────────────────────────────────────────────
-    st.markdown(
-        f"<p style='font-size:0.75rem;color:{C['muted']};margin:0 0 0.5rem 0'>"
-        f"Puedes filtrar la tabla por <strong>entidad</strong>, <strong>estado del proyecto</strong>, "
-        f"<strong>estado del contrato</strong>, <strong>BPIN</strong> o <strong>nombre</strong>. "
-        f"Usa la barra de búsqueda o los selectores para combinar criterios.</p>",
-        unsafe_allow_html=True,
-    )
+    # ── Banner de filtros ─────────────────────────────────────────────────────
+    st.markdown(f"""
+    <div style="
+        display:flex; align-items:center; gap:0.6rem;
+        background:{C['azul_oscuro']}0d; border:1px solid {C['azul_oscuro']}22;
+        border-left:3px solid {C['cian']}; border-radius:6px;
+        padding:0.5rem 0.85rem; margin-bottom:0.75rem;
+    ">
+        <span style="font-size:0.78rem;color:{C['azul_oscuro']};font-weight:600;
+                     font-family:'Montserrat',sans-serif;letter-spacing:0.3px">
+            Filtros disponibles:
+        </span>
+        <span style="font-size:0.75rem;color:{C['muted']}">
+            entidad &nbsp;·&nbsp; estado del proyecto &nbsp;·&nbsp;
+            estado del contrato &nbsp;·&nbsp; BPIN &nbsp;·&nbsp; nombre del proyecto
+        </span>
+        <span style="margin-left:auto;font-size:0.7rem;color:{C['cian']};font-weight:600;
+                     white-space:nowrap">
+            Puedes combinarlos
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
 
     fc1, fc2, fc3 = st.columns([2, 1.4, 1.4])
     with fc1:
@@ -1961,8 +2003,8 @@ with tab_proyectos:
     if busqueda:
         term = busqueda.strip().lower()
         df_proy = df_proy.filter(
-            pl.col("NOMBRE PROYECTO").str.to_lowercase().str.contains(term) |
-            pl.col("BPIN").cast(pl.Utf8).str.to_lowercase().str.contains(term)
+            pl.col("NOMBRE PROYECTO").str.to_lowercase().str.contains(term, literal=True) |
+            pl.col("BPIN").cast(pl.Utf8).str.to_lowercase().str.contains(term, literal=True)
         )
     if sel_ent_proy:
         df_proy = df_proy.filter(pl.col("ENTIDAD O SECRETARIA").is_in(sel_ent_proy))
