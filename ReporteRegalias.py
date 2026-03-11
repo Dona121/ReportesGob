@@ -380,15 +380,21 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
 .summary-table .col-total {{
     background: {C['azul_oscuro']} !important;
     font-family: 'DM Mono', monospace;
-    font-weight: 800;
-    font-size: 0.92rem;
+    font-weight: 700;
+    font-size: 0.83rem;
     color: #ffffff !important;
-    border-left: 2px solid rgba(255,255,255,0.15);
+    border-left: 2px solid rgba(255,255,255,0.2);
     text-align: center;
 }}
 .summary-table thead .col-total {{
     background: {C['azul_medio']} !important;
+    font-size: 0.64rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
 }}
+.summary-table tbody tr:nth-child(even) .col-total {{ background: {C['azul_oscuro']} !important; }}
 .summary-table tbody tr:hover .col-total {{ background: {C['azul_medio']} !important; }}
 .entidad-name {{
     font-weight: 600;
