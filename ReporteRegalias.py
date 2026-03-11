@@ -551,13 +551,17 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
     vertical-align: middle;
 }}
 .detail-table tbody tr:last-child td {{ border-bottom: none; }}
+/* Relleno de fila según semáforo — tonos suaves para mantener legibilidad */
+.detail-table tbody tr.row-green  td {{ background: #f0fdf4; }}
+.detail-table tbody tr.row-yellow td {{ background: #fffbeb; }}
+.detail-table tbody tr.row-orange td {{ background: #fff7ed; }}
+.detail-table tbody tr.row-black  td {{ background: #f1f5f9; }}
+/* Hover — tono ligeramente más intenso manteniendo el color del semáforo */
+.detail-table tbody tr.row-green:hover  td {{ background: #dcfce7 !important; }}
+.detail-table tbody tr.row-yellow:hover td {{ background: #fef3c7 !important; }}
+.detail-table tbody tr.row-orange:hover td {{ background: #ffedd5 !important; }}
+.detail-table tbody tr.row-black:hover  td {{ background: #e2e8f0 !important; }}
 .detail-table tbody tr:hover td {{ background: #f0f6ff; }}
-/* Franja semáforo al lado izquierdo */
-.detail-table tbody tr td:first-child {{ padding-left: 1rem; }}
-.detail-table tbody tr.row-green  td:first-child {{ border-left: 4px solid #059669; }}
-.detail-table tbody tr.row-yellow td:first-child {{ border-left: 4px solid #d97706; }}
-.detail-table tbody tr.row-orange td:first-child {{ border-left: 4px solid #ea580c; }}
-.detail-table tbody tr.row-black  td:first-child {{ border-left: 4px solid #334155; }}
 .bpin-tag {{
     font-family: 'DM Mono', monospace;
     font-size: 0.7rem;
