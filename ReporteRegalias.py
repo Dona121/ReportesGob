@@ -241,6 +241,59 @@ section[data-testid="stSidebar"] .stSelectbox label {{
     color: {C['muted']};
     margin-top: 0.15rem;
 }}
+/* Columna con dos kpi-sec apiladas */
+.kpi-stack {{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 0;
+}}
+.kpi-stack .kpi-sec {{
+    flex: 1;
+    height: auto;
+    padding: 0.7rem 1.2rem;
+}}
+/* Tarjeta de conteo por estado */
+.kpi-estados {{
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 0.85rem 1.1rem;
+    box-shadow: 0 3px 16px rgba(0,40,90,0.13), 0 1px 3px rgba(0,0,0,0.07);
+    height: 100%;
+}}
+.kpi-estados-title {{
+    font-size: 0.63rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: {C['muted']};
+    margin-bottom: 0.55rem;
+}}
+.estado-kpi-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.22rem 0;
+    border-bottom: 1px solid {C['border']};
+    font-size: 0.78rem;
+}}
+.estado-kpi-row:last-child {{ border-bottom: none; }}
+.estado-kpi-label {{
+    color: {C['text']};
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 78%;
+}}
+.estado-kpi-n {{
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: {C['azul_medio']};
+    min-width: 1.8rem;
+    text-align: right;
+}}
 
 /* ── Section heading ── */
 .section-heading {{
@@ -1080,8 +1133,8 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map):
     def _font(bold=False, color="1A2332", size=9, italic=False):
         return Font(name="Arial", bold=bold, color=color, size=size, italic=italic)
     def _fill(color): return PatternFill("solid", fgColor=color)
-    def _align(h="left", wrap=True):
-        return Alignment(horizontal=h, vertical="center", wrap_text=wrap)
+    def _align(h="left", wrap=True, v="top"):
+        return Alignment(horizontal=h, vertical=v, wrap_text=wrap)
 
     def _header_cell(cell, text):
         cell.value = text
@@ -1291,7 +1344,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map):
     rows = df_f_full.to_dicts()
     for ri2, row in enumerate(rows, 4):
         bg = GRIS_ALT if ri2 % 2 == 0 else BLANCO
-        ws2.row_dimensions[ri2].height = 18
+        ws2.row_dimensions[ri2].height = 80
 
         # Pre-calcular mensajes por hito
         msgs = {}
@@ -1627,11 +1680,21 @@ total_proy      = df_f.height
 total_entidades = df_f["ENTIDAD O SECRETARIA"].n_unique()
 suspendidos     = int(df_f["Suspendidos"].drop_nulls().sum()) if df_f["Suspendidos"].drop_nulls().len() > 0 else 0
 para_cierre     = int(df_f["Para cierre"].drop_nulls().sum()) if df_f["Para cierre"].drop_nulls().len() > 0 else 0
-prom_h1         = df_f["hito_1_val"].mean()
-prom_h1_str     = f"{prom_h1:.1f}" if prom_h1 is not None else "N/A"
+
+# Conteo por estado de proyecto
+estados_conteo = (
+    df_f.group_by("ESTADO PROYECTO")
+    .agg(pl.len().alias("n"))
+    .sort("n", descending=True)
+)
+estado_items = ""
+for row_e in estados_conteo.to_dicts():
+    est = row_e["ESTADO PROYECTO"] or "(Sin estado)"
+    n   = row_e["n"]
+    estado_items += f'<div class="estado-kpi-row"><span class="estado-kpi-label">{est}</span><span class="estado-kpi-n">{n}</span></div>'
 
 st.markdown("<div style='height:0.2rem'></div>", unsafe_allow_html=True)
-ka, kb, kc, kd, ke = st.columns([1.4, 1.4, 1, 1, 1])
+ka, kb, kc, kd = st.columns([1.3, 1.3, 1, 2.2])
 
 with ka:
     st.markdown(f"""
@@ -1651,26 +1714,24 @@ with kb:
 
 with kc:
     st.markdown(f"""
-    <div class="kpi-sec" style="border-left-color:{C['naranja_osc']}">
-        <div class="label">Suspendidos</div>
-        <div class="value" style="color:{C['naranja_osc']}">{suspendidos}</div>
-        <div class="sub">proyectos</div>
+    <div class="kpi-stack">
+        <div class="kpi-sec" style="border-left-color:{C['naranja_osc']};margin-bottom:0.5rem">
+            <div class="label">Suspendidos</div>
+            <div class="value" style="color:{C['naranja_osc']}">{suspendidos}</div>
+            <div class="sub">proyectos</div>
+        </div>
+        <div class="kpi-sec" style="border-left-color:{C['cafe']}">
+            <div class="label">Para cierre</div>
+            <div class="value" style="color:{C['cafe']}">{para_cierre}</div>
+            <div class="sub">proyectos</div>
+        </div>
     </div>""", unsafe_allow_html=True)
 
 with kd:
     st.markdown(f"""
-    <div class="kpi-sec" style="border-left-color:{C['cafe']}">
-        <div class="label">Para cierre</div>
-        <div class="value" style="color:{C['cafe']}">{para_cierre}</div>
-        <div class="sub">proyectos</div>
-    </div>""", unsafe_allow_html=True)
-
-with ke:
-    st.markdown(f"""
-    <div class="kpi-sec" style="border-left-color:{C['cian']}">
-        <div class="label">Prom. H1</div>
-        <div class="value" style="color:{C['cian']}">{prom_h1_str}</div>
-        <div class="sub">días promedio</div>
+    <div class="kpi-estados">
+        <div class="kpi-estados-title">Proyectos por estado</div>
+        {estado_items}
     </div>""", unsafe_allow_html=True)
 
 st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
@@ -1704,9 +1765,10 @@ for entidad in agrupacion["ENTIDAD O SECRETARIA"].to_list():
 # ─────────────────────────────────────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────────────────────────────────────
-tab_resumen, tab_detalle, tab_evaluacion, tab_exportar = st.tabs([
+tab_resumen, tab_detalle, tab_proyectos, tab_evaluacion, tab_exportar = st.tabs([
     "Resumen por entidad",
     f"Detalle · {sel_hito_label}",
+    "Todos los proyectos",
     "Evaluación del modelo",
     "Exportar",
 ])
@@ -1810,7 +1872,78 @@ with tab_detalle:
                 <tbody>{det_rows}</tbody>
                 </table>""", unsafe_allow_html=True)
 
-# ── TAB 3: Evaluación del modelo ──────────────────────────────────────────────
+# ── TAB 3: Todos los proyectos ────────────────────────────────────────────────
+with tab_proyectos:
+    st.markdown("<div class='section-heading'>Todos los proyectos</div>", unsafe_allow_html=True)
+
+    # Estado color mapping para etiquetas
+    ESTADO_COLORS = {
+        "SIN CONTRATAR":              (C["cian"],        "#e0f7fa"),
+        "CONTRATADO EN EJECUCIÓN":    (C["verde_medio"], "#d1fae5"),
+        "CONTRATADO SIN ACTA DE INICIO": (C["azul_medio"], "#dbeafe"),
+        "TERMINADO":                  (C["muted"],       "#f1f5f9"),
+        "PARA CIERRE":                (C["cafe"],        "#fef3c7"),
+        "SUSPENDIDO":                 (C["naranja_osc"], "#ffedd5"),
+    }
+
+    def estado_pill(estado):
+        if not estado:
+            return f'<span class="estado-tag">(Sin estado)</span>'
+        eu = estado.strip().upper()
+        fg, bg = ESTADO_COLORS.get(eu, (C["muted"], "#f1f5f9"))
+        return f'<span class="estado-tag" style="background:{bg};color:{fg};border:1px solid {fg}33">{estado}</span>'
+
+    # Búsqueda / filtro rápido dentro del tab
+    busqueda = st.text_input(
+        "Buscar por nombre o BPIN",
+        placeholder="Escribe para filtrar…",
+        label_visibility="collapsed",
+    )
+
+    df_proy = df_f.select("BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO", "ENTIDAD O SECRETARIA")
+    if busqueda:
+        term = busqueda.lower()
+        df_proy = df_proy.filter(
+            pl.col("NOMBRE PROYECTO").str.to_lowercase().str.contains(term) |
+            pl.col("BPIN").cast(pl.Utf8).str.to_lowercase().str.contains(term)
+        )
+
+    df_proy = df_proy.sort(["ENTIDAD O SECRETARIA", "NOMBRE PROYECTO"])
+    n_proy = df_proy.height
+
+    st.markdown(f"<div style='font-size:0.75rem;color:{C['muted']};margin-bottom:0.6rem'>{n_proy} proyecto(s) encontrado(s)</div>",
+                unsafe_allow_html=True)
+
+    if n_proy == 0:
+        st.info("No hay proyectos que coincidan con la búsqueda.")
+    else:
+        proy_rows = ""
+        for idx, r in enumerate(df_proy.to_dicts()):
+            bg_row = "#f7fafd" if idx % 2 == 0 else "#ffffff"
+            bpin   = r.get("BPIN") or "—"
+            nombre = r.get("NOMBRE PROYECTO") or "—"
+            estado = r.get("ESTADO PROYECTO") or ""
+            entidad = r.get("ENTIDAD O SECRETARIA") or "—"
+            proy_rows += f"""<tr style="background:{bg_row}">
+                <td><span class="bpin-tag">{bpin}</span></td>
+                <td style="font-size:0.82rem;line-height:1.4">{nombre}</td>
+                <td>{estado_pill(estado)}</td>
+                <td class="entidad-name" style="font-size:0.78rem">{entidad}</td>
+            </tr>"""
+
+        st.markdown(f"""
+        <table class="summary-table">
+        <thead><tr>
+            <th style="width:120px">BPIN</th>
+            <th>Nombre del proyecto</th>
+            <th style="width:200px">Estado</th>
+            <th style="width:190px">Entidad / Secretaría</th>
+        </tr></thead>
+        <tbody>{proy_rows}</tbody>
+        </table>
+        """, unsafe_allow_html=True)
+
+# ── TAB 4: Evaluación del modelo ──────────────────────────────────────────────
 with tab_evaluacion:
     st.markdown("<div class='section-heading'>Evaluación del modelo ejecutor</div>", unsafe_allow_html=True)
 
@@ -1839,15 +1972,15 @@ with tab_evaluacion:
     if df_eval is None or df_eval.height == 0:
         st.info(f"No se encontraron datos de evaluación para «{modelo_sel}».")
     else:
-        # ── Colores de calificación (escala 0-5) ──
-        def eval_color(score, max_score=5.0):
+        # ── Colores de calificación (escala 0-100) ──
+        def eval_color(score, max_score=100.0):
             ratio = score / max_score if max_score > 0 else 0
             if ratio >= 0.8:   return C["verde_medio"],  "Sobresaliente"
             elif ratio >= 0.6: return C["cian"],         "Satisfactorio"
             elif ratio >= 0.4: return C["naranja"],      "Aceptable"
             else:              return C["salmon"],        "Por mejorar"
 
-        max_score = 5.0
+        max_score = 100.0
 
         # ── CSS extra para tabla de evaluación ──
         st.markdown(f"""
@@ -1947,7 +2080,7 @@ with tab_evaluacion:
                     """, unsafe_allow_html=True)
 
 
-# ── TAB 4: Exportar ───────────────────────────────────────────────────────────
+# ── TAB 5: Exportar ───────────────────────────────────────────────────────────
 with tab_exportar:
     st.markdown("<div class='section-heading'>Descargar reporte</div>", unsafe_allow_html=True)
     st.markdown(
@@ -1958,7 +2091,7 @@ with tab_exportar:
     st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
 
     st.download_button(
-        label="Descargar reporte Excel",
+        label="⬇️  Descargar reporte Excel",
         data=generar_excel(df_f, agrupacion, clasi_por_entidad),
         file_name=f"regalias_seguimiento_{date.today().strftime('%Y%m%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
