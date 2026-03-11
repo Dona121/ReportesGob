@@ -269,6 +269,11 @@ section[data-testid="stSidebar"] .stSelectbox label {{
     color: {C['muted']};
     margin-bottom: 0.55rem;
 }}
+.kpi-estados-grid {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.2rem;
+}}
 .estado-kpi-row {{
     display: flex;
     justify-content: space-between;
@@ -1691,10 +1696,26 @@ estado_items = ""
 for row_e in estados_conteo.to_dicts():
     est = row_e["ESTADO PROYECTO"] or "(Sin estado)"
     n   = row_e["n"]
-    estado_items += f'<div class="estado-kpi-row"><span class="estado-kpi-label">{est}</span><span class="estado-kpi-n">{n}</span></div>'
+    # Color de punto según estado
+    eu = est.strip().upper()
+    dot_colors = {
+        "CONTRATADO EN EJECUCIÓN": C["verde_medio"],
+        "TERMINADO":               C["muted"],
+        "SIN CONTRATAR":           C["cian"],
+        "PARA CIERRE":             C["cafe"],
+        "CONTRATADO SIN ACTA DE INICIO": C["azul_medio"],
+        "SUSPENDIDO":              C["naranja_osc"],
+    }
+    dot = dot_colors.get(eu, C["muted"])
+    estado_items += (
+        f'<div class="estado-kpi-row">'
+        f'<span class="estado-kpi-label"><span style="display:inline-block;width:7px;height:7px;'
+        f'border-radius:50%;background:{dot};margin-right:5px;flex-shrink:0"></span>{est}</span>'
+        f'<span class="estado-kpi-n">{n}</span></div>'
+    )
 
 st.markdown("<div style='height:0.2rem'></div>", unsafe_allow_html=True)
-ka, kb, kc, kd = st.columns([1.3, 1.3, 1, 2.2])
+ka, kb, kd = st.columns([1.3, 1.3, 3.2])
 
 with ka:
     st.markdown(f"""
@@ -1712,26 +1733,11 @@ with kb:
         <div class="sub">secretarías / dependencias</div>
     </div>""", unsafe_allow_html=True)
 
-with kc:
-    st.markdown(f"""
-    <div class="kpi-stack">
-        <div class="kpi-sec" style="border-left-color:{C['naranja_osc']};margin-bottom:0.5rem">
-            <div class="label">Suspendidos</div>
-            <div class="value" style="color:{C['naranja_osc']}">{suspendidos}</div>
-            <div class="sub">proyectos</div>
-        </div>
-        <div class="kpi-sec" style="border-left-color:{C['cafe']}">
-            <div class="label">Para cierre</div>
-            <div class="value" style="color:{C['cafe']}">{para_cierre}</div>
-            <div class="sub">proyectos</div>
-        </div>
-    </div>""", unsafe_allow_html=True)
-
 with kd:
     st.markdown(f"""
     <div class="kpi-estados">
         <div class="kpi-estados-title">Proyectos por estado</div>
-        {estado_items}
+        <div class="kpi-estados-grid">{estado_items}</div>
     </div>""", unsafe_allow_html=True)
 
 st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
@@ -1876,68 +1882,170 @@ with tab_detalle:
 with tab_proyectos:
     st.markdown("<div class='section-heading'>Todos los proyectos</div>", unsafe_allow_html=True)
 
-    # Estado color mapping para etiquetas
-    ESTADO_COLORS = {
-        "SIN CONTRATAR":              (C["cian"],        "#e0f7fa"),
-        "CONTRATADO EN EJECUCIÓN":    (C["verde_medio"], "#d1fae5"),
-        "CONTRATADO SIN ACTA DE INICIO": (C["azul_medio"], "#dbeafe"),
-        "TERMINADO":                  (C["muted"],       "#f1f5f9"),
-        "PARA CIERRE":                (C["cafe"],        "#fef3c7"),
-        "SUSPENDIDO":                 (C["naranja_osc"], "#ffedd5"),
+    # Colores por estado de proyecto
+    ESTADO_PROY_COLORS = {
+        "SIN CONTRATAR":                 (C["cian"],        "#e0f7fa"),
+        "CONTRATADO EN EJECUCIÓN":       (C["verde_medio"], "#d1fae5"),
+        "CONTRATADO SIN ACTA DE INICIO": (C["azul_medio"],  "#dbeafe"),
+        "TERMINADO":                     (C["muted"],       "#f1f5f9"),
+        "PARA CIERRE":                   (C["cafe"],        "#fef3c7"),
+    }
+    ESTADO_CONT_COLORS = {
+        "EN EJECUCIÓN":  (C["verde_medio"], "#d1fae5"),
+        "TERMINADO":     (C["muted"],       "#f1f5f9"),
+        "LIQUIDADO":     (C["azul_medio"],  "#dbeafe"),
+        "SUSPENDIDO":    (C["naranja_osc"], "#ffedd5"),
+        "SIN CONTRATO":  (C["cian"],        "#e0f7fa"),
     }
 
-    def estado_pill(estado):
-        if not estado:
-            return f'<span class="estado-tag">(Sin estado)</span>'
-        eu = estado.strip().upper()
-        fg, bg = ESTADO_COLORS.get(eu, (C["muted"], "#f1f5f9"))
-        return f'<span class="estado-tag" style="background:{bg};color:{fg};border:1px solid {fg}33">{estado}</span>'
+    def _pill(texto, color_map, default_fg=None, default_bg=None):
+        if not texto:
+            return f'<span class="proy-pill proy-pill--empty">—</span>'
+        eu = texto.strip().upper()
+        fg, bg = color_map.get(eu, (default_fg or C["muted"], default_bg or "#f1f5f9"))
+        susp = eu == "SUSPENDIDO"
+        extra = f'font-weight:700;' if susp else ''
+        return (f'<span class="proy-pill" '
+                f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
+                f'{texto}</span>')
 
-    # Búsqueda / filtro rápido dentro del tab
-    busqueda = st.text_input(
-        "Buscar por nombre o BPIN",
-        placeholder="Escribe para filtrar…",
-        label_visibility="collapsed",
+    # ── Filtros ──────────────────────────────────────────────────────────────
+    st.markdown(
+        f"<p style='font-size:0.75rem;color:{C['muted']};margin:0 0 0.5rem 0'>"
+        f"Puedes filtrar la tabla por <strong>entidad</strong>, <strong>estado del proyecto</strong>, "
+        f"<strong>estado del contrato</strong>, <strong>BPIN</strong> o <strong>nombre</strong>. "
+        f"Usa la barra de búsqueda o los selectores para combinar criterios.</p>",
+        unsafe_allow_html=True,
     )
 
-    df_proy = df_f.select("BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO", "ENTIDAD O SECRETARIA")
+    fc1, fc2, fc3 = st.columns([2, 1.4, 1.4])
+    with fc1:
+        busqueda = st.text_input(
+            "busqueda_proy",
+            placeholder="🔍  Buscar por BPIN o nombre del proyecto…",
+            label_visibility="collapsed",
+        )
+    with fc2:
+        entidades_proy   = ["Todas"] + sorted(df_f["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
+        sel_ent_proy = st.selectbox("Entidad", entidades_proy, label_visibility="collapsed")
+    with fc3:
+        estados_proy_opts = ["Todos los estados"] + sorted(df_f["ESTADO PROYECTO"].drop_nulls().unique().to_list())
+        sel_est_proy = st.selectbox("Estado proyecto", estados_proy_opts, label_visibility="collapsed")
+
+    fc4, fc5 = st.columns([1.4, 4.4])
+    with fc4:
+        estados_cont_opts = ["Todos los contratos"] + sorted(df_f["ESTADO CONTRATO"].drop_nulls().unique().to_list())
+        sel_cont_proy = st.selectbox("Estado contrato", estados_cont_opts, label_visibility="collapsed")
+
+    # ── Datos filtrados ───────────────────────────────────────────────────────
+    df_proy = df_f.select(
+        "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO",
+        "ESTADO PROYECTO", "ESTADO CONTRATO",
+    )
     if busqueda:
-        term = busqueda.lower()
+        term = busqueda.strip().lower()
         df_proy = df_proy.filter(
             pl.col("NOMBRE PROYECTO").str.to_lowercase().str.contains(term) |
             pl.col("BPIN").cast(pl.Utf8).str.to_lowercase().str.contains(term)
         )
+    if sel_ent_proy != "Todas":
+        df_proy = df_proy.filter(pl.col("ENTIDAD O SECRETARIA") == sel_ent_proy)
+    if sel_est_proy != "Todos los estados":
+        df_proy = df_proy.filter(pl.col("ESTADO PROYECTO") == sel_est_proy)
+    if sel_cont_proy != "Todos los contratos":
+        df_proy = df_proy.filter(pl.col("ESTADO CONTRATO") == sel_cont_proy)
 
     df_proy = df_proy.sort(["ENTIDAD O SECRETARIA", "NOMBRE PROYECTO"])
-    n_proy = df_proy.height
+    n_proy  = df_proy.height
 
-    st.markdown(f"<div style='font-size:0.75rem;color:{C['muted']};margin-bottom:0.6rem'>{n_proy} proyecto(s) encontrado(s)</div>",
-                unsafe_allow_html=True)
+    # ── Contador ──────────────────────────────────────────────────────────────
+    st.markdown(
+        f"<div style='font-size:0.73rem;color:{C['muted']};margin:0.4rem 0 0.6rem'>"
+        f"<strong style='color:{C['azul_oscuro']}'>{n_proy}</strong> proyecto(s) encontrado(s)</div>",
+        unsafe_allow_html=True,
+    )
 
     if n_proy == 0:
-        st.info("No hay proyectos que coincidan con la búsqueda.")
+        st.info("No hay proyectos que coincidan con los filtros aplicados.")
     else:
         proy_rows = ""
         for idx, r in enumerate(df_proy.to_dicts()):
-            bg_row = "#f7fafd" if idx % 2 == 0 else "#ffffff"
-            bpin   = r.get("BPIN") or "—"
-            nombre = r.get("NOMBRE PROYECTO") or "—"
-            estado = r.get("ESTADO PROYECTO") or ""
-            entidad = r.get("ENTIDAD O SECRETARIA") or "—"
-            proy_rows += f"""<tr style="background:{bg_row}">
+            entidad   = r.get("ENTIDAD O SECRETARIA") or "—"
+            bpin      = r.get("BPIN") or "—"
+            nombre    = r.get("NOMBRE PROYECTO") or "—"
+            est_proy  = r.get("ESTADO PROYECTO") or ""
+            est_cont  = r.get("ESTADO CONTRATO") or ""
+
+            # Fila suspendida → fondo suave naranja
+            es_susp = est_cont.strip().upper() == "SUSPENDIDO"
+            bg_susp = f'style="background:#fff7ed"' if es_susp else ""
+
+            proy_rows += f"""<tr {bg_susp}>
+                <td class="entidad-name proy-ent">{entidad}</td>
                 <td><span class="bpin-tag">{bpin}</span></td>
-                <td style="font-size:0.82rem;line-height:1.4">{nombre}</td>
-                <td>{estado_pill(estado)}</td>
-                <td class="entidad-name" style="font-size:0.78rem">{entidad}</td>
+                <td class="proy-nombre">{nombre}</td>
+                <td>{_pill(est_proy, ESTADO_PROY_COLORS)}</td>
+                <td>{_pill(est_cont, ESTADO_CONT_COLORS)}</td>
             </tr>"""
 
         st.markdown(f"""
-        <table class="summary-table">
+        <style>
+        .proy-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(0,40,90,0.09);
+        }}
+        .proy-table thead tr {{ background: {C['azul_oscuro']}; color: white; }}
+        .proy-table th {{
+            padding: 0.75rem 0.9rem;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            text-align: left;
+            white-space: nowrap;
+        }}
+        .proy-table td {{
+            padding: 0.6rem 0.9rem;
+            border-bottom: 1px solid {C['border']};
+            vertical-align: middle;
+        }}
+        .proy-table tbody tr:last-child td {{ border-bottom: none; }}
+        .proy-table tbody tr:hover td {{ background: #eef5ff !important; transition: background 0.12s; }}
+        .proy-ent {{
+            font-weight: 700;
+            font-size: 0.78rem;
+            color: {C['azul_oscuro']};
+            white-space: nowrap;
+        }}
+        .proy-nombre {{
+            font-size: 0.81rem;
+            color: {C['text']};
+            line-height: 1.45;
+        }}
+        .proy-pill {{
+            display: inline-block;
+            font-size: 0.68rem;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-weight: 600;
+            white-space: nowrap;
+            font-family: 'Montserrat', sans-serif;
+        }}
+        .proy-pill--empty {{ color: {C['muted']}; font-weight: 400; }}
+        </style>
+        <table class="proy-table">
         <thead><tr>
-            <th style="width:120px">BPIN</th>
+            <th style="width:160px">Entidad / Secretaría</th>
+            <th style="width:130px">BPIN</th>
             <th>Nombre del proyecto</th>
-            <th style="width:200px">Estado</th>
-            <th style="width:190px">Entidad / Secretaría</th>
+            <th style="width:200px">Estado proyecto</th>
+            <th style="width:175px">Estado contrato</th>
         </tr></thead>
         <tbody>{proy_rows}</tbody>
         </table>
