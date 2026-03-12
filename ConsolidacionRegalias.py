@@ -186,6 +186,39 @@ def leer_excel_regalias(contenido_bytes: bytes) -> pl.DataFrame:
     )
 
 
+def normalizar_fecha(df: pl.DataFrame, columnas: list[str]) -> pl.DataFrame:
+    """
+    Convierte columnas de fecha de forma robusta sin importar si Polars
+    las leyó como String (columna vacía o texto) o como Date (ya tenían fechas).
+
+    Formatos de string soportados (en orden de intento):
+      - dd/mm/yyyy  (formato de exportación actual)
+      - yyyy-mm-dd  (formato legacy de versiones anteriores)
+    """
+    exprs = []
+    for col in columnas:
+        if col not in df.columns:
+            continue
+        dtype = df.schema[col]
+        if dtype == pl.Date:
+            # Ya es Date — pasar tal cual
+            exprs.append(pl.col(col))
+        elif dtype in (pl.Datetime, pl.Datetime("us"), pl.Datetime("ns"), pl.Datetime("ms")):
+            # Datetime → Date (quitar la hora)
+            exprs.append(pl.col(col).cast(pl.Date, strict=False))
+        else:
+            # String u otro: intentar dd/mm/yyyy primero, luego yyyy-mm-dd
+            exprs.append(
+                pl.when(pl.col(col).str.contains(r"^\d{2}/\d{2}/\d{4}$", literal=False))
+                .then(pl.col(col).str.to_date("%d/%m/%Y", strict=False))
+                .otherwise(pl.col(col).str.to_date("%Y-%m-%d", strict=False))
+                .alias(col)
+            )
+    if exprs:
+        df = df.with_columns(exprs)
+    return df
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # ── Funciones de cálculo ──────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
@@ -905,26 +938,21 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         )
 
         # ── Versión anterior (procesamiento) ───────────────────────────────────
-        otros_ejecutores_descentralizadas = (
-            df_desc_raw
-            .drop("FECHA DE CORTE GESPROY")
-            .with_columns(
-                pl.col(
-                    "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
-                    "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA APROBACIÓN PROYECTO",
-                    "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
-                ).str.to_date("%Y-%m-%d", strict=False)
-            )
+        otros_ejecutores_descentralizadas = normalizar_fecha(
+            df_desc_raw.drop("FECHA DE CORTE GESPROY"),
+            [
+                "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
+                "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA APROBACIÓN PROYECTO",
+                "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
+            ],
         )
 
-        otros_ejecutores_municipios = (
-            df_mun_raw
-            .with_columns(
-                pl.col(
-                    "FECHA APROBACIÓN PROYECTO", "FECHA DE ASIGNACIÓN DE RECURSOS",
-                    "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
-                ).str.to_date("%Y-%m-%d", strict=False)
-            )
+        otros_ejecutores_municipios = normalizar_fecha(
+            df_mun_raw,
+            [
+                "FECHA APROBACIÓN PROYECTO", "FECHA DE ASIGNACIÓN DE RECURSOS",
+                "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
+            ],
         )
 
         # ══════════════════════════════════════════════════════════════════════
@@ -1082,7 +1110,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         fmt_header_azul    = fmt({"bold": True, "font_color": "white", "bg_color": AZUL_HEADER,    "align": "center", "valign": "vcenter"})
         fmt_header_naranja = fmt({"bold": True, "font_color": "white", "bg_color": NARANJA_HEADER, "align": "center", "valign": "vcenter"})
         fmt_celda          = fmt({"valign": "vcenter", "align": "center"})
-        fmt_fecha_fmt      = fmt({"valign": "vcenter", "align": "center", "num_format": "yyyy-mm-dd"})
+        fmt_fecha_fmt      = fmt({"valign": "vcenter", "align": "center", "num_format": "dd/mm/yyyy"})
         fmt_numero_fmt     = fmt({"valign": "vcenter", "align": "center", "num_format": "#,##0.000"})
         fmt_dias_fmt       = fmt({"valign": "vcenter", "align": "center"})
 
