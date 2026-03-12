@@ -820,7 +820,7 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
     display: none;
     position: absolute;
     left: 50%;
-    bottom: calc(100% + 8px);
+    top: calc(100% + 8px);
     transform: translateX(-50%);
     background: {C['azul_oscuro']};
     color: #ffffff;
@@ -834,15 +834,15 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
     font-size: 0.74rem;
     line-height: 1.5;
 }}
-/* Flecha hacia abajo */
+/* Flecha hacia arriba (tooltip está abajo) */
 .dias-tip-box::after {{
     content: '';
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: {C['azul_oscuro']};
+    border-bottom-color: {C['azul_oscuro']};
 }}
 .dias-tip-wrap:hover .dias-tip-box {{ display: block; }}
 .dias-tip-title {{
@@ -1014,22 +1014,51 @@ def clasificar(col, intervalos):
 @st.cache_data
 def procesar(file_bytes):
     df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
+
+    DATE_COLS = [
+        "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
+        "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "HORIZONTE DEL PROYECTO",
+        "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
+    ]
+
+    # Cast robusto: maneja pl.Date nativo, Int32/Int64 (serial Excel = días desde 1899-12-30),
+    # y Utf8/String (texto "DD/MM/YYYY" o "YYYY-MM-DD") que puede llegar desde GitHub.
+    EXCEL_EPOCH = date(1899, 12, 30)
+    cast_exprs = []
+    for col in DATE_COLS:
+        dtype = df[col].dtype
+        if dtype == pl.Date:
+            # Ya es fecha — no tocar
+            cast_exprs.append(pl.col(col))
+        elif dtype in (pl.Int32, pl.Int64, pl.UInt32, pl.UInt16):
+            # Serial numérico de Excel → convertir a Date sumando días desde epoch
+            cast_exprs.append(
+                (pl.lit(EXCEL_EPOCH) + pl.duration(days=pl.col(col).cast(pl.Int64)))
+                .cast(pl.Date)
+                .alias(col)
+            )
+        elif dtype in (pl.Utf8, pl.String):
+            # Texto — intentar múltiples formatos comunes
+            cast_exprs.append(
+                pl.coalesce([
+                    pl.col(col).str.to_date("%d/%m/%Y", strict=False),
+                    pl.col(col).str.to_date("%Y-%m-%d", strict=False),
+                    pl.col(col).str.to_date("%m/%d/%Y", strict=False),
+                    pl.col(col).str.to_date("%d-%m-%Y", strict=False),
+                ]).alias(col)
+            )
+        else:
+            # Fallback genérico
+            cast_exprs.append(pl.col(col).cast(pl.Date, strict=False))
+
     df = (
         df.select(
             "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO",
             "ESTADO PROYECTO", "ESTADO CONTRATO",
             "CPI", "SPI",
-            "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
-            "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "HORIZONTE DEL PROYECTO",
-            "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
+            *DATE_COLS,
         )
-        .with_columns(
-            pl.col(
-                "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
-                "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "HORIZONTE DEL PROYECTO",
-                "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
-            ).cast(pl.Date, strict=False)
-        )
+        .with_columns(cast_exprs)
         .with_columns(
             # Hito 1
             pl.when(
