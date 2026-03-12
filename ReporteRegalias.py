@@ -1639,10 +1639,10 @@ def validar_archivo(file_bytes):
 
 # URL del archivo por defecto en GitHub (rama main, carpeta data/)
 # Reemplaza esta URL con la tuya antes de hacer deploy
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/data/matriz.xlsx"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/Dona121/Matriz-Evaluacion-Regalias/main/data/MatrizSeguimientoEvaluacion_20260311_2127.xlsx"
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def _cargar_desde_github(url: str) -> bytes | None:
+def _cargar_desde_github(url: str):
     """Descarga el Excel desde GitHub Raw y devuelve los bytes. Cachea 1 hora."""
     try:
         import urllib.request
