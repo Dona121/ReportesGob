@@ -803,6 +803,101 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
     font-size: 0.72rem;
     color: {C['azul_medio']};
 }}
+/* ── Tooltip de cálculo de días ── */
+.dias-tip-wrap {{
+    position: relative;
+    display: inline-block;
+}}
+.dias-val-link {{
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    font-size: 0.8rem;
+    border-bottom: 1px dashed {C['azul_medio']};
+    cursor: help;
+    padding-bottom: 1px;
+}}
+.dias-tip-box {{
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    background: {C['azul_oscuro']};
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+    min-width: 230px;
+    max-width: 270px;
+    box-shadow: 0 8px 28px rgba(0,20,60,0.35);
+    z-index: 9999;
+    pointer-events: none;
+    font-size: 0.74rem;
+    line-height: 1.5;
+}}
+/* Flecha hacia abajo */
+.dias-tip-box::after {{
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: {C['azul_oscuro']};
+}}
+.dias-tip-wrap:hover .dias-tip-box {{ display: block; }}
+.dias-tip-title {{
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: {C['cian']};
+    margin-bottom: 0.5rem;
+}}
+.dias-tip-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0.15rem 0;
+}}
+.dias-tip-lbl {{
+    color: rgba(255,255,255,0.6);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}}
+.dias-tip-val {{
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: right;
+}}
+.dias-tip-op {{
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.4);
+    margin: 0.1rem 0;
+    padding-left: 0.2rem;
+}}
+.dias-tip-sep {{
+    border-top: 1px solid rgba(255,255,255,0.15);
+    margin: 0.4rem 0 0.35rem;
+}}
+.dias-tip-result {{
+    font-family: 'DM Mono', monospace;
+    font-weight: 800;
+    font-size: 0.88rem;
+    color: {C['cian']};
+    text-align: right;
+}}
+.dias-tip-nota {{
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.45);
+    margin-top: 0.45rem;
+    line-height: 1.4;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 0.35rem;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1544,7 +1639,7 @@ def validar_archivo(file_bytes):
 
 # URL del archivo por defecto en GitHub (rama main, carpeta data/)
 # Reemplaza esta URL con la tuya antes de hacer deploy
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/Dona121/Matriz-Evaluacion-Regalias/main/data/MatrizSeguimientoEvaluacion_20260311_2127.xlsx"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/data/matriz.xlsx"
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def _cargar_desde_github(url: str) -> bytes | None:
@@ -1898,15 +1993,88 @@ with tab_resumen:
 
 # ── TAB 2: Detalle ────────────────────────────────────────────────────────────
 with tab_detalle:
-    # Identificar hito_key para badge_html según columna de clasificación seleccionada
     hito_key_detalle = HITO_KEY_MAP.get(sel_clasi_col, None)
 
+    # Incluir fechas para el tooltip de cálculo
+    DATE_COLS_DET = [
+        "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
+        "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "HORIZONTE DEL PROYECTO",
+        "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
+    ]
     df_det = (
         df_f
         .filter(~pl.col(sel_hito_col).is_null())
-        .select("ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO", sel_hito_col, sel_clasi_col)
+        .select(
+            "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO",
+            sel_hito_col, sel_clasi_col,
+            *DATE_COLS_DET,
+        )
         .sort(["ENTIDAD O SECRETARIA", sel_hito_col], descending=[False, True])
     )
+
+    def _fmt_date(val):
+        """Formatea una fecha como DD/MM/YYYY o devuelve '—'."""
+        if val is None:
+            return "—"
+        try:
+            return val.strftime("%d/%m/%Y")
+        except Exception:
+            return str(val)
+
+    # Descripción del cálculo por hito: (fecha_inicio_label, fecha_inicio_col, fecha_fin_label, fecha_fin_col, nota)
+    HITO_CALC_META = {
+        "hito_1_val": (
+            "Fecha aprobación",    "FECHA APROBACIÓN PROYECTO",
+            "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
+            "Días desde la aprobación del proyecto hasta el corte, sin proceso de contratación abierto.",
+        ),
+        "hito_2_val": (
+            "Fecha apertura proceso", "FECHA DE APERTURA DEL PRIMER PROCESO",
+            "Fecha acta de inicio",   "FECHA ACTA INICIO",
+            "Días desde la apertura del primer proceso hasta el acta de inicio.",
+        ),
+        "hito_3_val": (
+            "Fecha suscripción",   "FECHA SUSCRIPCION",
+            "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
+            "Días desde la suscripción del contrato hasta el corte, sin acta de inicio.",
+        ),
+        "hito_4_val": (
+            "Horizonte del proyecto", "HORIZONTE DEL PROYECTO",
+            "Fecha corte GESPROY",    "FECHA DE CORTE GESPROY",
+            "Días de retraso sobre el horizonte (CPI=0, SPI=0). El resultado se muestra en meses.",
+        ),
+        "hito_5_val": (
+            "Fecha finalización",  "FECHA DE FINALIZACIÓN",
+            "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
+            "Días entre la fecha de finalización registrada y el corte.",
+        ),
+    }
+
+    def _dias_tooltip(r, hito_col):
+        """Genera el HTML del tooltip con las fechas y fórmula del cálculo."""
+        meta = HITO_CALC_META.get(hito_col)
+        if not meta:
+            return ""
+        lbl_a, col_a, lbl_b, col_b, nota = meta
+        fecha_a = _fmt_date(r.get(col_a))
+        fecha_b = _fmt_date(r.get(col_b))
+        dias_v  = r.get(hito_col)
+        dias_display = f"{dias_v:.0f} días" if dias_v is not None else "—"
+        es_h4 = hito_col == "hito_4_val"
+        resultado_label = f"{dias_v/30:.1f} meses ({dias_display})" if es_h4 and dias_v else dias_display
+        return (
+            f'<div class="dias-tip-box">'
+            f'  <div class="dias-tip-title">Cálculo del hito</div>'
+            f'  <div class="dias-tip-row"><span class="dias-tip-lbl">{lbl_b}</span>'
+            f'    <span class="dias-tip-val">{fecha_b}</span></div>'
+            f'  <div class="dias-tip-op">menos (−)</div>'
+            f'  <div class="dias-tip-row"><span class="dias-tip-lbl">{lbl_a}</span>'
+            f'    <span class="dias-tip-val">{fecha_a}</span></div>'
+            f'  <div class="dias-tip-sep"></div>'
+            f'  <div class="dias-tip-result">= &nbsp;{resultado_label}</div>'
+            f'  <div class="dias-tip-nota">{nota}</div>'
+            f'</div>'
+        )
 
     if df_det.height == 0:
         st.info("No hay proyectos con valor en este hito para los filtros seleccionados.")
@@ -1923,7 +2091,6 @@ with tab_detalle:
                     dias_v   = r[sel_hito_col]
                     clasi_v  = r[sel_clasi_col]
                     dias_str = f"{dias_v:.1f} d" if dias_v is not None else "—"
-                    # Clase de fila según semáforo
                     _row_cls_map = {
                         "badge-green":  "row-green",
                         "badge-yellow": "row-yellow",
@@ -1938,17 +2105,25 @@ with tab_detalle:
                     }
                     badge_cls = _cls_badge_map.get(str(clasi_v), "badge-yellow") if clasi_v else ""
                     row_cls   = _row_cls_map.get(badge_cls, "")
+                    tooltip   = _dias_tooltip(r, sel_hito_col)
                     det_rows += f"""<tr class="{row_cls}">
                         <td><span class="bpin-tag">{r['BPIN'] or '—'}</span></td>
                         <td style="font-size:0.81rem">{r['NOMBRE PROYECTO'] or '—'}</td>
                         <td><span class="estado-tag">{r['ESTADO PROYECTO'] or '(Sin estado)'}</span></td>
-                        <td style="font-family:'DM Mono',monospace;font-weight:600;font-size:0.8rem">{dias_str}</td>
+                        <td>
+                          <div class="dias-tip-wrap">
+                            <span class="dias-val-link">{dias_str}</span>
+                            {tooltip}
+                          </div>
+                        </td>
                         <td>{badge_html(clasi_v, hito_key_detalle)}</td>
                     </tr>"""
                 st.markdown(f"""
                 <table class="detail-table">
                 <thead><tr>
-                    <th>BPIN</th><th>Nombre del proyecto</th><th>Estado</th><th>Días</th><th>Clasificación</th>
+                    <th>BPIN</th><th>Nombre del proyecto</th><th>Estado</th>
+                    <th>Días <span style="font-size:0.58rem;font-weight:500;opacity:0.7">(pasar el cursor)</span></th>
+                    <th>Clasificación</th>
                 </tr></thead>
                 <tbody>{det_rows}</tbody>
                 </table>""", unsafe_allow_html=True)
