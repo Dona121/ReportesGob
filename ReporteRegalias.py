@@ -448,12 +448,8 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
 .badge-black  .badge-dot {{ background: #94a3b8; }}
 /* Tooltip del semáforo */
 .badge-tooltip {{
-    visibility: hidden;
-    opacity: 0;
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
+    display: none;
+    position: fixed;
     background: {C['text']};
     color: white;
     font-family: 'Montserrat', sans-serif;
@@ -466,22 +462,26 @@ div[data-testid="stTabs"] [data-testid="stTabsContent"] {{
     text-align: left;
     text-transform: none;
     letter-spacing: 0;
-    z-index: 9999;
+    z-index: 99999;
     box-shadow: 0 4px 16px rgba(0,0,0,0.25);
     pointer-events: none;
-    transition: opacity 0.15s ease;
     white-space: normal;
 }}
 .badge-tooltip::after {{
     content: '';
     position: absolute;
-    top: 100%;
     left: 50%;
     transform: translateX(-50%);
     border: 5px solid transparent;
+}}
+.badge-tooltip.tip-arriba::after {{
+    top: 100%;
     border-top-color: {C['text']};
 }}
-.badge:hover .badge-tooltip {{ visibility: visible; opacity: 1; }}
+.badge-tooltip.tip-abajo::after {{
+    bottom: 100%;
+    border-bottom-color: {C['text']};
+}}
 
 /* ── Evaluación — calificación card ── */
 .eval-card {{
@@ -907,48 +907,57 @@ import streamlit.components.v1 as components
 components.html("""
 <script>
 (function() {
+  var doc = window.parent.document;
+  var win = window.parent;
+
+  function positionTip(trigger, tip, tipH, tipW) {
+    var rect = trigger.getBoundingClientRect();
+    var margin = 10;
+    var spaceBelow = win.innerHeight - rect.bottom;
+    var spaceAbove = rect.top;
+
+    tip.style.display = 'block';
+    tip.classList.remove('tip-abajo', 'tip-arriba');
+
+    if (spaceBelow >= tipH + margin || spaceBelow >= spaceAbove) {
+      tip.style.top    = (rect.bottom + 8) + 'px';
+      tip.style.bottom = 'auto';
+      tip.classList.add('tip-abajo');
+    } else {
+      tip.style.top    = (rect.top - tipH - 8) + 'px';
+      tip.style.bottom = 'auto';
+      tip.classList.add('tip-arriba');
+    }
+
+    var left = rect.left + rect.width / 2 - tipW / 2;
+    left = Math.max(8, Math.min(left, win.innerWidth - tipW - 8));
+    tip.style.left = left + 'px';
+  }
+
   function initTooltips() {
-    var wraps = window.parent.document.querySelectorAll('.dias-tip-wrap');
-    wraps.forEach(function(wrap) {
+    // ── Tooltip de días (.dias-tip-wrap) ──
+    doc.querySelectorAll('.dias-tip-wrap').forEach(function(wrap) {
       if (wrap._tipInit) return;
       wrap._tipInit = true;
       var tip = wrap.querySelector('.dias-tip-box');
       if (!tip) return;
+      wrap.addEventListener('mouseenter', function() { positionTip(wrap, tip, 220, 255); });
+      wrap.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
+    });
 
-      wrap.addEventListener('mouseenter', function() {
-        var rect = wrap.getBoundingClientRect();
-        var tipH = 220;
-        var tipW = 255;
-        var margin = 10;
-        var spaceBelow = window.parent.innerHeight - rect.bottom;
-        var spaceAbove = rect.top;
-
-        tip.style.display = 'block';
-        tip.classList.remove('tip-abajo', 'tip-arriba');
-
-        if (spaceBelow >= tipH + margin || spaceBelow >= spaceAbove) {
-          tip.style.top    = (rect.bottom + 8) + 'px';
-          tip.style.bottom = 'auto';
-          tip.classList.add('tip-abajo');
-        } else {
-          tip.style.top    = (rect.top - tipH - 8) + 'px';
-          tip.style.bottom = 'auto';
-          tip.classList.add('tip-arriba');
-        }
-
-        var left = rect.left + rect.width / 2 - tipW / 2;
-        left = Math.max(8, Math.min(left, window.parent.innerWidth - tipW - 8));
-        tip.style.left = left + 'px';
-      });
-
-      wrap.addEventListener('mouseleave', function() {
-        if (tip) tip.style.display = 'none';
-      });
+    // ── Tooltip de clasificación (.badge) ──
+    doc.querySelectorAll('.badge').forEach(function(badge) {
+      if (badge._tipInit) return;
+      badge._tipInit = true;
+      var tip = badge.querySelector('.badge-tooltip');
+      if (!tip) return;
+      badge.addEventListener('mouseenter', function() { positionTip(badge, tip, 110, 240); });
+      badge.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
     });
   }
 
   var observer = new MutationObserver(function() { initTooltips(); });
-  observer.observe(window.parent.document.body, { childList: true, subtree: true });
+  observer.observe(doc.body, { childList: true, subtree: true });
   initTooltips();
 })();
 </script>
