@@ -1541,11 +1541,33 @@ def validar_archivo(file_bytes):
 # ─────────────────────────────────────────────────────────────────────────────
 # SIDEBAR — carga y filtros
 # ─────────────────────────────────────────────────────────────────────────────
+
+# URL del archivo por defecto en GitHub (rama main, carpeta data/)
+# Reemplaza esta URL con la tuya antes de hacer deploy
+GITHUB_RAW_URL = "https://github.com/Dona121/Matriz-Evaluacion-Regalias/blob/main/data/MatrizSeguimientoEvaluacion_20260311_2127.xlsx"
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cargar_desde_github(url: str) -> bytes | None:
+    """Descarga el Excel desde GitHub Raw y devuelve los bytes. Cachea 1 hora."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=15) as r:
+            return r.read()
+    except Exception:
+        return None
+
 with st.sidebar:
     st.markdown("<div class='sidebar-section'>📁 Datos</div>", unsafe_allow_html=True)
-    uploaded = st.file_uploader("Archivo Excel", type=["xlsx"], label_visibility="collapsed")
+    uploaded = st.file_uploader("Subir otro archivo Excel", type=["xlsx"], label_visibility="collapsed")
     if uploaded:
-        st.success("Archivo cargado correctamente")
+        st.success("Usando el archivo subido manualmente.")
+    else:
+        st.markdown(
+            f"<p style='font-size:0.7rem;color:rgba(255,255,255,0.5);margin:0.3rem 0 0'>"
+            f"Cargando datos desde el repositorio por defecto. "
+            f"Sube un archivo para usar datos distintos.</p>",
+            unsafe_allow_html=True,
+        )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HEADER
@@ -1559,11 +1581,22 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if uploaded is None:
-    st.info("Carga el archivo Excel de la Matriz de Seguimiento en el panel izquierdo para comenzar.")
-    st.stop()
+# Determinar fuente de datos: manual > GitHub > error
+if uploaded is not None:
+    file_bytes = uploaded.read()
+    _fuente = "manual"
+else:
+    with st.spinner("Cargando datos desde el repositorio…"):
+        file_bytes = _cargar_desde_github(GITHUB_RAW_URL)
+    _fuente = "github"
 
-file_bytes = uploaded.read()
+if file_bytes is None:
+    st.error(
+        "No se pudo cargar el archivo de datos. "
+        "Verifica que la URL en `GITHUB_RAW_URL` sea correcta y que el repositorio sea público, "
+        "o sube el archivo manualmente desde el panel izquierdo."
+    )
+    st.stop()
 df_raw, errores = validar_archivo(file_bytes)
 
 if errores:
