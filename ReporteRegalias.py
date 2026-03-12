@@ -900,59 +900,59 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
     padding-top: 0.35rem;
 }}
 </style>
+""", unsafe_allow_html=True)
+
+# JS para tooltip dinámico — inyectado con components.v1.html para que se ejecute
+import streamlit.components.v1 as components
+components.html("""
 <script>
-(function() {{
-  function initTooltips() {{
-    document.querySelectorAll('.dias-tip-wrap').forEach(function(wrap) {{
+(function() {
+  function initTooltips() {
+    var wraps = window.parent.document.querySelectorAll('.dias-tip-wrap');
+    wraps.forEach(function(wrap) {
       if (wrap._tipInit) return;
       wrap._tipInit = true;
       var tip = wrap.querySelector('.dias-tip-box');
       if (!tip) return;
 
-      wrap.addEventListener('mouseenter', function() {{
-        // Posición del trigger
+      wrap.addEventListener('mouseenter', function() {
         var rect = wrap.getBoundingClientRect();
-        var tipH = 210; // altura estimada del tooltip
+        var tipH = 220;
         var tipW = 255;
         var margin = 10;
-        var spaceBelow = window.innerHeight - rect.bottom;
+        var spaceBelow = window.parent.innerHeight - rect.bottom;
         var spaceAbove = rect.top;
 
         tip.style.display = 'block';
         tip.classList.remove('tip-abajo', 'tip-arriba');
 
-        // Decidir vertical: preferir abajo, caer a arriba si no cabe
-        if (spaceBelow >= tipH + margin || spaceBelow >= spaceAbove) {{
-          // Abajo
-          tip.style.top  = (rect.bottom + 8) + 'px';
+        if (spaceBelow >= tipH + margin || spaceBelow >= spaceAbove) {
+          tip.style.top    = (rect.bottom + 8) + 'px';
           tip.style.bottom = 'auto';
           tip.classList.add('tip-abajo');
-        }} else {{
-          // Arriba
-          tip.style.top  = (rect.top - tipH - 8) + 'px';
+        } else {
+          tip.style.top    = (rect.top - tipH - 8) + 'px';
           tip.style.bottom = 'auto';
           tip.classList.add('tip-arriba');
-        }}
+        }
 
-        // Centrar horizontalmente, sin salir de pantalla
         var left = rect.left + rect.width / 2 - tipW / 2;
-        left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+        left = Math.max(8, Math.min(left, window.parent.innerWidth - tipW - 8));
         tip.style.left = left + 'px';
-      }});
+      });
 
-      wrap.addEventListener('mouseleave', function() {{
-        var tip = wrap.querySelector('.dias-tip-box');
+      wrap.addEventListener('mouseleave', function() {
         if (tip) tip.style.display = 'none';
-      }});
-    }});
-  }}
+      });
+    });
+  }
 
-  // Observar cambios en el DOM (Streamlit renderiza contenido dinámicamente)
-  var observer = new MutationObserver(function() {{ initTooltips(); }});
-  observer.observe(document.body, {{ childList: true, subtree: true }});
+  var observer = new MutationObserver(function() { initTooltips(); });
+  observer.observe(window.parent.document.body, { childList: true, subtree: true });
   initTooltips();
-}})();
-</script>""", unsafe_allow_html=True)
+})();
+</script>
+""", height=0, scrolling=False)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTES DE VALIDACIÓN — deben ir ANTES de procesar()
