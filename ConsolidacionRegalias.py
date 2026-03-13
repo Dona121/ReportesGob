@@ -2,9 +2,9 @@ import streamlit as st
 import polars as pl
 import pandas
 import xlsxwriter
-import os
 import io
 from datetime import datetime
+
 
 st.set_page_config(
     page_title="Matriz de Seguimiento y Evaluación",
@@ -19,164 +19,356 @@ st.markdown("Carga los archivos fuente para generar la matriz mensual.")
 # ── Esquemas esperados por archivo / tabla ────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 #
-# Cada entrada es:  columna → (tipo_legible, tipo_polars_esperado_o_None)
-# tipo_polars_esperado = None significa que se valida solo presencia,
-#   no el tipo (p.ej. texto libre).
+# Cada entrada es:  columna → (tipo_legible, categoria)
+# categoria indica qué validación de contenido aplicar:
+#   "texto"  → debe ser String; si es numérico se reporta error (ej. BPIN)
+#   "numero" → debe poder convertirse a Float64
+#   "fecha"  → debe poder convertirse a Date
+#   "libre"  → solo se valida presencia, sin validar contenido
 # ──────────────────────────────────────────────────────────────────────────────
 
 ESQUEMA_GESPROY_PROYECTOS = {
-    "BPIN":                        ("Texto",  None),
-    "NOMBRE PROYECTO":             ("Texto",  None),
-    "SECTOR":                      ("Texto",  None),
-    "ESTADO PROYECTO":             ("Texto",  None),
-    "VALOR SGR":                   ("Número", None),
-    "VALOR NACIÓN":                ("Número", None),
-    "VALOR OTROS":                 ("Número", None),
-    "VALOR OTRAS FUENTES NO SUIFP":("Número", None),
-    "VALOR TOTAL PROYECTO":        ("Número", None),
-    "VALOR PAGOS":                 ("Número", None),
+    "BPIN":                        ("Texto",  "texto"),
+    "NOMBRE PROYECTO":             ("Texto",  "texto"),
+    "SECTOR":                      ("Texto",  "texto"),
+    "ESTADO PROYECTO":             ("Texto",  "texto"),
+    "VALOR SGR":                   ("Número", "numero"),
+    "VALOR NACIÓN":                ("Número", "numero"),
+    "VALOR OTROS":                 ("Número", "numero"),
+    "VALOR OTRAS FUENTES NO SUIFP":("Número", "numero"),
+    "VALOR TOTAL PROYECTO":        ("Número", "numero"),
+    "VALOR PAGOS":                 ("Número", "numero"),
 }
 
 ESQUEMA_GESPROY_CONTRATOS = {
-    "BPIN":                   ("Texto",  None),
-    "FECHA ACT ADTIVO APERT": ("Fecha",  None),
-    "ESTADO CONTRATO":        ("Texto",  None),
-    "FECHA INICIAL":          ("Fecha",  None),
-    "FECHA SUSCRIPCION":      ("Fecha",  None),
-    "ULTIMA FECHA PAGO":      ("Fecha",  None),
-    "TIPO CONTRATO":          ("Texto",  None),
-    "VALOR TOTAL FUENTES SGR":("Número", None),
+    "BPIN":                   ("Texto",  "texto"),
+    "FECHA ACT ADTIVO APERT": ("Fecha",  "fecha"),
+    "ESTADO CONTRATO":        ("Texto",  "texto"),
+    "FECHA INICIAL":          ("Fecha",  "fecha"),
+    "FECHA SUSCRIPCION":      ("Fecha",  "fecha"),
+    "ULTIMA FECHA PAGO":      ("Fecha",  "fecha"),
+    "TIPO CONTRATO":          ("Texto",  "texto"),
+    "VALOR TOTAL FUENTES SGR":("Número", "numero"),
 }
 
 ESQUEMA_GESPROY_CARGUE = {
-    "BPIN":                        ("Texto",  None),
-    "FECHA APROBACIÓN PROYECTO":   ("Fecha",  None),
-    "AVANCE FISICO":               ("Número", None),
-    "AVANCE FINANCIERO":           ("Número", None),
+    "BPIN":                      ("Texto",  "texto"),
+    "FECHA APROBACIÓN PROYECTO": ("Fecha",  "fecha"),
+    "AVANCE FISICO":             ("Número", "numero"),
+    "AVANCE FINANCIERO":         ("Número", "numero"),
 }
 
 ESQUEMA_MATRIZ_H1 = {
-    "BPIN":                               ("Texto", None),
-    "ALCANCE DEL PROYECTO":               ("Texto", None),
-    "FUENTE DE FINANCIACIÓN":             ("Texto", None),
-    "ENTIDAD O SECRETARIA":               ("Texto", None),
-    "INDICADOR DE PRODUCTO MGA":          ("Texto", None),
-    "FECHA DE MIGRACIÓN A GESPROY":       ("Fecha", None),
-    "FECHA DE ASIGNACIÓN DE RECURSOS":    ("Fecha", None),
-    "FECHA DE INCORPORACIÓN DE RECURSOS": ("Fecha", None),
-    "HORIZONTE DEL PROYECTO":             ("Texto", None),
-    "FECHA DE FINALIZACIÓN":              ("Fecha", None),
+    "BPIN":                               ("Texto", "texto"),
+    "ALCANCE DEL PROYECTO":               ("Texto", "libre"),
+    "FUENTE DE FINANCIACIÓN":             ("Texto", "libre"),
+    "ENTIDAD O SECRETARIA":               ("Texto", "libre"),
+    "INDICADOR DE PRODUCTO MGA":          ("Texto", "libre"),
+    "FECHA DE MIGRACIÓN A GESPROY":       ("Fecha", "fecha"),
+    "FECHA DE ASIGNACIÓN DE RECURSOS":    ("Fecha", "fecha"),
+    "FECHA DE INCORPORACIÓN DE RECURSOS": ("Fecha", "fecha"),
+    "HORIZONTE DEL PROYECTO":             ("Texto", "libre"),
+    "FECHA DE FINALIZACIÓN":              ("Fecha", "fecha"),
 }
 
 ESQUEMA_MATRIZ_DESC = {
-    "BPIN":                                        ("Texto",  None),
-    "EJECUTOR":                                    ("Texto",  None),
-    "NOMBRE DEL PROYECTO":                         ("Texto",  None),
-    "ALCANCE":                                     ("Texto",  None),
-    "SECTOR":                                      ("Texto",  None),
-    "FUENTE":                                      ("Texto",  None),
-    "ESTADO PROYECTO":                             ("Texto",  None),
-    "ESTADO CONTRATO":                             ("Texto",  None),
-    "VALOR SGR":                                   ("Número", None),
-    "VALOR OTROS ":                                ("Número", None),
-    "VALOR TOTAL":                                 ("Número", None),
-    "FECHA DE MIGRACIÓN A GESPROY":                ("Fecha",  None),
-    "FECHA DE ASIGNACIÓN DE RECURSOS":             ("Fecha",  None),
-    "FECHA DE INCORPORACIÓN DE RECUROS":           ("Fecha",  None),
-    "AVANCE FÍSICO":                               ("Número", None),
-    "AVANCE FINANCIERO":                           ("Número", None),
-    "CPI (DATOS DE PRUEBA)":                       ("Número", None),
-    "SPI (DATOS DE PRUEBA)":                       ("Número", None),
-    "FECHA APROBACIÓN PROYECTO":                   ("Fecha",  None),
-    "FECHA DE APERTURA DEL PRIMER PROCESO":        ("Fecha",  None),
-    "FECHA SUSCRIPCION":                           ("Fecha",  None),
-    "FECHA ACTA INICIO":                           ("Fecha",  None),
-    "FECHA DE CORTE GESPROY":                      ("Fecha",  None),
-    "CALIFICACIÓN DESEMPEÑO EN LA CONTRATACIÓN":   ("Número", None),
-    "CALIFICACIÓN INFORMACIÓN A TIEMPO":           ("Número", None),
-    "CALIFICACIÓN CALIDAD INFORMACIÓN":            ("Número", None),
-    "CONTROL EXTERNALIDADES":                      ("Número", None),
-    "COMENTARIOS CALIFICACIÓN":                    ("Texto",  None),
+    "BPIN":                                        ("Texto",  "texto"),
+    "EJECUTOR":                                    ("Texto",  "libre"),
+    "NOMBRE DEL PROYECTO":                         ("Texto",  "libre"),
+    "ALCANCE":                                     ("Texto",  "libre"),
+    "SECTOR":                                      ("Texto",  "libre"),
+    "FUENTE":                                      ("Texto",  "libre"),
+    "ESTADO PROYECTO":                             ("Texto",  "texto"),
+    "ESTADO CONTRATO":                             ("Texto",  "libre"),
+    "VALOR SGR":                                   ("Número", "numero"),
+    "VALOR OTROS ":                                ("Número", "numero"),
+    "VALOR TOTAL":                                 ("Número", "numero"),
+    "FECHA DE MIGRACIÓN A GESPROY":                ("Fecha",  "fecha"),
+    "FECHA DE ASIGNACIÓN DE RECURSOS":             ("Fecha",  "fecha"),
+    "FECHA DE INCORPORACIÓN DE RECUROS":           ("Fecha",  "fecha"),
+    "AVANCE FÍSICO":                               ("Número", "numero"),
+    "AVANCE FINANCIERO":                           ("Número", "numero"),
+    "CPI (DATOS DE PRUEBA)":                       ("Número", "numero"),
+    "SPI (DATOS DE PRUEBA)":                       ("Número", "numero"),
+    "FECHA APROBACIÓN PROYECTO":                   ("Fecha",  "fecha"),
+    "FECHA DE APERTURA DEL PRIMER PROCESO":        ("Fecha",  "fecha"),
+    "FECHA SUSCRIPCION":                           ("Fecha",  "fecha"),
+    "FECHA ACTA INICIO":                           ("Fecha",  "fecha"),
+    "FECHA DE CORTE GESPROY":                      ("Fecha",  "fecha"),
+    "CALIFICACIÓN DESEMPEÑO EN LA CONTRATACIÓN":   ("Número", "numero"),
+    "CALIFICACIÓN INFORMACIÓN A TIEMPO":           ("Número", "numero"),
+    "CALIFICACIÓN CALIDAD INFORMACIÓN":            ("Número", "numero"),
+    "CONTROL EXTERNALIDADES":                      ("Número", "numero"),
+    "COMENTARIOS CALIFICACIÓN":                    ("Texto",  "libre"),
 }
 
 ESQUEMA_MATRIZ_MUN = {
-    "BPIN":                              ("Texto",  None),
-    "EJECUTOR":                          ("Texto",  None),
-    "NOMBRE DEL PROYECTO":               ("Texto",  None),
-    "ALCANCE":                           ("Texto",  None),
-    "SECTOR":                            ("Texto",  None),
-    "FUENTE":                            ("Texto",  None),
-    "ESTADO PROYECTO":                   ("Texto",  None),
-    "ESTADO CONTRATO":                   ("Texto",  None),
-    "VALOR SGR":                         ("Número", None),
-    "VALOR OTROS":                       ("Número", None),
-    "VALOR TOTAL":                       ("Número", None),
-    "FECHA APROBACIÓN PROYECTO":         ("Fecha",  None),
-    "FECHA DE ASIGNACIÓN DE RECURSOS":   ("Fecha",  None),
-    "FECHA DE INCORPORACIÓN DE RECUROS": ("Fecha",  None),
-    "FECHA ACTA INICIO":                 ("Fecha",  None),
-    "AVANCE FÍSICO":                     ("Número", None),
-    "AVANCE FINANCIERO":                 ("Número", None),
-    "COMENTARIOS ":                      ("Texto",  None),
+    "BPIN":                              ("Texto",  "texto"),
+    "EJECUTOR":                          ("Texto",  "libre"),
+    "NOMBRE DEL PROYECTO":               ("Texto",  "libre"),
+    "ALCANCE":                           ("Texto",  "libre"),
+    "SECTOR":                            ("Texto",  "libre"),
+    "FUENTE":                            ("Texto",  "libre"),
+    "ESTADO PROYECTO":                   ("Texto",  "texto"),
+    "ESTADO CONTRATO":                   ("Texto",  "libre"),
+    "VALOR SGR":                         ("Número", "numero"),
+    "VALOR OTROS":                       ("Número", "numero"),
+    "VALOR TOTAL":                       ("Número", "numero"),
+    "FECHA APROBACIÓN PROYECTO":         ("Fecha",  "fecha"),
+    "FECHA DE ASIGNACIÓN DE RECURSOS":   ("Fecha",  "fecha"),
+    "FECHA DE INCORPORACIÓN DE RECUROS": ("Fecha",  "fecha"),
+    "FECHA ACTA INICIO":                 ("Fecha",  "fecha"),
+    "AVANCE FÍSICO":                     ("Número", "numero"),
+    "AVANCE FINANCIERO":                 ("Número", "numero"),
+    "COMENTARIOS ":                      ("Texto",  "libre"),
 }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── Función de validación ─────────────────────────────────────────────────────
+# ── Funciones de validación ───────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-def validar_columnas(df: pl.DataFrame, esquema: dict, nombre_fuente: str) -> list[str]:
+_TIPOS_NUMERICOS = {
+    pl.Int8, pl.Int16, pl.Int32, pl.Int64,
+    pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64,
+    pl.Float32, pl.Float64,
+}
+
+_FORMATOS_FECHA_VALIDOS = ["%d/%m/%Y", "%Y-%m-%d"]
+
+_COMO_CORREGIR = {
+    "texto_es_numero": (
+        "Esta columna debe contener **texto** (letras o combinación de letras y números), "
+        "pero Excel la convirtió a **número**. "
+        "Para corregirlo: selecciona la columna en Excel, clic derecho, "
+        "*Formato de celdas*, elige **Texto** y vuelve a escribir o pegar los valores."
+    ),
+    "numero_es_texto": (
+        "Esta columna debe contener **números**, pero tiene valores que no son numéricos. "
+        "Revisa que no haya letras, espacios o símbolos de moneda (como $ o %) mezclados en las celdas."
+    ),
+    "fecha_es_numero": (
+        "Esta columna debe contener **fechas**, pero Excel la guardó como **número** (número de serie). "
+        "Selecciona la columna, abre *Formato de celdas* y elige **Fecha** con el formato **dd/mm/yyyy**."
+    ),
+    "fecha_formato_invalido": (
+        "Esta columna debe contener **fechas** en formato dd/mm/yyyy (p.ej. 01/03/2026), "
+        "pero los valores no corresponden a ese formato. "
+        "Verifica que la columna esté en formato *Fecha* con el patrón **dd/mm/yyyy** en Excel."
+    ),
+    "columna_faltante": (
+        "Abre el archivo en Excel y verifica que el encabezado de esa columna "
+        "esté escrito exactamente como se indica aquí, sin espacios al inicio ni al final "
+        "y con las mismas mayúsculas."
+    ),
+}
+
+
+def _dtype_es_fecha(dtype) -> bool:
+    """True si el dtype es Date o cualquier variante de Datetime."""
+    return dtype == pl.Date or (
+        hasattr(dtype, "base_type") and dtype.base_type() == pl.Datetime
+    )
+
+
+def _es_fecha_valida_str(serie: pl.Series) -> bool:
+    """True si todos los valores no-vacíos de la serie se pueden parsear como fecha."""
+    no_vacios = serie.drop_nulls()
+    no_vacios = no_vacios.filter(no_vacios != "")
+    if len(no_vacios) == 0:
+        return True
+    for fmt in _FORMATOS_FECHA_VALIDOS:
+        parseados = no_vacios.str.to_date(fmt, strict=False)
+        if parseados.drop_nulls().len() == len(no_vacios):
+            return True
+    return False
+
+
+def _ejemplos_valores(serie: pl.Series, n: int = 3) -> str:
+    """Hasta n valores no-nulos de la serie, formateados como texto legible."""
+    como_str  = serie.drop_nulls().cast(pl.String)
+    no_vacios = como_str.filter(como_str != "").head(n).to_list()
+    if not no_vacios:
+        return "*(columna vacía)*"
+    return ", ".join(f"`{v}`" for v in no_vacios)
+
+
+def validar_columnas(df: pl.DataFrame, esquema: dict, _nombre_ignorado: str) -> list[dict]:
     """
-    Verifica que el DataFrame tenga todas las columnas del esquema.
-    Devuelve lista de mensajes de error (vacía si todo está bien).
+    Verifica presencia y tipo de cada columna del esquema.
+    Retorna lista de dicts con claves: tipo, col, titulo, detalle, como_corregir.
     """
-    errores = []
+    problemas = []
     columnas_df = set(df.columns)
-    for col, (tipo_legible, _) in esquema.items():
+
+    for col, (tipo_legible, categoria) in esquema.items():
+
+        # ── Columna faltante ───────────────────────────────────────────────────
         if col not in columnas_df:
-            errores.append(
-                f"**'{nombre_fuente}'** — Columna faltante: `{col}` (se esperaba tipo: *{tipo_legible}*)"
-            )
-    return errores
+            problemas.append({
+                "tipo": "faltante",
+                "col": col,
+                "titulo": f"Columna `{col}` no encontrada",
+                "detalle": (
+                    f"Se esperaba una columna llamada exactamente **`{col}`** "
+                    f"(tipo: *{tipo_legible}*) pero no existe en el archivo. "
+                    "Puede ser un error de nombre, mayúsculas o espacios extra."
+                ),
+                "como_corregir": _COMO_CORREGIR["columna_faltante"],
+            })
+            continue
+
+        if categoria == "libre":
+            continue
+
+        serie = df[col]
+        dtype = serie.dtype
+
+        # ── Texto ──────────────────────────────────────────────────────────────
+        if categoria == "texto":
+            if dtype in _TIPOS_NUMERICOS:
+                problemas.append({
+                    "tipo": "tipo_incorrecto",
+                    "col": col,
+                    "titulo": f"Columna `{col}` está guardada como número (debe ser texto)",
+                    "detalle": (
+                        f"Valores encontrados: {_ejemplos_valores(serie)}. "
+                        "El sistema necesita esta columna como texto porque puede contener "
+                        "ceros al inicio u otros caracteres que Excel elimina al convertirla a número."
+                    ),
+                    "como_corregir": _COMO_CORREGIR["texto_es_numero"],
+                })
+
+        # ── Número ─────────────────────────────────────────────────────────────
+        elif categoria == "numero":
+            if dtype == pl.String:
+                no_vacios   = serie.drop_nulls()
+                no_vacios   = no_vacios.filter(no_vacios != "")
+                if len(no_vacios) > 0:
+                    convertidos = no_vacios.cast(pl.Float64, strict=False)
+                    invalidos   = no_vacios.filter(convertidos.is_null())
+                    if len(invalidos) > 0:
+                        ejemplos = ", ".join(f"`{v}`" for v in invalidos.head(3).to_list())
+                        problemas.append({
+                            "tipo": "tipo_incorrecto",
+                            "col": col,
+                            "titulo": f"Columna `{col}` tiene valores que no son números",
+                            "detalle": (
+                                f"Se encontraron {len(invalidos)} valor(es) no numérico(s). "
+                                f"Ejemplos: {ejemplos}."
+                            ),
+                            "como_corregir": _COMO_CORREGIR["numero_es_texto"],
+                        })
+            elif _dtype_es_fecha(dtype):
+                problemas.append({
+                    "tipo": "tipo_incorrecto",
+                    "col": col,
+                    "titulo": f"Columna `{col}` está guardada como fecha (debe ser número)",
+                    "detalle": "El sistema esperaba un número en esta columna pero encontró fechas.",
+                    "como_corregir": _COMO_CORREGIR["numero_es_texto"],
+                })
+
+        # ── Fecha ──────────────────────────────────────────────────────────────
+        elif categoria == "fecha":
+            if dtype in _TIPOS_NUMERICOS:
+                problemas.append({
+                    "tipo": "tipo_incorrecto",
+                    "col": col,
+                    "titulo": f"Columna `{col}` está guardada como número (debe ser fecha)",
+                    "detalle": f"Valores encontrados: {_ejemplos_valores(serie)}.",
+                    "como_corregir": _COMO_CORREGIR["fecha_es_numero"],
+                })
+            elif dtype == pl.String:
+                if not _es_fecha_valida_str(serie):
+                    no_vacios = serie.drop_nulls()
+                    no_vacios = no_vacios.filter(no_vacios != "")
+                    ejemplos  = ", ".join(f"`{v}`" for v in no_vacios.head(3).to_list())
+                    problemas.append({
+                        "tipo": "tipo_incorrecto",
+                        "col": col,
+                        "titulo": f"Columna `{col}` tiene fechas en formato no reconocido",
+                        "detalle": (
+                            f"Ejemplos encontrados: {ejemplos}. "
+                            "El sistema acepta los formatos **dd/mm/yyyy** o **yyyy-mm-dd**."
+                        ),
+                        "como_corregir": _COMO_CORREGIR["fecha_formato_invalido"],
+                    })
+            # pl.Date / pl.Datetime → correcto, sin problema
+
+    return problemas
 
 
-def mostrar_esquema(esquema: dict, nombre: str):
-    """Expander con tabla de columnas esperadas y sus tipos."""
-    with st.expander(f"Ver columnas esperadas: {nombre}"):
-        filas = [{"Columna": col, "Tipo esperado": tipo} for col, (tipo, _) in esquema.items()]
-        st.dataframe(
-            pandas.DataFrame(filas),
-            use_container_width=True,
-            hide_index=True,
-        )
+def mostrar_errores_validacion(
+    problemas_por_fuente: list[tuple[str, list[dict]]],
+) -> None:
+    """Renderiza los problemas de validación en Streamlit, agrupados por archivo/tabla."""
+    total = sum(len(p) for _, p in problemas_por_fuente)
+    st.error(
+        f"Se encontraron **{total} problema(s)** en los archivos cargados. "
+        "Corrígelos en Excel y vuelve a cargar los archivos."
+    )
+    for nombre_fuente, problemas in problemas_por_fuente:
+        if not problemas:
+            continue
+        st.markdown("---")
+        st.markdown(f"### {nombre_fuente}")
+        for p in problemas:
+            prefijo = "Columna faltante" if p["tipo"] == "faltante" else "Tipo incorrecto"
+            with st.expander(f"{prefijo}: {p['titulo']}", expanded=True):
+                st.markdown(f"**Qué pasó:** {p['detalle']}")
+                st.markdown(f"**Cómo corregirlo:** {p['como_corregir']}")
+    st.info(
+        "Despliega la sección **Referencia: columnas esperadas por archivo** (más arriba) "
+        "para ver el listado completo de columnas requeridas con sus tipos."
+    )
+
+
+def mostrar_esquema(esquema: dict) -> None:
+    """Tabla de columnas esperadas y sus tipos."""
+    filas = [{"Columna": col, "Tipo esperado": tipo} for col, (tipo, _) in esquema.items()]
+    st.dataframe(pandas.DataFrame(filas), use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── Funciones de Ayuda ────────────────────────────────────────────────────────
+# ── Lectura y normalización ───────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
 def ruta_reciente(archivos: list[str], prefijo: str) -> str | None:
+    """Devuelve el nombre del archivo con el prefijo dado que tenga la fecha más reciente."""
     filtrados = [f for f in archivos if f.startswith(prefijo)]
     if not filtrados:
         return None
-    fechas = []
-    for f in filtrados:
-        fecha = pl.Series([f]).str.extract(r"(\d{8})").item()
-        fechas.append(fecha)
-    reciente = (
-        pl.DataFrame({"Nombre archivo": filtrados, "Fecha": fechas})
+    filas = []
+    for nombre in filtrados:
+        fecha = pl.Series([nombre]).str.extract(r"(\d{8})").item()
+        if fecha is not None:
+            filas.append({"Nombre archivo": nombre, "Fecha": fecha})
+    if not filas:
+        # Ningún archivo tiene fecha en el nombre: devolver el primero encontrado
+        return filtrados[0]
+    return (
+        pl.DataFrame(filas)
         .sort("Fecha", descending=True)
-        .row(0, named=True)
+        .row(0, named=True)["Nombre archivo"]
     )
-    return reciente["Nombre archivo"]
 
 
 def leer_excel_regalias(contenido_bytes: bytes) -> pl.DataFrame:
+    """
+    Lee un reporte Gesproy donde la fila 0 es metadato, la fila 1 son los
+    encabezados y los datos comienzan en la fila 2. Todas las columnas se
+    leen como texto (infer_schema_length=0).
+    """
     df = pl.read_excel(
         io.BytesIO(contenido_bytes),
         has_header=False,
         infer_schema_length=0,
     )
+    if df.height < 2:
+        raise ValueError(
+            "El archivo no tiene suficientes filas. "
+            "Se esperan al menos 2 (fila de metadato + fila de encabezados)."
+        )
     encabezados = dict(zip(df.columns, df.row(1)))
     return (
         df
@@ -188,12 +380,13 @@ def leer_excel_regalias(contenido_bytes: bytes) -> pl.DataFrame:
 
 def normalizar_fecha(df: pl.DataFrame, columnas: list[str]) -> pl.DataFrame:
     """
-    Convierte columnas de fecha de forma robusta sin importar si Polars
-    las leyó como String (columna vacía o texto) o como Date (ya tenían fechas).
+    Convierte columnas de fecha de forma robusta independientemente del dtype
+    con que Polars las haya leído:
 
-    Formatos de string soportados (en orden de intento):
-      - dd/mm/yyyy  (formato de exportación actual)
-      - yyyy-mm-dd  (formato legacy de versiones anteriores)
+    - pl.Date     → sin cambio
+    - pl.Datetime → cast a pl.Date (elimina la hora)
+    - String      → intenta dd/mm/yyyy primero, luego yyyy-mm-dd
+    - Otros tipos → sin cambio (el error ya fue reportado por validar_columnas)
     """
     exprs = []
     for col in columnas:
@@ -201,19 +394,17 @@ def normalizar_fecha(df: pl.DataFrame, columnas: list[str]) -> pl.DataFrame:
             continue
         dtype = df.schema[col]
         if dtype == pl.Date:
-            # Ya es Date — pasar tal cual
             exprs.append(pl.col(col))
-        elif dtype in (pl.Datetime, pl.Datetime("us"), pl.Datetime("ns"), pl.Datetime("ms")):
-            # Datetime → Date (quitar la hora)
+        elif _dtype_es_fecha(dtype):
             exprs.append(pl.col(col).cast(pl.Date, strict=False))
-        else:
-            # String u otro: intentar dd/mm/yyyy primero, luego yyyy-mm-dd
+        elif dtype == pl.String:
             exprs.append(
                 pl.when(pl.col(col).str.contains(r"^\d{2}/\d{2}/\d{4}$", literal=False))
                 .then(pl.col(col).str.to_date("%d/%m/%Y", strict=False))
                 .otherwise(pl.col(col).str.to_date("%Y-%m-%d", strict=False))
                 .alias(col)
             )
+        # Para tipos numéricos u otros no se toca: ya fueron reportados
     if exprs:
         df = df.with_columns(exprs)
     return df
@@ -223,40 +414,42 @@ def normalizar_fecha(df: pl.DataFrame, columnas: list[str]) -> pl.DataFrame:
 # ── Funciones de cálculo ──────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-def dias_desde_aprobacion_hasta_primer_proceso(estado_proyecto, fecha_aprobacion, fecha_corte_gesproy):
-    condicion_estado = pl.col(estado_proyecto) == "SIN CONTRATAR"
-    condicion_fechas = (
-        (~pl.col(fecha_aprobacion).is_null()) &
-        (~pl.col(fecha_corte_gesproy).is_null())
+def dias_desde_aprobacion_hasta_primer_proceso(
+    estado_proyecto, fecha_aprobacion, fecha_corte_gesproy
+):
+    condicion = (
+        (pl.col(estado_proyecto) == "SIN CONTRATAR")
+        & pl.col(fecha_aprobacion).is_not_null()
+        & pl.col(fecha_corte_gesproy).is_not_null()
     )
     return (
-        pl.when(condicion_estado & condicion_fechas)
-        .then(
-            (pl.col(fecha_corte_gesproy) - pl.col(fecha_aprobacion)).dt.total_days()
-        )
+        pl.when(condicion)
+        .then((pl.col(fecha_corte_gesproy) - pl.col(fecha_aprobacion)).dt.total_days())
         .otherwise(None)
     )
 
 
-def dias_desde_apertura_hasta_primer_contrato(estado_proyecto, fecha_acta_inicio, fecha_primer_proceso):
-    condicion_estado = pl.col(estado_proyecto) == "SIN CONTRATAR"
-    condicion_fechas = ~pl.col(fecha_primer_proceso).is_null()
+def dias_desde_apertura_hasta_primer_contrato(
+    estado_proyecto, fecha_acta_inicio, fecha_primer_proceso
+):
+    condicion = (
+        (pl.col(estado_proyecto) == "SIN CONTRATAR")
+        & pl.col(fecha_primer_proceso).is_not_null()
+    )
     return (
-        pl.when(condicion_estado & condicion_fechas)
-        .then(
-            (pl.col(fecha_acta_inicio) - pl.col(fecha_primer_proceso)).dt.total_days()
-        )
+        pl.when(condicion)
+        .then((pl.col(fecha_acta_inicio) - pl.col(fecha_primer_proceso)).dt.total_days())
         .otherwise(None)
     )
 
 
-def dias_desde_suscripcion_hasta_fecha_acta_inicio(estado_proyecto, fecha_corte_gesproy, fecha_suscripcion):
-    condicion_estado = pl.col(estado_proyecto) == "CONTRATADO SIN ACTA DE INICIO"
+def dias_desde_suscripcion_hasta_fecha_acta_inicio(
+    estado_proyecto, fecha_corte_gesproy, fecha_suscripcion
+):
+    condicion = pl.col(estado_proyecto) == "CONTRATADO SIN ACTA DE INICIO"
     return (
-        pl.when(condicion_estado)
-        .then(
-            (pl.col(fecha_corte_gesproy) - pl.col(fecha_suscripcion)).dt.total_days()
-        )
+        pl.when(condicion)
+        .then((pl.col(fecha_corte_gesproy) - pl.col(fecha_suscripcion)).dt.total_days())
         .otherwise(None)
     )
 
@@ -265,35 +458,29 @@ def calificacion_desempeño_contratacion(
     estado_proyecto, fecha_aprobacion, fecha_apertura_primer_proceso,
     fecha_corte_gesproy, fecha_suscripcion, fecha_acta_inicio
 ):
-    condicion_estado   = pl.col(estado_proyecto) == "SIN CONTRATAR"
-    condicion_estado_2 = pl.col(estado_proyecto) == "CONTRATADO SIN ACTA DE INICIO"
+    sin_contratar       = pl.col(estado_proyecto) == "SIN CONTRATAR"
+    contratado_sin_acta = pl.col(estado_proyecto) == "CONTRATADO SIN ACTA DE INICIO"
 
-    condicion_escenario_2 = (
-        (~pl.col(fecha_aprobacion).is_null())
-        & (pl.col(fecha_apertura_primer_proceso).is_null())
-    )
-    condicion_escenario_3 = (
-        (pl.col(fecha_suscripcion).is_null())
-        & (~pl.col(fecha_apertura_primer_proceso).is_null())
-    )
-    condicion_escenario_4 = ~pl.col(fecha_suscripcion).is_null()
+    esc_2 = pl.col(fecha_aprobacion).is_not_null() & pl.col(fecha_apertura_primer_proceso).is_null()
+    esc_3 = pl.col(fecha_suscripcion).is_null()    & pl.col(fecha_apertura_primer_proceso).is_not_null()
+    esc_4 = pl.col(fecha_suscripcion).is_not_null()
 
-    dias_aprobacion_corte  = (pl.col(fecha_corte_gesproy) - pl.col(fecha_aprobacion)).dt.total_days()
-    dias_apertura_corte    = (pl.col(fecha_corte_gesproy) - pl.col(fecha_apertura_primer_proceso)).dt.total_days()
-    dias_corte_suscripcion = (pl.col(fecha_corte_gesproy) - pl.col(fecha_suscripcion)).dt.total_days()
+    d_aprobacion  = (pl.col(fecha_corte_gesproy) - pl.col(fecha_aprobacion)).dt.total_days()
+    d_apertura    = (pl.col(fecha_corte_gesproy) - pl.col(fecha_apertura_primer_proceso)).dt.total_days()
+    d_suscripcion = (pl.col(fecha_corte_gesproy) - pl.col(fecha_suscripcion)).dt.total_days()
 
-    formula_condicion_3 = (180 - dias_apertura_corte) / (180 - 121)
-    formula_condicion_4 = (60 - dias_corte_suscripcion) / 29 * 100
+    cal_esc3 = (180 - d_apertura)   / (180 - 121)
+    cal_esc4 = (60  - d_suscripcion) / 29 * 100
 
     return (
-        pl.when(condicion_estado & condicion_escenario_2 & (dias_aprobacion_corte >= 0) & (dias_aprobacion_corte <= 180)).then(pl.lit(100))
-        .when(condicion_estado & condicion_escenario_2 & (dias_aprobacion_corte > 180)).then(pl.lit(0))
-        .when(condicion_estado & condicion_escenario_3 & (dias_apertura_corte >= 0) & (dias_apertura_corte <= 120)).then(pl.lit(100))
-        .when(condicion_estado & condicion_escenario_3 & (dias_apertura_corte > 120) & (dias_apertura_corte <= 180)).then(formula_condicion_3)
-        .when(condicion_estado & condicion_escenario_3 & (dias_apertura_corte > 180)).then(pl.lit(0))
-        .when(condicion_estado_2 & condicion_escenario_4 & (dias_corte_suscripcion >= 0) & (dias_corte_suscripcion <= 30)).then(pl.lit(100))
-        .when(condicion_estado_2 & condicion_escenario_4 & (dias_corte_suscripcion > 30) & (dias_corte_suscripcion <= 60)).then(formula_condicion_4)
-        .when(condicion_estado_2 & condicion_escenario_4 & (dias_corte_suscripcion > 60)).then(pl.lit(0))
+        pl.when(sin_contratar & esc_2 & (d_aprobacion  >= 0)  & (d_aprobacion  <= 180)).then(pl.lit(100))
+        .when(sin_contratar & esc_2 & (d_aprobacion  > 180)).then(pl.lit(0))
+        .when(sin_contratar & esc_3 & (d_apertura    >= 0)  & (d_apertura    <= 120)).then(pl.lit(100))
+        .when(sin_contratar & esc_3 & (d_apertura    > 120) & (d_apertura    <= 180)).then(cal_esc3)
+        .when(sin_contratar & esc_3 & (d_apertura    > 180)).then(pl.lit(0))
+        .when(contratado_sin_acta & esc_4 & (d_suscripcion >= 0)  & (d_suscripcion <= 30)).then(pl.lit(100))
+        .when(contratado_sin_acta & esc_4 & (d_suscripcion > 30)  & (d_suscripcion <= 60)).then(cal_esc4)
+        .when(contratado_sin_acta & esc_4 & (d_suscripcion > 60)).then(pl.lit(0))
         .otherwise(pl.lit(None))
     )
 
@@ -430,8 +617,8 @@ cols_mun = [
     "FECHA DE ASIGNACIÓN DE RECURSOS", "FECHA DE INCORPORACIÓN DE RECUROS",
     "FECHA ACTA INICIO", "AVANCE FÍSICO", "AVANCE FINANCIERO", "COMENTARIOS ",
 ]
-color_mun           = {c: (AZUL, AZUL_HEADER) for c in cols_mun}
-columnas_fecha_mun  = {
+color_mun          = {c: (AZUL, AZUL_HEADER) for c in cols_mun}
+columnas_fecha_mun = {
     "FECHA APROBACIÓN PROYECTO", "FECHA DE ASIGNACIÓN DE RECURSOS",
     "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
 }
@@ -442,10 +629,11 @@ columnas_numero_mun = {
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── Generadores de fórmulas ───────────────────────────────────────────────────
+# ── Generadores de fórmulas Excel ────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
 def col_letter(i: int) -> str:
+    """Convierte índice de columna (0-based) a letra(s) Excel (A, B, …, AA, …)."""
     result = ""
     while True:
         result = chr(i % 26 + 65) + result
@@ -462,22 +650,22 @@ idx_desc = {col: todas_desc.index(col) for col in todas_desc}
 def formulas_para_fila_h1(r: int) -> dict:
     def ref(c): return f"${col_letter(idx_h1[c])}{r}"
 
-    estado         = ref("ESTADO PROYECTO")
-    spi            = ref("SPI")
-    cpi            = ref("CPI")
-    af             = ref("AVANCE FINANCIERO")
-    afis           = ref("AVANCE FISICO")
-    columna_apoyo  = ref("COLUMNA APOYO")
-    columna_apoyo2 = ref("COLUMNA APOYO 2")
-    info_sol       = ref("INFORMACIÓN SOLICITADA")
-    cron           = ref("DESEMPEÑO EN EL CRONOGRAMA")
-    cost           = ref("DESEMPEÑO EN EL COSTO")
-    brecha_ref     = ref("BRECHA FISICO - FINANCIERA")
-    ext            = ref("CONTROL EXTERNALIDADES")
-    fecha_recibo   = ref("FECHA DE RECIBO DE INFORMACIÓN")
-    en_ejecucion   = f'{estado}="CONTRATADO EN EJECUCI\u00d3N"'
+    estado       = ref("ESTADO PROYECTO")
+    spi          = ref("SPI")
+    cpi          = ref("CPI")
+    af           = ref("AVANCE FINANCIERO")
+    afis         = ref("AVANCE FISICO")
+    col_apoyo    = ref("COLUMNA APOYO")
+    col_apoyo2   = ref("COLUMNA APOYO 2")
+    info_sol     = ref("INFORMACIÓN SOLICITADA")
+    cron         = ref("DESEMPEÑO EN EL CRONOGRAMA")
+    cost         = ref("DESEMPEÑO EN EL COSTO")
+    brecha       = ref("BRECHA FISICO - FINANCIERA")
+    ext          = ref("CONTROL EXTERNALIDADES")
+    fecha_recibo = ref("FECHA DE RECIBO DE INFORMACIÓN")
+    en_ejecucion = f'{estado}="CONTRATADO EN EJECUCI\u00d3N"'
 
-    def formula_indicador(v):
+    def f_indicador(v):
         p = f"(({v}-0.38)/(0.84-0.38))*100"
         return (
             f'=IF(AND({v}>1.3,{en_ejecucion}),0,'
@@ -489,7 +677,7 @@ def formulas_para_fila_h1(r: int) -> dict:
         )
 
     b = f"({af}-{afis})"
-    formula_columna_apoyo = (
+    f_apoyo = (
         f'=IF(AND({af}<60,{b}<=50),100,IF(AND({af}<60,{b}>50),0,'
         f'IF(AND({af}>=60,{af}<70,{b}<=40),100,IF(AND({af}>=60,{af}<70,{b}>40),0,'
         f'IF(AND({af}>=70,{af}<80,{b}<=30),100,IF(AND({af}>=70,{af}<80,{b}>30),0,'
@@ -497,58 +685,58 @@ def formulas_para_fila_h1(r: int) -> dict:
         f'IF(AND({af}>=90,{af}<=100,{b}<=10),100,'
         f'IF(AND({af}>=90,{af}<=100,{b}>10),0,""))))))))))'
     )
-    formula_brecha = (
+    f_brecha = (
         f'=IF(AND({afis}>{af},{en_ejecucion}),100,'
         f'IF(AND({af}>{afis},{b}>50,{en_ejecucion}),0,'
         f'IF(AND({af}>{afis},{b}<=50,{af}<=60),100,'
-        f'IF(AND({af}>{afis},{b}<=50,{af}>60),{columna_apoyo},""))))'
+        f'IF(AND({af}>{afis},{b}<=50,{af}>60),{col_apoyo},""))))'
     )
-    formula_info_tiempo = (
+    f_info_tiempo = (
         f'=IF(ISNUMBER({fecha_recibo}),'
         f'IF(DAY({fecha_recibo})=10,100,'
         f'IF(DAY({fecha_recibo})=11,80,'
         f'IF(DAY({fecha_recibo})=12,50,0))),"")'
     )
-    formula_apoyo2 = (
+    f_apoyo2 = (
         f'=IF({ext}=0,100,IF({ext}=1,90,IF({ext}=2,75,'
         f'IF({ext}=3,60,IF({ext}=4,50,IF({ext}=5,25,'
         f'IF({ext}>=6,0,"")))))))'
     )
-    ponderado = f"({cron}*0.4+{cost}*0.2+{brecha_ref}*0.4)"
-    calculo   = f'IFERROR(IF(ISTEXT({info_sol}),{ponderado},""),"")'
-    formula_ejecucion = (
+    ponderado   = f"({cron}*0.4+{cost}*0.2+{brecha}*0.4)"
+    calculo     = f'IFERROR(IF(ISTEXT({info_sol}),{ponderado},""),"")'
+    f_ejecucion = (
         f'=IFERROR(IF(AND({en_ejecucion},{ext}>1),'
-        f'({calculo})*{columna_apoyo2}/100,{calculo}),0)'
+        f'({calculo})*{col_apoyo2}/100,{calculo}),0)'
     )
     return {
-        "DESEMPEÑO EN EL CRONOGRAMA":          formula_indicador(spi),
-        "DESEMPEÑO EN EL COSTO":               formula_indicador(cpi),
-        "COLUMNA APOYO":                       formula_columna_apoyo,
-        "BRECHA FISICO - FINANCIERA":          formula_brecha,
-        "CALIFICACIÓN INFORMACIÓN A TIEMPO":   formula_info_tiempo,
-        "COLUMNA APOYO 2":                     formula_apoyo2,
-        "CALIFICACIÓN EJECUCIÓN DEL PROYECTO": formula_ejecucion,
+        "DESEMPEÑO EN EL CRONOGRAMA":          f_indicador(spi),
+        "DESEMPEÑO EN EL COSTO":               f_indicador(cpi),
+        "COLUMNA APOYO":                       f_apoyo,
+        "BRECHA FISICO - FINANCIERA":          f_brecha,
+        "CALIFICACIÓN INFORMACIÓN A TIEMPO":   f_info_tiempo,
+        "COLUMNA APOYO 2":                     f_apoyo2,
+        "CALIFICACIÓN EJECUCIÓN DEL PROYECTO": f_ejecucion,
     }
 
 
 def formulas_para_fila_desc(r: int) -> dict:
     def ref(c): return f"${col_letter(idx_desc[c])}{r}"
 
-    estado         = ref("ESTADO PROYECTO")
-    spi            = ref("SPI (DATOS DE PRUEBA)")
-    cpi            = ref("CPI (DATOS DE PRUEBA)")
-    af             = ref("AVANCE FINANCIERO")
-    afis           = ref("AVANCE FÍSICO")
-    columna_apoyo  = ref("COLUMNA APOYO")
-    columna_apoyo2 = ref("COLUMNA APOYO 2")
-    info_sol       = ref("CALIFICACIÓN INFORMACIÓN A TIEMPO")
-    cron           = ref("DESEMPEÑO EN EL CRONOGRAMA")
-    cost           = ref("DESEMPEÑO EN EL COSTO")
-    brecha_ref     = ref("BRECHA FISICO - FINANCIERA")
-    ext            = ref("CONTROL EXTERNALIDADES")
-    en_ejecucion   = f'{estado}="CONTRATADO EN EJECUCI\u00d3N"'
+    estado       = ref("ESTADO PROYECTO")
+    spi          = ref("SPI (DATOS DE PRUEBA)")
+    cpi          = ref("CPI (DATOS DE PRUEBA)")
+    af           = ref("AVANCE FINANCIERO")
+    afis         = ref("AVANCE FÍSICO")
+    col_apoyo    = ref("COLUMNA APOYO")
+    col_apoyo2   = ref("COLUMNA APOYO 2")
+    info_sol     = ref("CALIFICACIÓN INFORMACIÓN A TIEMPO")
+    cron         = ref("DESEMPEÑO EN EL CRONOGRAMA")
+    cost         = ref("DESEMPEÑO EN EL COSTO")
+    brecha       = ref("BRECHA FISICO - FINANCIERA")
+    ext          = ref("CONTROL EXTERNALIDADES")
+    en_ejecucion = f'{estado}="CONTRATADO EN EJECUCI\u00d3N"'
 
-    def formula_indicador(v):
+    def f_indicador(v):
         p = f"(({v}-0.38)/(0.84-0.38))*100"
         return (
             f'=IF(AND({v}>1.3,{en_ejecucion}),0,'
@@ -560,7 +748,7 @@ def formulas_para_fila_desc(r: int) -> dict:
         )
 
     b = f"({af}-{afis})"
-    formula_columna_apoyo = (
+    f_apoyo = (
         f'=IF(AND({af}<60,{b}<=50),100,IF(AND({af}<60,{b}>50),0,'
         f'IF(AND({af}>=60,{af}<70,{b}<=40),100,IF(AND({af}>=60,{af}<70,{b}>40),0,'
         f'IF(AND({af}>=70,{af}<80,{b}<=30),100,IF(AND({af}>=70,{af}<80,{b}>30),0,'
@@ -568,35 +756,35 @@ def formulas_para_fila_desc(r: int) -> dict:
         f'IF(AND({af}>=90,{af}<=100,{b}<=10),100,'
         f'IF(AND({af}>=90,{af}<=100,{b}>10),0,""))))))))))'
     )
-    formula_brecha = (
+    f_brecha = (
         f'=IF(AND({afis}>{af},{en_ejecucion}),100,'
         f'IF(AND({af}>{afis},{b}>50,{en_ejecucion}),0,'
         f'IF(AND({af}>{afis},{b}<=50,{af}<=60),100,'
-        f'IF(AND({af}>{afis},{b}<=50,{af}>60),{columna_apoyo},""))))'
+        f'IF(AND({af}>{afis},{b}<=50,{af}>60),{col_apoyo},""))))'
     )
-    formula_apoyo2 = (
+    f_apoyo2 = (
         f'=IF({ext}=0,100,IF({ext}=1,90,IF({ext}=2,75,'
         f'IF({ext}=3,60,IF({ext}=4,50,IF({ext}=5,25,'
         f'IF({ext}>=6,0,"")))))))'
     )
-    ponderado = f"({cron}*0.4+{cost}*0.2+{brecha_ref}*0.4)"
-    calculo   = f'IFERROR(IF(ISTEXT({info_sol}),{ponderado},""),"")'
-    formula_ejecucion = (
+    ponderado   = f"({cron}*0.4+{cost}*0.2+{brecha}*0.4)"
+    calculo     = f'IFERROR(IF(ISTEXT({info_sol}),{ponderado},""),"")'
+    f_ejecucion = (
         f'=IFERROR(IF(AND({en_ejecucion},{ext}>1),'
-        f'({calculo})*{columna_apoyo2}/100,{calculo}),0)'
+        f'({calculo})*{col_apoyo2}/100,{calculo}),0)'
     )
     return {
-        "DESEMPEÑO EN EL CRONOGRAMA":          formula_indicador(spi),
-        "DESEMPEÑO EN EL COSTO":               formula_indicador(cpi),
-        "COLUMNA APOYO":                       formula_columna_apoyo,
-        "BRECHA FISICO - FINANCIERA":          formula_brecha,
-        "COLUMNA APOYO 2":                     formula_apoyo2,
-        "CALIFICACIÓN EJECUCIÓN DEL PROYECTO": formula_ejecucion,
+        "DESEMPEÑO EN EL CRONOGRAMA":          f_indicador(spi),
+        "DESEMPEÑO EN EL COSTO":               f_indicador(cpi),
+        "COLUMNA APOYO":                       f_apoyo,
+        "BRECHA FISICO - FINANCIERA":          f_brecha,
+        "COLUMNA APOYO 2":                     f_apoyo2,
+        "CALIFICACIÓN EJECUCIÓN DEL PROYECTO": f_ejecucion,
     }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── Función reutilizable para escribir una hoja ───────────────────────────────
+# ── Escritura de hojas Excel ──────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
 def escribir_hoja(
@@ -610,15 +798,15 @@ def escribir_hoja(
     col_numero: set,
     col_dias: set,
     col_con_formula: set,
-    fn_formulas,          # función(r) -> dict  |  None si no hay fórmulas
+    fn_formulas,        # callable(r: int) -> dict | None
     col_ocultar: list,
     fmt_titulo_azul, fmt_titulo_naranja,
     fmt_header_azul, fmt_header_naranja,
     fmt_celda, fmt_fecha, fmt_numero, fmt_dias,
 ):
-    todas    = [c for _, cols, _ in secciones_hoja for c in cols]
-    n_cols   = len(todas)
-    n_rows   = len(datos_hoja)
+    todas        = [c for _, cols, _ in secciones_hoja for c in cols]
+    n_cols       = len(todas)
+    n_rows       = len(datos_hoja)
     ROW_HEIGHT   = 70
     COL_WIDTH    = 25
     FILA_SECCION = 0
@@ -632,14 +820,14 @@ def escribir_hoja(
     for ri in range(n_rows):
         ws_hoja.set_row(FILA_DATOS + ri, ROW_HEIGHT)
 
-    # Títulos de sección
+    # Títulos de sección con merge
     col_off = 0
     for titulo, cols, ft in secciones_hoja:
         n = len(cols)
         ws_hoja.merge_range(FILA_SECCION, col_off, FILA_SECCION, col_off + n - 1, titulo, ft)
         col_off += n
 
-    # Tabla (sin header_format para evitar bug de styles.xml)
+    # Tabla xlsxwriter — sin header_format para evitar el bug de styles.xml
     ws_hoja.add_table(
         FILA_HEADER, 0, FILA_HEADER + n_rows, n_cols - 1,
         {
@@ -651,21 +839,21 @@ def escribir_hoja(
         },
     )
 
-    # Headers con color manual
+    # Color de encabezados aplicado manualmente
     for ci, col in enumerate(todas):
         fmt_hdr = fmt_header_azul if color_col[col][0] == AZUL else fmt_header_naranja
         ws_hoja.write(FILA_HEADER, ci, col, fmt_hdr)
 
-    # Ocultar columnas auxiliares
+    # Columnas auxiliares ocultas
     for col in col_ocultar:
         if col in todas:
             ci = todas.index(col)
             ws_hoja.set_column(ci, ci, COL_WIDTH, None, {"hidden": True})
 
-    # Datos + fórmulas
+    # Datos fila a fila
     for row_idx in range(n_rows):
-        excel_row_num = row_idx + FILA_DATOS + 1  # 1-based para fórmulas Excel
-        formulas_fila = fn_formulas(excel_row_num) if fn_formulas else {}
+        excel_row = row_idx + FILA_DATOS + 1  # 1-based para referencias de fórmulas
+        formulas_fila = fn_formulas(excel_row) if fn_formulas else {}
 
         for col_idx, col_name in enumerate(todas):
             er = row_idx + FILA_DATOS
@@ -720,27 +908,23 @@ with col2:
         key="version_anterior",
     )
 
-# ── Expanders de referencia (siempre visibles) ─────────────────────────────────
+# ── Referencia de columnas esperadas ──────────────────────────────────────────
 st.divider()
 with st.expander("Referencia: columnas esperadas por archivo"):
-    t1, t2, t3, t4, t5 = st.tabs([
+    st.caption(
+        "Consulta esta tabla para verificar que los archivos tengan exactamente "
+        "los nombres de columna y tipos de dato requeridos."
+    )
+    t1, t2, t3, t4, t5, t6 = st.tabs([
         "CG-proy", "CG-cttos", "CG-carga",
-        "Matriz — Hoja 1", "Matriz — Desc. / Mun.",
+        "Matriz — Hoja 1", "Matriz — Descentralizadas", "Matriz — Municipios",
     ])
-    with t1:
-        mostrar_esquema(ESQUEMA_GESPROY_PROYECTOS,  "CG-proy")
-    with t2:
-        mostrar_esquema(ESQUEMA_GESPROY_CONTRATOS,  "CG-cttos")
-    with t3:
-        mostrar_esquema(ESQUEMA_GESPROY_CARGUE,     "CG-carga")
-    with t4:
-        mostrar_esquema(ESQUEMA_MATRIZ_H1,           "MatrizSeguimientoEvaluacion")
-    with t5:
-        c_d, c_m = st.columns(2)
-        with c_d:
-            mostrar_esquema(ESQUEMA_MATRIZ_DESC, "OtrosEjecutoresDescentralizadas")
-        with c_m:
-            mostrar_esquema(ESQUEMA_MATRIZ_MUN,  "OtrosEjecutoresMunicipios")
+    with t1: mostrar_esquema(ESQUEMA_GESPROY_PROYECTOS)
+    with t2: mostrar_esquema(ESQUEMA_GESPROY_CONTRATOS)
+    with t3: mostrar_esquema(ESQUEMA_GESPROY_CARGUE)
+    with t4: mostrar_esquema(ESQUEMA_MATRIZ_H1)
+    with t5: mostrar_esquema(ESQUEMA_MATRIZ_DESC)
+    with t6: mostrar_esquema(ESQUEMA_MATRIZ_MUN)
 
 st.divider()
 st.header("Generar Matriz")
@@ -749,45 +933,145 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
     # ── Validación de archivos presentes ──────────────────────────────────────
     errores_archivos = []
+    nombre_proy = nombre_cttos = nombre_carga = None
+
     if not uploads_gesproy:
-        errores_archivos.append("Faltan los archivos de Gesproy (CG-proy, CG-cttos, CG-carga).")
+        errores_archivos.append(
+            "Faltan los archivos de Gesproy (CG-proy, CG-cttos y CG-carga)."
+        )
     else:
         nombres_gesproy = [f.name for f in uploads_gesproy]
         nombre_proy  = ruta_reciente(nombres_gesproy, "CG-proy")
         nombre_cttos = ruta_reciente(nombres_gesproy, "CG-cttos")
         nombre_carga = ruta_reciente(nombres_gesproy, "CG-carga")
-        if not nombre_proy:  errores_archivos.append("No se encontró archivo **CG-proy** (debe iniciar con ese prefijo y contener una fecha de 8 dígitos, p.ej. `CG-proy_20260301.xlsx`).")
-        if not nombre_cttos: errores_archivos.append("No se encontró archivo **CG-cttos**.")
-        if not nombre_carga: errores_archivos.append("No se encontró archivo **CG-carga**.")
+        if not nombre_proy:
+            errores_archivos.append(
+                "No se encontró el archivo **CG-proy**. "
+                "El nombre debe comenzar con ese prefijo, p.ej. `CG-proy_20260301.xlsx`."
+            )
+        if not nombre_cttos:
+            errores_archivos.append(
+                "No se encontró el archivo **CG-cttos**. "
+                "El nombre debe comenzar con ese prefijo, p.ej. `CG-cttos_20260301.xlsx`."
+            )
+        if not nombre_carga:
+            errores_archivos.append(
+                "No se encontró el archivo **CG-carga**. "
+                "El nombre debe comenzar con ese prefijo, p.ej. `CG-carga_20260301.xlsx`."
+            )
+
     if not upload_version_anterior:
-        errores_archivos.append("Falta el archivo de la **versión anterior de la Matriz**.")
+        errores_archivos.append(
+            "Falta el archivo de la **versión anterior de la Matriz**."
+        )
 
     if errores_archivos:
-        st.error("**No se puede generar la Matriz. Revisa los archivos cargados:**")
+        st.error("No se puede generar la Matriz. Revisa los archivos cargados:")
         for e in errores_archivos:
             st.markdown(f"- {e}")
         st.stop()
 
     gesproy_bytes    = {f.name: f.read() for f in uploads_gesproy}
-    version_anterior = upload_version_anterior.read()  # bytes reutilizables
+    version_anterior = upload_version_anterior.read()
 
     progress = st.progress(0, text="Iniciando...")
-    todos_los_errores_validacion: list[str] = []
 
     try:
         # ══════════════════════════════════════════════════════════════════════
-        # ── Proyectos ─────────────────────────────────────────────────────────
+        # ── Lectura de todos los archivos ─────────────────────────────────────
         # ══════════════════════════════════════════════════════════════════════
+
         progress.progress(8, text="Leyendo proyectos...")
         try:
             df_proy_raw = leer_excel_regalias(gesproy_bytes[nombre_proy])
         except Exception as e:
-            st.error(f"**Error al leer el archivo CG-proy** (`{nombre_proy}`): {e}")
+            progress.empty()
+            st.error(f"No se pudo leer el archivo **CG-proy** (`{nombre_proy}`): {e}")
             st.stop()
 
-        errores_proy = validar_columnas(df_proy_raw, ESQUEMA_GESPROY_PROYECTOS, f"CG-proy ({nombre_proy})")
-        todos_los_errores_validacion.extend(errores_proy)
+        progress.progress(18, text="Leyendo versión anterior...")
+        try:
+            df_h1_raw = pl.read_excel(
+                io.BytesIO(version_anterior),
+                table_name="MatrizSeguimientoEvaluacion",
+            )
+        except Exception as e:
+            progress.empty()
+            st.error(
+                "No se pudo leer la tabla **MatrizSeguimientoEvaluacion** "
+                "del archivo de versión anterior. "
+                "Verifica que el archivo tenga una tabla (no solo una hoja) "
+                f"con ese nombre exacto. Detalle: {e}"
+            )
+            st.stop()
 
+        try:
+            df_desc_raw = pl.read_excel(
+                io.BytesIO(version_anterior),
+                table_name="OtrosEjecutoresDescentralizadas",
+            )
+        except Exception as e:
+            progress.empty()
+            st.error(
+                "No se pudo leer la tabla **OtrosEjecutoresDescentralizadas**. "
+                f"Detalle: {e}"
+            )
+            st.stop()
+
+        try:
+            df_mun_raw = pl.read_excel(
+                io.BytesIO(version_anterior),
+                table_name="OtrosEjecutoresMunicipios",
+            )
+        except Exception as e:
+            progress.empty()
+            st.error(
+                "No se pudo leer la tabla **OtrosEjecutoresMunicipios**. "
+                f"Detalle: {e}"
+            )
+            st.stop()
+
+        progress.progress(30, text="Leyendo contratos...")
+        try:
+            df_cttos_raw = leer_excel_regalias(gesproy_bytes[nombre_cttos])
+        except Exception as e:
+            progress.empty()
+            st.error(f"No se pudo leer el archivo **CG-cttos** (`{nombre_cttos}`): {e}")
+            st.stop()
+
+        progress.progress(40, text="Leyendo cargue...")
+        try:
+            df_carga_raw = leer_excel_regalias(gesproy_bytes[nombre_carga])
+        except Exception as e:
+            progress.empty()
+            st.error(f"No se pudo leer el archivo **CG-carga** (`{nombre_carga}`): {e}")
+            st.stop()
+
+        # ── Validación de columnas y tipos ─────────────────────────────────────
+        todos_los_problemas = [
+            (f"CG-proy ({nombre_proy})",
+             validar_columnas(df_proy_raw,  ESQUEMA_GESPROY_PROYECTOS, "")),
+            (f"CG-cttos ({nombre_cttos})",
+             validar_columnas(df_cttos_raw, ESQUEMA_GESPROY_CONTRATOS, "")),
+            (f"CG-carga ({nombre_carga})",
+             validar_columnas(df_carga_raw, ESQUEMA_GESPROY_CARGUE, "")),
+            ("Versión anterior — MatrizSeguimientoEvaluacion",
+             validar_columnas(df_h1_raw,   ESQUEMA_MATRIZ_H1, "")),
+            ("Versión anterior — OtrosEjecutoresDescentralizadas",
+             validar_columnas(df_desc_raw, ESQUEMA_MATRIZ_DESC, "")),
+            ("Versión anterior — OtrosEjecutoresMunicipios",
+             validar_columnas(df_mun_raw,  ESQUEMA_MATRIZ_MUN, "")),
+        ]
+        if sum(len(p) for _, p in todos_los_problemas) > 0:
+            progress.empty()
+            mostrar_errores_validacion(todos_los_problemas)
+            st.stop()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # ── Procesamiento ─────────────────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════════════
+
+        progress.progress(50, text="Procesando datos...")
         regalias_proyectos = (
             df_proy_raw
             .select(list(ESQUEMA_GESPROY_PROYECTOS.keys()))
@@ -798,146 +1082,42 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                     "VALOR TOTAL PROYECTO", "VALOR SGR", "VALOR PAGOS",
                 ).cast(pl.Float64, strict=False)
             )
-        ) if not errores_proy else None
-
-        # ══════════════════════════════════════════════════════════════════════
-        # ── Versión anterior ──────────────────────────────────────────────────
-        # ══════════════════════════════════════════════════════════════════════
-        progress.progress(18, text="Leyendo versión anterior...")
-
-        # Hoja 1
-        try:
-            df_h1_raw = pl.read_excel(io.BytesIO(version_anterior), table_name="MatrizSeguimientoEvaluacion")
-        except Exception as e:
-            st.error(f"**Error al leer la tabla 'MatrizSeguimientoEvaluacion'** del archivo de versión anterior: {e}\n\nVerifica que el archivo tenga una tabla con ese nombre exacto.")
-            st.stop()
-
-        errores_h1 = validar_columnas(df_h1_raw, ESQUEMA_MATRIZ_H1, "MatrizSeguimientoEvaluacion")
-        todos_los_errores_validacion.extend(errores_h1)
-
-        BPINes_version_anterior = (
-            df_h1_raw.select(list(ESQUEMA_MATRIZ_H1.keys()))
-        ) if not errores_h1 else None
-
-        # Hoja 2
-        try:
-            df_desc_raw = pl.read_excel(io.BytesIO(version_anterior), table_name="OtrosEjecutoresDescentralizadas")
-        except Exception as e:
-            st.error(f"**Error al leer la tabla 'OtrosEjecutoresDescentralizadas'**: {e}")
-            st.stop()
-
-        errores_desc = validar_columnas(df_desc_raw, ESQUEMA_MATRIZ_DESC, "OtrosEjecutoresDescentralizadas")
-        todos_los_errores_validacion.extend(errores_desc)
-
-        # Hoja 3
-        try:
-            df_mun_raw = pl.read_excel(io.BytesIO(version_anterior), table_name="OtrosEjecutoresMunicipios")
-        except Exception as e:
-            st.error(f"**Error al leer la tabla 'OtrosEjecutoresMunicipios'**: {e}")
-            st.stop()
-
-        errores_mun = validar_columnas(df_mun_raw, ESQUEMA_MATRIZ_MUN, "OtrosEjecutoresMunicipios")
-        todos_los_errores_validacion.extend(errores_mun)
-
-        # ── Contratos ──────────────────────────────────────────────────────────
-        progress.progress(30, text="Leyendo contratos...")
-        try:
-            df_cttos_raw = leer_excel_regalias(gesproy_bytes[nombre_cttos])
-        except Exception as e:
-            st.error(f"**Error al leer el archivo CG-cttos** (`{nombre_cttos}`): {e}")
-            st.stop()
-
-        errores_cttos = validar_columnas(df_cttos_raw, ESQUEMA_GESPROY_CONTRATOS, f"CG-cttos ({nombre_cttos})")
-        todos_los_errores_validacion.extend(errores_cttos)
-
-        # ── Cargue ─────────────────────────────────────────────────────────────
-        progress.progress(40, text="Leyendo cargue...")
-        try:
-            df_carga_raw = leer_excel_regalias(gesproy_bytes[nombre_carga])
-        except Exception as e:
-            st.error(f"**Error al leer el archivo CG-carga** (`{nombre_carga}`): {e}")
-            st.stop()
-
-        errores_carga = validar_columnas(df_carga_raw, ESQUEMA_GESPROY_CARGUE, f"CG-carga ({nombre_carga})")
-        todos_los_errores_validacion.extend(errores_carga)
-
-        # ── Mostrar todos los errores de columnas y detener si hay alguno ───────
-        if todos_los_errores_validacion:
-            progress.empty()
-            st.error(f"**Se encontraron {len(todos_los_errores_validacion)} problema(s) en los archivos cargados.** Corrígelos y vuelve a intentarlo.")
-            for msg in todos_los_errores_validacion:
-                st.markdown(f"- {msg}")
-            st.info("Despliega la sección **'Referencia: columnas esperadas por archivo'** (arriba) para ver el listado completo de columnas requeridas.")
-            st.stop()
-
-        # ══════════════════════════════════════════════════════════════════════
-        # ── Procesamiento de contratos ────────────────────────────────────────
-        # ══════════════════════════════════════════════════════════════════════
-        progress.progress(50, text="Procesando contratos...")
-        regalias_contratos = (
-            df_cttos_raw
-            .select(list(ESQUEMA_GESPROY_CONTRATOS.keys()))
-            .with_columns(
-                pl.col(
-                    "FECHA INICIAL", "FECHA ACT ADTIVO APERT",
-                    "FECHA SUSCRIPCION", "ULTIMA FECHA PAGO",
-                )
-                .str.head(10)
-                .str.to_date(strict=False)
-            )
-            .rename({
-                "FECHA ACT ADTIVO APERT": "FECHA DE APERTURA DEL PRIMER PROCESO",
-                "FECHA INICIAL": "FECHA ACTA INICIO",
-            })
-            .sort(by="VALOR TOTAL FUENTES SGR", descending=True)
         )
 
+        # Contratos: normalizar_fecha maneja String o Date sin distinción
+        regalias_contratos = normalizar_fecha(
+            df_cttos_raw.select(list(ESQUEMA_GESPROY_CONTRATOS.keys())),
+            ["FECHA INICIAL", "FECHA ACT ADTIVO APERT", "FECHA SUSCRIPCION", "ULTIMA FECHA PAGO"],
+        ).rename({
+            "FECHA ACT ADTIVO APERT": "FECHA DE APERTURA DEL PRIMER PROCESO",
+            "FECHA INICIAL":          "FECHA ACTA INICIO",
+        })
+
+        # Un contrato representativo por BPIN según prioridad de tipo
+        tipos_prioritarios = {"Obra pública", "Consultoría", "Convenios de Cooperación", "Interadministrativos"}
+        tipos_secundarios  = {"Suministro", "Contratos o convenios con entidades sin ánimo de lucro"}
         contratos = []
-        for (bpin,), j in regalias_contratos.group_by("BPIN"):
-            condicion_filtro = (
-                j.sort("VALOR TOTAL FUENTES SGR", descending=True)
-                .with_columns(
-                    pl.when(pl.col("TIPO CONTRATO").is_in([
-                        "Obra pública", "Consultoría",
-                        "Convenios de Cooperación", "Interadministrativos"
-                    ]))
-                    .then(pl.lit("SI")).otherwise(pl.lit("NO"))
-                    .alias("PRIORIZADO")
-                )
-                .with_columns(
-                    pl.when(
-                        (pl.col("PRIORIZADO") == "NO") &
-                        pl.col("TIPO CONTRATO").is_in([
-                            "Suministro",
-                            "Contratos o convenios con entidades sin ánimo de lucro"
-                        ])
-                    )
-                    .then(pl.lit("SI")).otherwise(pl.lit("NO"))
-                    .alias("PRIORIZADO_2")
-                )
-                .with_columns(
-                    ((pl.col("PRIORIZADO") == "SI") | (pl.col("PRIORIZADO_2") == "SI"))
-                    .alias("NIVEL")
-                )
-            )
-            tiene_nivel = condicion_filtro.select(pl.col("NIVEL").any()).item()
-            if tiene_nivel:
-                contratos.append(condicion_filtro.filter(pl.col("NIVEL")).head(1).drop("PRIORIZADO", "PRIORIZADO_2", "NIVEL"))
-            else:
-                contratos.append(condicion_filtro.head(1).drop("PRIORIZADO", "PRIORIZADO_2", "NIVEL"))
+        for (bpin,), grupo in regalias_contratos.group_by("BPIN"):
+            grupo = grupo.sort("VALOR TOTAL FUENTES SGR", descending=True)
+            prioritarios = grupo.filter(pl.col("TIPO CONTRATO").is_in(tipos_prioritarios))
+            if len(prioritarios) > 0:
+                contratos.append(prioritarios.head(1))
+                continue
+            secundarios = grupo.filter(pl.col("TIPO CONTRATO").is_in(tipos_secundarios))
+            contratos.append(secundarios.head(1) if len(secundarios) > 0 else grupo.head(1))
         regalias_contratos = pl.concat(contratos)
 
-        # ── Cargue (procesamiento) ─────────────────────────────────────────────
-        regalias_cargue = (
+        # Cargue: normalizar_fecha maneja String o Date sin distinción
+        regalias_cargue = normalizar_fecha(
             df_carga_raw
             .select(list(ESQUEMA_GESPROY_CARGUE.keys()))
             .with_columns(
-                pl.col("FECHA APROBACIÓN PROYECTO").str.head(10).str.to_date(strict=False),
-                pl.col("AVANCE FISICO", "AVANCE FINANCIERO").cast(pl.Float64, strict=False),
-            )
+                pl.col("AVANCE FISICO", "AVANCE FINANCIERO").cast(pl.Float64, strict=False)
+            ),
+            ["FECHA APROBACIÓN PROYECTO"],
         )
 
-        # ── Versión anterior (procesamiento) ───────────────────────────────────
+        # Versión anterior: normalizar fechas
         otros_ejecutores_descentralizadas = normalizar_fecha(
             df_desc_raw.drop("FECHA DE CORTE GESPROY"),
             [
@@ -946,7 +1126,6 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
             ],
         )
-
         otros_ejecutores_municipios = normalizar_fecha(
             df_mun_raw,
             [
@@ -954,6 +1133,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
             ],
         )
+        BPINes_version_anterior = df_h1_raw.select(list(ESQUEMA_MATRIZ_H1.keys()))
 
         # ══════════════════════════════════════════════════════════════════════
         # ── Consolidación ─────────────────────────────────────────────────────
@@ -964,8 +1144,8 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         BPINes_version_anterior = (
             regalias_proyectos
             .join(BPINes_version_anterior, on="BPIN", how="left")
-            .join(regalias_contratos, on="BPIN", how="left")
-            .join(regalias_cargue, on="BPIN", how="left")
+            .join(regalias_contratos,      on="BPIN", how="left")
+            .join(regalias_cargue,         on="BPIN", how="left")
             .select(
                 "BPIN",
                 "ENTIDAD O SECRETARIA",
@@ -1019,13 +1199,12 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         )
 
         # ══════════════════════════════════════════════════════════════════════
-        # ── Cálculos de días y calificación ───────────────────────────────────
+        # ── Cálculo de días y calificación de contratación ────────────────────
         # ══════════════════════════════════════════════════════════════════════
         progress.progress(70, text="Calculando indicadores...")
 
-        BPINes_version_anterior = (
-            BPINes_version_anterior
-            .with_columns(
+        def agregar_calculos(df: pl.DataFrame) -> pl.DataFrame:
+            return df.with_columns(
                 dias_desde_aprobacion_hasta_primer_proceso(
                     "ESTADO PROYECTO", "FECHA APROBACIÓN PROYECTO", "FECHA DE CORTE GESPROY"
                 ).alias("DIAS DESDE LA APROBACIÓN HASTA APERTURA DEL PRIMER PROCESO"),
@@ -1038,43 +1217,25 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 calificacion_desempeño_contratacion(
                     "ESTADO PROYECTO", "FECHA APROBACIÓN PROYECTO",
                     "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA DE CORTE GESPROY",
-                    "FECHA SUSCRIPCION", "FECHA ACTA INICIO"
+                    "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
                 ).alias("CALIFICACIÓN DESEMPEÑO EN LA CONTRATACIÓN"),
             )
-        )
 
-        otros_ejecutores_descentralizadas = (
-            otros_ejecutores_descentralizadas
-            .with_columns(
-                dias_desde_aprobacion_hasta_primer_proceso(
-                    "ESTADO PROYECTO", "FECHA APROBACIÓN PROYECTO", "FECHA DE CORTE GESPROY"
-                ).alias("DIAS DESDE LA APROBACIÓN HASTA APERTURA DEL PRIMER PROCESO"),
-                dias_desde_apertura_hasta_primer_contrato(
-                    "ESTADO PROYECTO", "FECHA ACTA INICIO", "FECHA DE APERTURA DEL PRIMER PROCESO"
-                ).alias("DIAS DESDE LA APERTURA HASTA LA FIRMA DEL PRIMER CONTRATO"),
-                dias_desde_suscripcion_hasta_fecha_acta_inicio(
-                    "ESTADO PROYECTO", "FECHA DE CORTE GESPROY", "FECHA SUSCRIPCION"
-                ).alias("DIAS DESDE LA FECHA DE SUSCRIPCIÓN HASTA LA FECHA DEL ACTA DE INICIO"),
-                calificacion_desempeño_contratacion(
-                    "ESTADO PROYECTO", "FECHA APROBACIÓN PROYECTO",
-                    "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA DE CORTE GESPROY",
-                    "FECHA SUSCRIPCION", "FECHA ACTA INICIO"
-                ).alias("CALIFICACIÓN DESEMPEÑO EN LA CONTRATACIÓN"),
-            )
-        )
+        BPINes_version_anterior           = agregar_calculos(BPINes_version_anterior)
+        otros_ejecutores_descentralizadas = agregar_calculos(otros_ejecutores_descentralizadas)
 
         # ══════════════════════════════════════════════════════════════════════
         # ── Vista previa ──────────────────────────────────────────────────────
         # ══════════════════════════════════════════════════════════════════════
         progress.progress(80, text="Preparando vista previa...")
         st.divider()
-        st.header("Vista previa de datos")
+        st.header("Vista previa — Matriz principal")
         cols_preview = [
             "BPIN", "ENTIDAD O SECRETARIA", "NOMBRE PROYECTO", "ESTADO PROYECTO",
             "VALOR SGR", "AVANCE FISICO", "AVANCE FINANCIERO",
             "CALIFICACIÓN DESEMPEÑO EN LA CONTRATACIÓN",
         ]
-        st.caption(f"**{len(BPINes_version_anterior)} proyectos** — Matriz principal")
+        st.caption(f"{len(BPINes_version_anterior)} proyectos")
         st.dataframe(
             BPINes_version_anterior
             .select([c for c in cols_preview if c in BPINes_version_anterior.columns])
@@ -1085,11 +1246,8 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
         # ══════════════════════════════════════════════════════════════════════
         # ── Preparar DataFrames para Excel ────────────────────────────────────
-        # Las columnas de días ya son Int64 (las funciones aplican .dt.total_days()
-        # internamente), no se necesita conversión adicional.
         # ══════════════════════════════════════════════════════════════════════
         progress.progress(86, text="Preparando datos para Excel...")
-
         datos_h1   = BPINes_version_anterior.select(todas_las_columnas).to_pandas()
         datos_desc = otros_ejecutores_descentralizadas.select(todas_desc).to_pandas()
         datos_mun  = otros_ejecutores_municipios.select(cols_mun).to_pandas()
@@ -1100,19 +1258,19 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         progress.progress(90, text="Generando Excel...")
 
         output_buffer = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output_buffer, {"in_memory": True})
+        workbook      = xlsxwriter.Workbook(output_buffer, {"in_memory": True})
 
-        base = dict(font_name="Roboto", font_size=10, border=1, text_wrap=True)
-        def fmt(extra: dict): return workbook.add_format({**base, **extra})
+        _base_fmt = dict(font_name="Roboto", font_size=10, border=1, text_wrap=True)
+        def _fmt(extra: dict): return workbook.add_format({**_base_fmt, **extra})
 
-        fmt_titulo_azul    = fmt({"bold": True, "font_color": "white", "bg_color": AZUL,           "align": "center", "valign": "vcenter", "font_size": 12})
-        fmt_titulo_naranja = fmt({"bold": True, "font_color": "white", "bg_color": NARANJA,         "align": "center", "valign": "vcenter", "font_size": 12})
-        fmt_header_azul    = fmt({"bold": True, "font_color": "white", "bg_color": AZUL_HEADER,    "align": "center", "valign": "vcenter"})
-        fmt_header_naranja = fmt({"bold": True, "font_color": "white", "bg_color": NARANJA_HEADER, "align": "center", "valign": "vcenter"})
-        fmt_celda          = fmt({"valign": "vcenter", "align": "center"})
-        fmt_fecha_fmt      = fmt({"valign": "vcenter", "align": "center", "num_format": "dd/mm/yyyy"})
-        fmt_numero_fmt     = fmt({"valign": "vcenter", "align": "center", "num_format": "#,##0.000"})
-        fmt_dias_fmt       = fmt({"valign": "vcenter", "align": "center"})
+        fmt_titulo_azul    = _fmt({"bold": True, "font_color": "white", "bg_color": AZUL,           "align": "center", "valign": "vcenter", "font_size": 12})
+        fmt_titulo_naranja = _fmt({"bold": True, "font_color": "white", "bg_color": NARANJA,         "align": "center", "valign": "vcenter", "font_size": 12})
+        fmt_header_azul    = _fmt({"bold": True, "font_color": "white", "bg_color": AZUL_HEADER,    "align": "center", "valign": "vcenter"})
+        fmt_header_naranja = _fmt({"bold": True, "font_color": "white", "bg_color": NARANJA_HEADER, "align": "center", "valign": "vcenter"})
+        fmt_celda          = _fmt({"valign": "vcenter", "align": "center"})
+        fmt_fecha_fmt      = _fmt({"valign": "vcenter", "align": "center", "num_format": "dd/mm/yyyy"})
+        fmt_numero_fmt     = _fmt({"valign": "vcenter", "align": "center", "num_format": "#,##0.000"})
+        fmt_dias_fmt       = _fmt({"valign": "vcenter", "align": "center"})
 
         fmt_kwargs = dict(
             fmt_titulo_azul=fmt_titulo_azul, fmt_titulo_naranja=fmt_titulo_naranja,
@@ -1123,68 +1281,56 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
         ws1 = workbook.add_worksheet("MatrizSeguimientoEvaluacion")
         escribir_hoja(
-            workbook       = workbook,
-            ws_hoja        = ws1,
-            nombre_tabla   = "MatrizSeguimientoEvaluacion",
-            datos_hoja     = datos_h1,
-            secciones_hoja = [
+            workbook=workbook, ws_hoja=ws1,
+            nombre_tabla="MatrizSeguimientoEvaluacion",
+            datos_hoja=datos_h1,
+            secciones_hoja=[
                 ("DATOS GENERALES",         columnas_datos_generales,    fmt_titulo_azul),
                 ("DATOS PARA CALIFICACIÓN", columnas_datos_calificacion, fmt_titulo_naranja),
                 ("EVALUACIÓN",              columnas_evaluacion,         fmt_titulo_azul),
             ],
-            color_col       = color_por_columna,
-            col_fecha       = columnas_fecha_h1,
-            col_numero      = columnas_numero_h1,
-            col_dias        = columnas_dias_h1,
-            col_con_formula = columnas_con_formula_h1,
-            fn_formulas     = formulas_para_fila_h1,
-            col_ocultar     = ["COLUMNA APOYO", "COLUMNA APOYO 2"],
+            color_col=color_por_columna,
+            col_fecha=columnas_fecha_h1, col_numero=columnas_numero_h1,
+            col_dias=columnas_dias_h1,   col_con_formula=columnas_con_formula_h1,
+            fn_formulas=formulas_para_fila_h1,
+            col_ocultar=["COLUMNA APOYO", "COLUMNA APOYO 2"],
             **fmt_kwargs,
         )
 
         ws2 = workbook.add_worksheet("OtrosEjecutoresDescentralizadas")
         escribir_hoja(
-            workbook       = workbook,
-            ws_hoja        = ws2,
-            nombre_tabla   = "OtrosEjecutoresDescentralizadas",
-            datos_hoja     = datos_desc,
-            secciones_hoja = [
+            workbook=workbook, ws_hoja=ws2,
+            nombre_tabla="OtrosEjecutoresDescentralizadas",
+            datos_hoja=datos_desc,
+            secciones_hoja=[
                 ("DATOS GENERALES",         cols_desc_generales,    fmt_titulo_azul),
                 ("DATOS PARA CALIFICACIÓN", cols_desc_calificacion, fmt_titulo_naranja),
                 ("EVALUACIÓN",              cols_desc_evaluacion,   fmt_titulo_azul),
             ],
-            color_col       = color_desc,
-            col_fecha       = columnas_fecha_desc,
-            col_numero      = columnas_numero_desc,
-            col_dias        = columnas_dias_desc,
-            col_con_formula = columnas_con_formula_desc,
-            fn_formulas     = formulas_para_fila_desc,
-            col_ocultar     = ["COLUMNA APOYO", "COLUMNA APOYO 2"],
+            color_col=color_desc,
+            col_fecha=columnas_fecha_desc, col_numero=columnas_numero_desc,
+            col_dias=columnas_dias_desc,   col_con_formula=columnas_con_formula_desc,
+            fn_formulas=formulas_para_fila_desc,
+            col_ocultar=["COLUMNA APOYO", "COLUMNA APOYO 2"],
             **fmt_kwargs,
         )
 
         ws3 = workbook.add_worksheet("OtrosEjecutoresMunicipios")
         escribir_hoja(
-            workbook       = workbook,
-            ws_hoja        = ws3,
-            nombre_tabla   = "OtrosEjecutoresMunicipios",
-            datos_hoja     = datos_mun,
-            secciones_hoja = [
-                ("DATOS GENERALES", cols_mun, fmt_titulo_azul),
-            ],
-            color_col       = color_mun,
-            col_fecha       = columnas_fecha_mun,
-            col_numero      = columnas_numero_mun,
-            col_dias        = set(),
-            col_con_formula = set(),
-            fn_formulas     = None,
-            col_ocultar     = [],
+            workbook=workbook, ws_hoja=ws3,
+            nombre_tabla="OtrosEjecutoresMunicipios",
+            datos_hoja=datos_mun,
+            secciones_hoja=[("DATOS GENERALES", cols_mun, fmt_titulo_azul)],
+            color_col=color_mun,
+            col_fecha=columnas_fecha_mun, col_numero=columnas_numero_mun,
+            col_dias=set(),              col_con_formula=set(),
+            fn_formulas=None,            col_ocultar=[],
             **fmt_kwargs,
         )
 
         workbook.close()
         output_buffer.seek(0)
-        progress.progress(100, text="Listo!")
+        progress.progress(100, text="Listo.")
 
         nombre_archivo = f"MatrizSeguimientoEvaluacion_{datetime.now():%Y%m%d_%H%M}.xlsx"
         st.success(f"Matriz generada con **{len(BPINes_version_anterior)} proyectos**.")
@@ -1201,5 +1347,5 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
     except Exception as e:
         progress.empty()
-        st.error(f"**Error inesperado durante el procesamiento:** {e}")
+        st.error(f"Error inesperado durante el procesamiento: {e}")
         st.exception(e)
