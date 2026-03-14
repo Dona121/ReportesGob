@@ -2240,13 +2240,12 @@ for entidad in agrupacion["ENTIDAD O SECRETARIA"].to_list():
 # ─────────────────────────────────────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────────────────────────────────────
-tab_resumen, tab_detalle, tab_proyectos, tab_evaluacion, tab_exportar, tab_comunicaciones = st.tabs([
+tab_resumen, tab_proyectos, tab_evaluacion, tab_comunicaciones, tab_exportar = st.tabs([
     "Resumen por entidad",
-    f"Detalle · {sel_hito_label}",
     "Todos los proyectos",
     "Evaluación del modelo",
-    "Exportar",
     "Comunicaciones",
+    "Exportar",
 ])
 
 # HITO key map para badge_html
@@ -2306,9 +2305,24 @@ with tab_resumen:
     </table>
     """, unsafe_allow_html=True)
 
-# ── TAB 2: Detalle ────────────────────────────────────────────────────────────
-with tab_detalle:
-    hito_key_detalle = HITO_KEY_MAP.get(sel_clasi_col, None)
+    # ── Sección de detalle por hito (debajo de la tabla resumen) ─────────────
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-heading'>Detalle por hito</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='font-size:0.78rem;color:#6b7280;margin-bottom:0.8rem'>"
+        "Selecciona un hito para ver el detalle de todos los proyectos que lo tienen activo, "
+        "ordenados de mayor a menor tiempo.</div>",
+        unsafe_allow_html=True,
+    )
+
+    sel_hito_resumen = st.selectbox(
+        "Hito a detallar",
+        list(HITOS.keys()),
+        key="sel_hito_resumen",
+        label_visibility="collapsed",
+    )
+    sel_hito_col_r, sel_clasi_col_r = HITOS[sel_hito_resumen]
+    hito_key_detalle = HITO_KEY_MAP.get(sel_clasi_col_r, None)
 
     # Incluir fechas para el tooltip de cálculo
     DATE_COLS_DET = [
@@ -2318,13 +2332,13 @@ with tab_detalle:
     ]
     df_det = (
         df_f
-        .filter(~pl.col(sel_hito_col).is_null())
+        .filter(~pl.col(sel_hito_col_r).is_null())
         .select(
             "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO",
-            sel_hito_col, sel_clasi_col,
+            sel_hito_col_r, sel_clasi_col_r,
             *DATE_COLS_DET,
         )
-        .sort(["ENTIDAD O SECRETARIA", sel_hito_col], descending=[False, True])
+        .sort(["ENTIDAD O SECRETARIA", sel_hito_col_r], descending=[False, True])
     )
 
     def _fmt_date(val):
@@ -2336,7 +2350,6 @@ with tab_detalle:
         except Exception:
             return str(val)
 
-    # Descripción del cálculo por hito: (fecha_inicio_label, fecha_inicio_col, fecha_fin_label, fecha_fin_col, nota)
     HITO_CALC_META = {
         "hito_1_val": (
             "Fecha aprobación",    "FECHA APROBACIÓN PROYECTO",
@@ -2366,7 +2379,6 @@ with tab_detalle:
     }
 
     def _dias_tooltip(r, hito_col):
-        """Genera el HTML del tooltip con las fechas y fórmula del cálculo."""
         meta = HITO_CALC_META.get(hito_col)
         if not meta:
             return ""
@@ -2396,15 +2408,15 @@ with tab_detalle:
     else:
         for entidad in df_det["ENTIDAD O SECRETARIA"].unique().sort().to_list():
             sub  = df_det.filter(pl.col("ENTIDAD O SECRETARIA") == entidad)
-            prom = sub[sel_hito_col].mean()
+            prom = sub[sel_hito_col_r].mean()
             n    = sub.height
             prom_str = f"{prom:.1f} días" if prom is not None else "—"
 
             with st.expander(f"{entidad}   ·   {n} proyecto(s)   ·   Promedio: {prom_str}", expanded=False):
                 det_rows = ""
                 for r in sub.to_dicts():
-                    dias_v   = r[sel_hito_col]
-                    clasi_v  = r[sel_clasi_col]
+                    dias_v   = r[sel_hito_col_r]
+                    clasi_v  = r[sel_clasi_col_r]
                     dias_str = f"{dias_v:.1f} d" if dias_v is not None else "—"
                     _row_cls_map = {
                         "badge-green":  "row-green",
@@ -2420,7 +2432,7 @@ with tab_detalle:
                     }
                     badge_cls = _cls_badge_map.get(str(clasi_v), "badge-yellow") if clasi_v else ""
                     row_cls   = _row_cls_map.get(badge_cls, "")
-                    tooltip   = _dias_tooltip(r, sel_hito_col)
+                    tooltip   = _dias_tooltip(r, sel_hito_col_r)
                     det_rows += f"""<tr class="{row_cls}">
                         <td><span class="bpin-tag">{r['BPIN'] or '—'}</span></td>
                         <td style="font-size:0.81rem">{r['NOMBRE PROYECTO'] or '—'}</td>
@@ -2443,7 +2455,7 @@ with tab_detalle:
                 <tbody>{det_rows}</tbody>
                 </table>""", unsafe_allow_html=True)
 
-# ── TAB 3: Todos los proyectos ────────────────────────────────────────────────
+# ── TAB 2: Todos los proyectos ────────────────────────────────────────────────
 with tab_proyectos:
     st.markdown("<div class='section-heading'>Todos los proyectos</div>", unsafe_allow_html=True)
 
@@ -3201,14 +3213,62 @@ with tab_comunicaciones:
                 com_dest = st.text_input("Destinatario(s) — separar con comas", placeholder="correo@entidad.gov.co", key="com_dest")
 
             # Generar lista de proyectos para el cuerpo
+            # Mapa hito → (col_clasi, semaforos_dict, calc_explicacion)
+            HITO_CALC_EXPLICACION = {
+                "H1 · Sin contratar sin apertura": (
+                    "hito_1_val",
+                    "Este indicador mide los días transcurridos desde la aprobación del proyecto "
+                    "hasta la fecha de corte GESPROY, sin que se haya abierto ningún proceso precontractual."
+                ),
+                "H2 · Sin contratar con apertura": (
+                    "hito_2_val",
+                    "Este indicador mide los días entre la apertura del primer proceso precontractual "
+                    "y la firma del acta de inicio del contrato."
+                ),
+                "H3 · Contratado sin acta de inicio": (
+                    "hito_3_val",
+                    "Este indicador mide los días transcurridos desde la suscripción del contrato "
+                    "hasta la fecha de corte GESPROY, sin que se haya firmado el acta de inicio."
+                ),
+                "H4 · En ejecución rezagado": (
+                    "hito_4_val",
+                    "Este indicador mide los meses de retraso del proyecto respecto a su horizonte "
+                    "de ejecución previsto, bajo condición de CPI=0 y SPI=0."
+                ),
+                "H5 · Proyectos terminados": (
+                    "hito_5_val",
+                    "Este indicador mide los días transcurridos desde la fecha de finalización "
+                    "registrada del proyecto hasta la fecha de corte GESPROY."
+                ),
+            }
+
             def _lista_proyectos(df_sel):
+                """Genera la lista de proyectos con mensaje del semáforo y explicación del cálculo."""
+                hito_key_com, calc_exp = HITO_CALC_EXPLICACION[com_hito_label]
                 lineas = []
                 for _, row in df_sel.iterrows():
-                    d = row["Días"]
-                    d_str = f"{d:.0f} días" if d == d else "—"
+                    d       = row["Días"]
+                    alerta  = str(row["Alerta"]) if row["Alerta"] == row["Alerta"] else None
+                    # Obtener mensaje del semáforo
+                    mensaje_sem = ""
+                    if alerta and hito_key_com in SEMAFOROS and alerta in SEMAFOROS[hito_key_com]:
+                        _, _, mensaje_sem = SEMAFOROS[hito_key_com][alerta]
+
+                    # Formatear días con contexto
+                    es_h4 = com_hito_label == "H4 · En ejecución rezagado"
+                    if d == d and d is not None:
+                        if es_h4:
+                            d_str = f"{d/30:.1f} meses ({d:.0f} días)"
+                        else:
+                            d_str = f"{d:.0f} días"
+                    else:
+                        d_str = "—"
+
                     lineas.append(
                         f"  • BPIN {row['BPIN']}  —  {row['Nombre del proyecto']}\n"
-                        f"    Estado: {row['Estado']}   |   {com_hito_label.split('·')[0].strip()}: {d_str}   |   Alerta: {row['Alerta']}"
+                        f"    {mensaje_sem}\n"
+                        f"    Tiempo transcurrido: {d_str}.\n"
+                        f"    ({calc_exp})"
                     )
                 return "\n\n".join(lineas)
 
@@ -3228,34 +3288,45 @@ with tab_comunicaciones:
                 f"Departamento de Sucre"
             )
 
-            com_cuerpo = st.text_area("Cuerpo del correo (editable)", value=cuerpo_def, height=360, key="com_cuerpo")
+            com_cuerpo = st.text_area("Cuerpo del correo (editable)", value=cuerpo_def, height=380, key="com_cuerpo")
             st.markdown("</div>", unsafe_allow_html=True)
 
             # ── PASO 3: Enviar ────────────────────────────────────────────────
             st.markdown(f'<div class="com-card" style="border-left-color:{C["verde_medio"]}"><div class="com-card-title">Paso 3 &nbsp;·&nbsp; Enviar</div>', unsafe_allow_html=True)
 
             import urllib.parse as _up
-            _params  = {"subject": com_asunto, "body": com_cuerpo}
-            _dest    = com_dest.strip() if com_dest.strip() else ""
-            _mailto  = f"mailto:{_up.quote(_dest)}?{_up.urlencode(_params, quote_via=_up.quote)}" if _dest else f"mailto:?{_up.urlencode(_params, quote_via=_up.quote)}"
-            _largo   = len(_mailto) > 1800
+            _params = {"subject": com_asunto, "body": com_cuerpo}
+            _dest   = com_dest.strip() if com_dest.strip() else ""
+            _qs     = _up.urlencode(_params, quote_via=_up.quote)
+            _mailto = f"mailto:{_up.quote(_dest)}?{_qs}" if _dest else f"mailto:?{_qs}"
+            _gmail  = f"https://mail.google.com/mail/?view=cm&to={_up.quote(_dest)}&su={_up.quote(com_asunto)}&body={_up.quote(com_cuerpo)}"
+            _largo  = len(_mailto) > 1800
 
             if _largo:
                 st.warning(
-                    f"El correo es extenso ({len(com_cuerpo)} caracteres). Outlook puede no precargarlo completo. "
-                    "En ese caso copia el texto manualmente desde la caja de abajo.",
+                    f"El correo es extenso ({len(com_cuerpo)} caracteres). "
+                    "Outlook puede no precargarlo completo — usa Gmail en ese caso, o copia el texto manualmente.",
                     icon=None,
                 )
 
-            bc1, bc2 = st.columns([1, 2])
+            _verde = C["verde_oscuro"]
+            bc1, bc2, bc3 = st.columns([1.1, 1.1, 2])
             with bc1:
                 st.markdown(
                     f'<a href="{_mailto}" class="com-btn-primary" target="_blank">'
-                    f'Abrir en Outlook / correo</a>',
+                    f'Abrir en Outlook</a>',
                     unsafe_allow_html=True,
                 )
-                st.caption("Abre tu cliente de correo con asunto y cuerpo precargados")
+                st.caption("Abre tu cliente de correo predeterminado")
             with bc2:
+                st.markdown(
+                    f'<a href="{_gmail}" class="com-btn-primary" '
+                    f'style="background:{_verde}" target="_blank">'
+                    f'Abrir en Gmail</a>',
+                    unsafe_allow_html=True,
+                )
+                st.caption("Abre Gmail en el navegador")
+            with bc3:
                 st.code(f"Para: {com_dest}\nAsunto: {com_asunto}\n\n{com_cuerpo}", language=None)
 
             st.markdown("</div>", unsafe_allow_html=True)
