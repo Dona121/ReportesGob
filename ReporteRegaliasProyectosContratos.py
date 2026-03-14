@@ -910,13 +910,20 @@ components.html("""
   var doc = window.parent.document;
   var win = window.parent;
 
-  // ── Toggle contratos ─────────────────────────────────────────────────────
-  win.toggleCtto = function(id, btn) {
-    var row = doc.getElementById(id);
-    if (!row) return;
-    var open = row.classList.toggle('visible');
-    btn.classList.toggle('open', open);
-  };
+  // ── Toggle contratos — via event delegation, no función global ────────────
+  function initToggleCtto() {
+    doc.querySelectorAll('.ctto-toggle').forEach(function(btn) {
+      if (btn._cttoInit) return;
+      btn._cttoInit = true;
+      btn.addEventListener('click', function() {
+        var id  = btn.getAttribute('data-target');
+        var row = doc.getElementById(id);
+        if (!row) return;
+        var open = row.classList.toggle('visible');
+        btn.classList.toggle('open', open);
+      });
+    });
+  }
 
   function positionTip(trigger, tip, tipH, tipW) {
     var rect = trigger.getBoundingClientRect();
@@ -943,7 +950,6 @@ components.html("""
   }
 
   function initTooltips() {
-    // ── Tooltip de días (.dias-tip-wrap) ──
     doc.querySelectorAll('.dias-tip-wrap').forEach(function(wrap) {
       if (wrap._tipInit) return;
       wrap._tipInit = true;
@@ -953,7 +959,6 @@ components.html("""
       wrap.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
     });
 
-    // ── Tooltip de clasificación (.badge) ──
     doc.querySelectorAll('.badge').forEach(function(badge) {
       if (badge._tipInit) return;
       badge._tipInit = true;
@@ -964,9 +969,14 @@ components.html("""
     });
   }
 
-  var observer = new MutationObserver(function() { initTooltips(); });
+  function initAll() {
+    initToggleCtto();
+    initTooltips();
+  }
+
+  var observer = new MutationObserver(function() { initAll(); });
   observer.observe(doc.body, { childList: true, subtree: true });
-  initTooltips();
+  initAll();
 })();
 </script>
 """, height=0, scrolling=False)
@@ -2667,34 +2677,38 @@ with tab_proyectos:
     # ── Estado de contratos ───────────────────────────────────────────────────
     hay_contratos = df_contratos is not None and df_contratos.height > 0
 
-    # ── Diagnóstico visible (siempre, para detectar problemas de join) ────────
-    with st.expander("🔍 Diagnóstico de contratos", expanded=not hay_contratos):
+    # ── Diagnóstico de contratos ──────────────────────────────────────────────
+    with st.expander("Verificación del archivo de contratos", expanded=not hay_contratos):
         if _cttos_bytes is None:
-            st.error("No se pudo descargar el archivo de contratos desde GitHub.")
+            st.error("No se pudo descargar el archivo de contratos desde GitHub. Intenta subirlo manualmente desde el panel izquierdo.")
         elif df_contratos is None:
-            st.error(f"El archivo se descargó pero no pudo procesarse.")
-            st.code(_cttos_diag, language=None)
+            st.error("El archivo se descargó pero no pudo leerse correctamente. Verifica que sea el reporte de contratos exportado desde GESPROY.")
+            st.caption(_cttos_diag)
         else:
-            st.success(f"✓ {df_contratos.height} contratos cargados correctamente.")
-            st.code(_cttos_diag, language=None)
-            # Muestra cruzada: BPINs de proyectos vs BPINs de contratos
-            bpins_matriz  = set(
+            # Resumen en lenguaje sencillo
+            bpins_matriz = set(
                 str(b).strip().replace(".", "").replace(",", "").replace(" ", "").replace("-", "")
                 for b in df_f["BPIN"].drop_nulls().to_list()
             )
-            bpins_cttos   = set(df_contratos["BPIN"].drop_nulls().to_list())
-            en_comun      = bpins_matriz & bpins_cttos
-            solo_matriz   = bpins_matriz - bpins_cttos
-            st.markdown(
-                f"**BPINs en la matriz:** {len(bpins_matriz)} &nbsp;·&nbsp; "
-                f"**BPINs en contratos:** {len(bpins_cttos)} &nbsp;·&nbsp; "
-                f"**En común (matches):** {len(en_comun)} &nbsp;·&nbsp; "
-                f"**Sin contratos:** {len(solo_matriz)}"
-            )
-            if en_comun:
-                st.caption(f"Ejemplo de BPINs que coinciden: {sorted(en_comun)[:5]}")
-            if solo_matriz:
-                st.caption(f"Ejemplo de BPINs de la matriz sin contrato: {sorted(solo_matriz)[:5]}")
+            bpins_cttos = set(df_contratos["BPIN"].drop_nulls().to_list())
+            en_comun    = bpins_matriz & bpins_cttos
+            sin_ctto    = bpins_matriz - bpins_cttos
+
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric("Contratos cargados",   df_contratos.height)
+            col_b.metric("Proyectos con contratos", len(en_comun))
+            col_c.metric("Proyectos sin contratos", len(sin_ctto))
+
+            if len(en_comun) == 0:
+                st.warning(
+                    "Ningún proyecto coincide con los contratos del archivo. "
+                    "Verifica que el archivo de contratos corresponda a los mismos proyectos de la matriz."
+                )
+            elif len(sin_ctto) > 0:
+                st.info(
+                    f"{len(sin_ctto)} proyecto(s) no tienen contratos registrados en el archivo. "
+                    "Esto puede ser normal si son proyectos que aún no han iniciado contratación."
+                )
 
     if not hay_contratos:
         st.warning("No se pudieron cargar los contratos. Puedes subirlos manualmente desde el panel izquierdo.", icon=None)
@@ -2754,7 +2768,7 @@ with tab_proyectos:
                 <td>{_pill(est_proy, ESTADO_PROY_COLORS)}</td>
                 <td>{_pill(est_cont, ESTADO_CONT_COLORS)}</td>
                 <td style="white-space:nowrap">
-                    <span class="ctto-toggle" onclick="toggleCtto('{row_id}', this)">
+                    <span class="ctto-toggle" data-target="{row_id}">
                         <span class="ctto-arrow">▶</span> Contratos{badge}
                     </span>
                 </td>
