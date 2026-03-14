@@ -2540,9 +2540,7 @@ with tab_proyectos:
     /* ── Tabla de contratos ── */
     .ctto-table {{
         width: 100%; border-collapse: collapse;
-        font-size: 0.77rem; overflow: hidden;
-        border-radius: 10px;
-        box-shadow: 0 1px 10px rgba(0,40,90,0.10);
+        font-size: 0.77rem;
     }}
     .ctto-table thead tr {{ background: {C['azul_medio']}; }}
     .ctto-table th {{
@@ -2698,7 +2696,7 @@ with tab_proyectos:
                 ratio_pct = 100
 
             rows += f"""<tr style="background:{bg_grad}">
-                <td><span class="ctto-proceso">{proceso}</span></td>
+                <td style="padding-left:1.4rem"><span class="ctto-proceso">{proceso}</span></td>
                 <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
                 <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
                 <td>
@@ -2710,9 +2708,10 @@ with tab_proyectos:
             </tr>"""
 
         tabla = f"""
+        <div style="border-radius:10px;overflow:hidden;box-shadow:0 1px 10px rgba(0,40,90,0.10);">
         <table class="ctto-table">
         <thead><tr>
-            <th>No. proceso</th>
+            <th style="padding-left:1.4rem">No. proceso</th>
             <th>Modalidad</th>
             <th>Tipo</th>
             <th>Valor total</th>
@@ -2720,7 +2719,8 @@ with tab_proyectos:
             <th>Objeto del contrato</th>
         </tr></thead>
         <tbody>{rows}</tbody>
-        </table>"""
+        </table>
+        </div>"""
         return f'<div class="ctto-panel">{header}{tabla}</div>'
 
     # ── Banner de filtros ─────────────────────────────────────────────────────
