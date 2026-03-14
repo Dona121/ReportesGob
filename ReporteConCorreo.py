@@ -3302,7 +3302,6 @@ with tab_comunicaciones:
             )
 
             # Key dinámica: cambia con los filtros → Streamlit reinicia el widget
-            # y muestra el cuerpo actualizado cada vez que cambia la selección
             _body_key = f"com_cuerpo_{com_hito_label}_{com_clasi_label}_{com_entidad}_{n_sel}"
 
             com_cuerpo = st.text_area(
@@ -3311,116 +3310,82 @@ with tab_comunicaciones:
                 height=380,
                 key=_body_key,
             )
-            st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── PASO 3: Enviar ────────────────────────────────────────────────
-            st.markdown(f'<div class="com-card" style="border-left-color:{C["verde_medio"]}"><div class="com-card-title">Paso 3 &nbsp;·&nbsp; Enviar</div>', unsafe_allow_html=True)
-
+            # ── Botones copiar + abrir correo ─────────────────────────────────
             import urllib.parse as _up
-            _dest  = com_dest.strip() if com_dest.strip() else ""
+            import streamlit.components.v1 as _comp
 
-            # Outlook: mailto solo con destinatario (body en URL falla con textos largos)
+            _dest   = com_dest.strip() if com_dest.strip() else ""
             _mailto = f"mailto:{_up.quote(_dest)}" if _dest else "mailto:"
-            # Gmail: abrir nueva ventana de redacción directamente
-            # La URL /mail/#compose abre el cliente sin params que causen redirect
             _gmail  = "https://mail.google.com/mail/#compose"
             _verde  = C["verde_oscuro"]
-            _cian   = C["cian"]
 
-            # IDs únicos para los campos copiables
-            _id_asunto = "copy_asunto"
-            _id_cuerpo = "copy_cuerpo"
+            _asunto_js = com_asunto.replace("'", "\\'").replace("\n", "\\n")
+            _cuerpo_js = com_cuerpo.replace("'", "\\'").replace("\n", "\\n")
 
-            bc1, bc2 = st.columns([1.1, 1.1])
-            with bc1:
-                st.markdown(
-                    f'<a href="{_mailto}" class="com-btn-primary" target="_blank">Abrir Outlook</a>',
-                    unsafe_allow_html=True,
-                )
-            with bc2:
-                st.markdown(
-                    f'<a href="{_gmail}" class="com-btn-primary" style="background:{_verde}" target="_blank">Abrir Gmail</a>',
-                    unsafe_allow_html=True,
-                )
-
-            st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
-
-            # Asunto editable + botón copiar
-            st.markdown(
-                f"<div style='font-size:0.72rem;font-weight:700;color:{C['muted']};text-transform:uppercase;"
-                f"letter-spacing:0.7px;margin-bottom:0.3rem'>Asunto</div>",
-                unsafe_allow_html=True,
-            )
-            com_asunto_edit = st.text_input(
-                "Asunto editable",
-                value=com_asunto,
-                key=f"com_asunto_edit_{_body_key}",
-                label_visibility="collapsed",
-            )
-
-            # Cuerpo editable + botón copiar
-            st.markdown(
-                f"<div style='font-size:0.72rem;font-weight:700;color:{C['muted']};text-transform:uppercase;"
-                f"letter-spacing:0.7px;margin:0.8rem 0 0.3rem'>Cuerpo del correo</div>",
-                unsafe_allow_html=True,
-            )
-            com_cuerpo_edit = st.text_area(
-                "Cuerpo editable",
-                value=com_cuerpo,
-                height=320,
-                key=f"com_cuerpo_edit_{_body_key}",
-                label_visibility="collapsed",
-            )
-
-            # Botones copiar via JS inyectado en components.html
-            import streamlit.components.v1 as _comp
-            _asunto_js = com_asunto_edit.replace("'", "\\'").replace("\n", "\\n")
-            _cuerpo_js = com_cuerpo_edit.replace("'", "\\'").replace("\n", "\\n")
             _comp.html(f"""
             <style>
             .copy-btn {{
                 display:inline-flex; align-items:center; gap:6px;
                 background:#f1f5f9; border:1.5px solid #cbd5e1;
-                color:#1a2332; border-radius:7px; padding:6px 16px;
-                font-size:0.72rem; font-weight:700; cursor:pointer;
-                font-family:'Montserrat',sans-serif; margin:4px 8px 4px 0;
+                color:#1a2332; border-radius:7px; padding:7px 18px;
+                font-size:0.73rem; font-weight:700; cursor:pointer;
+                font-family:'Montserrat',sans-serif; margin:6px 8px 6px 0;
                 transition:all 0.15s;
             }}
             .copy-btn:hover {{ background:#e2e8f0; border-color:#94a3b8; }}
             .copy-btn.copied {{ background:#d1fae5; border-color:#059669; color:#065f46; }}
+            .open-btn {{
+                display:inline-flex; align-items:center; gap:6px;
+                border:none; border-radius:7px; padding:7px 18px;
+                font-size:0.73rem; font-weight:700; cursor:pointer;
+                font-family:'Montserrat',sans-serif; margin:6px 8px 6px 0;
+                text-decoration:none; transition:background 0.15s;
+            }}
+            .open-outlook {{ background:#003d6c; color:white; }}
+            .open-outlook:hover {{ background:#1754ab; color:white; }}
+            .open-gmail {{ background:#005931; color:white; }}
+            .open-gmail:hover {{ background:#17743d; color:white; }}
             </style>
-            <button class="copy-btn" id="btn_asunto" onclick="copyText('{_asunto_js}','btn_asunto')">
-                Copiar asunto
-            </button>
-            <button class="copy-btn" id="btn_cuerpo" onclick="copyText('{_cuerpo_js}','btn_cuerpo')">
-                Copiar cuerpo del correo
-            </button>
+
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:8px">
+                <button class="copy-btn" id="btn_asunto" onclick="doCopy('{_asunto_js}','btn_asunto','Copiar asunto')">
+                    Copiar asunto
+                </button>
+                <button class="copy-btn" id="btn_cuerpo" onclick="doCopy('{_cuerpo_js}','btn_cuerpo','Copiar cuerpo')">
+                    Copiar cuerpo
+                </button>
+                <a href="{_mailto}" class="open-btn open-outlook" target="_blank">Abrir Outlook</a>
+                <a href="{_gmail}"  class="open-btn open-gmail"   target="_blank">Abrir Gmail</a>
+            </div>
+
             <script>
-            function copyText(text, btnId) {{
-                navigator.clipboard.writeText(text).then(function() {{
-                    var btn = document.getElementById(btnId);
-                    var orig = btn.innerText;
+            function doCopy(text, btnId, label) {{
+                var btn = document.getElementById(btnId);
+                function confirm() {{
                     btn.innerText = '✓ Copiado';
                     btn.classList.add('copied');
                     setTimeout(function() {{
-                        btn.innerText = orig;
+                        btn.innerText = label;
                         btn.classList.remove('copied');
                     }}, 2000);
-                }}).catch(function() {{
-                    // Fallback para navegadores sin clipboard API
-                    var ta = document.createElement('textarea');
-                    ta.value = text;
-                    document.body.appendChild(ta);
-                    ta.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(ta);
-                    var btn = document.getElementById(btnId);
-                    btn.innerText = '✓ Copiado';
-                    btn.classList.add('copied');
-                    setTimeout(function() {{ btn.innerText = '{{}}'.replace('{{}}',btnId==='btn_asunto'?'Copiar asunto':'Copiar cuerpo del correo'); btn.classList.remove('copied'); }}, 2000);
-                }});
+                }}
+                if (navigator.clipboard && navigator.clipboard.writeText) {{
+                    navigator.clipboard.writeText(text).then(confirm).catch(function() {{
+                        fallback(text); confirm();
+                    }});
+                }} else {{
+                    fallback(text); confirm();
+                }}
+            }}
+            function fallback(text) {{
+                var ta = document.createElement('textarea');
+                ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+                document.body.appendChild(ta); ta.focus(); ta.select();
+                try {{ document.execCommand('copy'); }} catch(e) {{}}
+                document.body.removeChild(ta);
             }}
             </script>
-            """, height=50, scrolling=False)
+            """, height=60, scrolling=False)
 
             st.markdown("</div>", unsafe_allow_html=True)
