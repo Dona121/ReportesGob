@@ -2409,91 +2409,143 @@ with tab_proyectos:
     # ── CSS de contratos (inyectado una sola vez en el tab) ───────────────────
     st.markdown(f"""
     <style>
-    /* Tabla proyectos */
+    /* ── Tabla de proyectos ── */
     .proy-table {{
         width: 100%; border-collapse: collapse; font-size: 0.83rem;
-        background: #ffffff; border-radius: 10px; overflow: hidden;
-        box-shadow: 0 2px 16px rgba(0,40,90,0.09);
+        background: #ffffff; border-radius: 12px; overflow: hidden;
+        box-shadow: 0 2px 20px rgba(0,40,90,0.10);
     }}
     .proy-table thead tr {{ background: {C['azul_oscuro']}; color: white; }}
     .proy-table th {{
-        padding: 0.75rem 0.9rem; font-family: 'Montserrat', sans-serif;
+        padding: 0.85rem 1rem; font-family: 'Montserrat', sans-serif;
         font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.8px; text-align: left; white-space: nowrap;
     }}
     .proy-table td {{
-        padding: 0.6rem 0.9rem; border-bottom: 1px solid {C['border']};
+        padding: 0.85rem 1rem; border-bottom: 1px solid {C['border']};
         vertical-align: middle;
     }}
     .proy-table tbody tr:last-child td {{ border-bottom: none; }}
     .proy-table tbody tr.proy-data-row:hover td {{
-        background: #eef5ff !important; transition: background 0.12s;
+        background: #eef5ff !important; transition: background 0.15s;
     }}
-    .proy-ent  {{ font-weight:700; font-size:0.78rem; color:{C['azul_oscuro']}; white-space:nowrap; }}
-    .proy-nombre {{ font-size:0.81rem; color:{C['text']}; line-height:1.45; }}
+    .proy-ent    {{ font-weight:700; font-size:0.8rem; color:{C['azul_oscuro']}; white-space:nowrap; }}
+    .proy-nombre {{ font-size:0.82rem; color:{C['text']}; line-height:1.5; }}
     .proy-pill {{
-        display:inline-block; font-size:0.68rem; padding:3px 9px;
+        display:inline-block; font-size:0.68rem; padding:4px 11px;
         border-radius:20px; font-weight:600; white-space:nowrap;
         font-family:'Montserrat',sans-serif;
     }}
     .proy-pill--empty {{ color:{C['muted']}; font-weight:400; }}
 
-    /* Botón expandir contratos */
+    /* ── Botón expandir contratos ── */
     .ctto-toggle {{
-        display: inline-flex; align-items: center; gap: 5px;
-        background: {C['azul_oscuro']}12; border: 1px solid {C['azul_oscuro']}30;
-        color: {C['azul_oscuro']}; border-radius: 6px;
-        padding: 3px 9px; font-size: 0.67rem; font-weight: 700;
+        display: inline-flex; align-items: center; gap: 6px;
+        background: {C['azul_oscuro']}0f;
+        border: 1.5px solid {C['azul_oscuro']}28;
+        color: {C['azul_oscuro']}; border-radius: 8px;
+        padding: 5px 12px; font-size: 0.68rem; font-weight: 700;
         cursor: pointer; white-space: nowrap; user-select: none;
-        font-family: 'Montserrat', sans-serif; transition: all 0.15s;
+        font-family: 'Montserrat', sans-serif;
+        transition: background 0.15s, border-color 0.15s;
     }}
-    .ctto-toggle:hover {{ background: {C['azul_oscuro']}22; }}
-    .ctto-toggle .ctto-arrow {{ font-size: 0.6rem; transition: transform 0.2s; }}
+    .ctto-toggle:hover {{
+        background: {C['azul_medio']}18;
+        border-color: {C['azul_medio']}55;
+        color: {C['azul_medio']};
+    }}
+    .ctto-toggle.open {{
+        background: {C['azul_oscuro']};
+        border-color: {C['azul_oscuro']};
+        color: white;
+    }}
+    .ctto-arrow {{ font-size:0.55rem; transition: transform 0.2s; line-height:1; }}
     .ctto-toggle.open .ctto-arrow {{ transform: rotate(90deg); }}
 
-    /* Fila de contratos (oculta por defecto) */
+    /* ── Fila contenedor de contratos ── */
     .ctto-detail-row {{ display: none; }}
     .ctto-detail-row.visible {{ display: table-row; }}
-    .ctto-detail-row td {{ padding: 0 !important; border-bottom: 2px solid {C['azul_oscuro']}22 !important; }}
+    .ctto-detail-row td {{
+        padding: 0 !important;
+        border-bottom: 3px solid {C['azul_oscuro']}30 !important;
+        border-left: 4px solid {C['azul_medio']} !important;
+    }}
 
-    /* Panel interno de contratos */
+    /* ── Panel interior ── */
     .ctto-panel {{
-        padding: 0.85rem 1.1rem 1rem 2.5rem;
-        background: linear-gradient(135deg, #f0f5fb 0%, #f7fafd 100%);
+        padding: 1.1rem 1.4rem 1.2rem 1.8rem;
+        background: linear-gradient(180deg, #edf3fb 0%, #f4f8fd 100%);
+    }}
+    .ctto-panel-header {{
+        display: flex; align-items: center; gap: 0.7rem;
+        margin-bottom: 0.9rem;
     }}
     .ctto-panel-title {{
-        font-family: 'Montserrat', sans-serif; font-size: 0.62rem;
-        font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
-        color: {C['azul_medio']}; margin-bottom: 0.6rem;
+        font-family: 'Montserrat', sans-serif; font-size: 0.7rem;
+        font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px;
+        color: {C['azul_oscuro']};
+    }}
+    .ctto-panel-count {{
+        background: {C['azul_medio']}; color: white;
+        border-radius: 20px; padding: 1px 9px;
+        font-size: 0.62rem; font-weight: 700;
+        font-family: 'DM Mono', monospace;
     }}
     .ctto-panel-empty {{
-        font-size: 0.78rem; color: {C['muted']}; font-style: italic;
-        padding: 0.3rem 0;
+        font-size: 0.8rem; color: {C['muted']}; font-style: italic;
+        padding: 0.5rem 0;
     }}
 
-    /* Tabla interna de contratos */
+    /* ── Tabla de contratos ── */
     .ctto-table {{
-        width: 100%; border-collapse: collapse; font-size: 0.76rem;
-        border-radius: 8px; overflow: hidden;
+        width: 100%; border-collapse: separate; border-spacing: 0;
+        font-size: 0.77rem; border-radius: 10px; overflow: hidden;
+        box-shadow: 0 1px 8px rgba(0,40,90,0.10);
     }}
+    .ctto-table thead tr {{ background: {C['azul_medio']}; }}
     .ctto-table th {{
-        padding: 0.4rem 0.75rem; font-family: 'Montserrat', sans-serif;
-        font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.7px; color: rgba(255,255,255,0.9);
-        background: {C['azul_medio']}; text-align: left; white-space: nowrap;
+        padding: 0.6rem 1rem; font-family: 'Montserrat', sans-serif;
+        font-size: 0.59rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.8px; color: rgba(255,255,255,0.95);
+        text-align: left; white-space: nowrap;
+        border-bottom: 2px solid {C['azul_oscuro']}40;
     }}
     .ctto-table td {{
-        padding: 0.45rem 0.75rem; vertical-align: top;
-        border-bottom: 1px solid rgba(0,0,0,0.04);
+        padding: 0.75rem 1rem; vertical-align: middle;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        background: inherit;
     }}
+    .ctto-table tbody tr {{ transition: filter 0.12s; }}
+    .ctto-table tbody tr:hover {{ filter: brightness(0.96); }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
+
+    /* ── Celda valor ── */
     .ctto-valor {{
-        font-family: 'DM Mono', monospace; font-weight: 700;
-        font-size: 0.78rem; white-space: nowrap;
+        font-family: 'DM Mono', monospace; font-weight: 800;
+        font-size: 0.82rem; white-space: nowrap;
+        color: {C['azul_oscuro']};
     }}
+    .ctto-valor-bar {{
+        height: 3px; border-radius: 2px; margin-top: 3px;
+        background: {C['azul_medio']}; opacity: 0.5;
+        transition: opacity 0.2s;
+    }}
+
+    /* ── Pill estado contrato ── */
     .ctto-estado-pill {{
-        display: inline-block; font-size: 0.62rem; padding: 2px 7px;
-        border-radius: 10px; font-weight: 600; white-space: nowrap;
+        display: inline-block; font-size: 0.63rem; padding: 3px 9px;
+        border-radius: 12px; font-weight: 700; white-space: nowrap;
+        font-family: 'Montserrat', sans-serif; letter-spacing: 0.3px;
+    }}
+
+    /* ── Objeto (texto largo) ── */
+    .ctto-objeto {{
+        font-size: 0.73rem; color: {C['text']}; line-height: 1.5;
+        max-width: 320px;
+    }}
+    .ctto-proceso {{
+        font-family: 'DM Mono', monospace; font-size: 0.72rem;
+        color: {C['azul_medio']}; font-weight: 600; white-space: nowrap;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -2578,7 +2630,12 @@ with tab_proyectos:
         v_max = max(valores_num) if valores_num else 0
 
         n = cttos.height
-        header = f'<div class="ctto-panel-title">Contratos ({n})</div>'
+        header = f"""
+        <div class="ctto-panel-header">
+            <span class="ctto-panel-title">Contratos</span>
+            <span class="ctto-panel-count">{n}</span>
+        </div>"""
+
         rows = ""
         for ctto in cttos.to_dicts():
             valor    = ctto.get("CONTRATO VALOR TOTAL")
@@ -2589,13 +2646,24 @@ with tab_proyectos:
             modalidad = ctto.get("MODALIDAD CONTRATACION") or "—"
             tipo      = ctto.get("TIPO CONTRATO") or "—"
             objeto    = ctto.get("CONTRATO OBJETO") or "—"
+
+            # Barra proporcional al valor
+            ratio_pct = 0
+            if valor and v_max > v_min:
+                ratio_pct = int(max(8, min(100, (valor - v_min) / (v_max - v_min) * 100)))
+            elif valor:
+                ratio_pct = 100
+
             rows += f"""<tr style="background:{bg_grad}">
-                <td style="font-size:0.72rem;color:{C['muted']};white-space:nowrap">{proceso}</td>
-                <td style="font-size:0.72rem">{modalidad}</td>
-                <td style="font-size:0.72rem">{tipo}</td>
-                <td class="ctto-valor">{_fmt_valor(valor)}</td>
+                <td><span class="ctto-proceso">{proceso}</span></td>
+                <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
+                <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
+                <td>
+                    <span class="ctto-valor">{_fmt_valor(valor)}</span>
+                    <div class="ctto-valor-bar" style="width:{ratio_pct}%"></div>
+                </td>
                 <td><span class="ctto-estado-pill" style="background:{bg_e};color:{fg_e};border:1px solid {fg_e}40">{ctto.get("ESTADO CONTRATO") or "—"}</span></td>
-                <td style="font-size:0.71rem;color:{C['text']};max-width:280px;line-height:1.4">{objeto}</td>
+                <td><div class="ctto-objeto">{objeto}</div></td>
             </tr>"""
 
         tabla = f"""
@@ -2606,7 +2674,7 @@ with tab_proyectos:
             <th>Tipo</th>
             <th>Valor total</th>
             <th>Estado</th>
-            <th>Objeto</th>
+            <th>Objeto del contrato</th>
         </tr></thead>
         <tbody>{rows}</tbody>
         </table>"""
