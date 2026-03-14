@@ -2544,19 +2544,19 @@ with tab_proyectos:
     }}
     .ctto-table thead tr {{ background: {C['azul_medio']}; }}
     .ctto-table th {{
-        padding: 0.65rem 1rem; font-family: 'Montserrat', sans-serif;
+        padding: 0.55rem 0.9rem; font-family: 'Montserrat', sans-serif;
         font-size: 0.59rem; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.8px; color: rgba(255,255,255,0.95);
         text-align: left; white-space: nowrap;
         border: none;
     }}
-    .ctto-table th:first-child {{ padding-left: 1.3rem; }}
+    .ctto-table th:first-child,
+    .ctto-table td:first-child {{ padding-left: 1.3rem; }}
     .ctto-table td {{
-        padding: 0.75rem 1rem; vertical-align: middle;
+        padding: 0.55rem 0.9rem; vertical-align: middle;
         border: none;
         border-bottom: 1px solid rgba(0,0,0,0.06);
     }}
-    .ctto-table td:first-child {{ padding-left: 1.3rem; }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
     .ctto-table tbody tr:hover td {{ filter: brightness(0.97); }}
 
@@ -2696,7 +2696,7 @@ with tab_proyectos:
                 ratio_pct = 100
 
             rows += f"""<tr style="background:{bg_grad}">
-                <td style="padding-left:1.4rem"><span class="ctto-proceso">{proceso}</span></td>
+                <td><span class="ctto-proceso">{proceso}</span></td>
                 <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
                 <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
                 <td>
@@ -2711,7 +2711,7 @@ with tab_proyectos:
         <div style="border-radius:10px;overflow:hidden;box-shadow:0 1px 10px rgba(0,40,90,0.10);">
         <table class="ctto-table">
         <thead><tr>
-            <th style="padding-left:1.4rem">No. proceso</th>
+            <th>No. proceso</th>
             <th>Modalidad</th>
             <th>Tipo</th>
             <th>Valor total</th>
