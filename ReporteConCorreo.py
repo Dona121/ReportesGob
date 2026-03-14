@@ -2124,11 +2124,6 @@ with st.sidebar:
     opciones_est = estados_raw + (["(Sin estado)"] if tiene_sin else [])
     sel_estados  = st.multiselect("Estado del proyecto", opciones_est, default=opciones_est)
 
-    st.markdown("<div class='sidebar-section'>Vista de detalle</div>", unsafe_allow_html=True)
-    sel_hito_label = st.selectbox("Hito a detallar", list(HITOS.keys()), label_visibility="collapsed")
-
-sel_hito_col, sel_clasi_col = HITOS[sel_hito_label]
-
 # ─────────────────────────────────────────────────────────────────────────────
 # FILTRAR
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3288,24 +3283,48 @@ with tab_comunicaciones:
                 f"Departamento de Sucre"
             )
 
-            com_cuerpo = st.text_area("Cuerpo del correo (editable)", value=cuerpo_def, height=380, key="com_cuerpo")
+            # Key dinámica: cambia con los filtros → Streamlit reinicia el widget
+            # y muestra el cuerpo actualizado cada vez que cambia la selección
+            _body_key = f"com_cuerpo_{com_hito_label}_{com_clasi_label}_{com_entidad}_{n_sel}"
+
+            com_cuerpo = st.text_area(
+                "Cuerpo del correo (editable)",
+                value=cuerpo_def,
+                height=380,
+                key=_body_key,
+            )
             st.markdown("</div>", unsafe_allow_html=True)
 
             # ── PASO 3: Enviar ────────────────────────────────────────────────
             st.markdown(f'<div class="com-card" style="border-left-color:{C["verde_medio"]}"><div class="com-card-title">Paso 3 &nbsp;·&nbsp; Enviar</div>', unsafe_allow_html=True)
 
             import urllib.parse as _up
-            _params = {"subject": com_asunto, "body": com_cuerpo}
-            _dest   = com_dest.strip() if com_dest.strip() else ""
-            _qs     = _up.urlencode(_params, quote_via=_up.quote)
-            _mailto = f"mailto:{_up.quote(_dest)}?{_qs}" if _dest else f"mailto:?{_qs}"
-            _gmail  = f"https://mail.google.com/mail/?view=cm&to={_up.quote(_dest)}&su={_up.quote(com_asunto)}&body={_up.quote(com_cuerpo)}"
-            _largo  = len(_mailto) > 1800
+            _dest  = com_dest.strip() if com_dest.strip() else ""
 
+            # Outlook: mailto con asunto y cuerpo (funciona con cualquier cliente)
+            _params_outlook = {"subject": com_asunto, "body": com_cuerpo}
+            _qs_outlook = _up.urlencode(_params_outlook, quote_via=_up.quote)
+            _mailto = f"mailto:{_up.quote(_dest)}?{_qs_outlook}" if _dest else f"mailto:?{_qs_outlook}"
+
+            # Gmail: solo to + subject — el cuerpo va en el clipboard para pegar
+            # Gmail no acepta body largo en URL (ERR_TOO_MANY_REDIRECTS)
+            _gmail_params = {"view": "cm"}
+            if _dest:
+                _gmail_params["to"] = _dest
+            _gmail_params["su"] = com_asunto
+            _gmail = f"https://mail.google.com/mail/?" + _up.urlencode(_gmail_params)
+
+            _largo = len(_mailto) > 1800
             if _largo:
                 st.warning(
                     f"El correo es extenso ({len(com_cuerpo)} caracteres). "
-                    "Outlook puede no precargarlo completo — usa Gmail en ese caso, o copia el texto manualmente.",
+                    "Outlook puede no precargarlo completo. "
+                    "Para Gmail, copia el cuerpo desde la caja de abajo y pégalo en el correo.",
+                    icon=None,
+                )
+            else:
+                st.info(
+                    "Para Gmail: abre el correo, luego copia el cuerpo desde la caja de texto y pégalo.",
                     icon=None,
                 )
 
@@ -3317,7 +3336,7 @@ with tab_comunicaciones:
                     f'Abrir en Outlook</a>',
                     unsafe_allow_html=True,
                 )
-                st.caption("Abre tu cliente de correo predeterminado")
+                st.caption("Abre tu cliente de correo con todo precargado")
             with bc2:
                 st.markdown(
                     f'<a href="{_gmail}" class="com-btn-primary" '
@@ -3325,8 +3344,9 @@ with tab_comunicaciones:
                     f'Abrir en Gmail</a>',
                     unsafe_allow_html=True,
                 )
-                st.caption("Abre Gmail en el navegador")
+                st.caption("Abre Gmail — copia el cuerpo desde abajo")
             with bc3:
-                st.code(f"Para: {com_dest}\nAsunto: {com_asunto}\n\n{com_cuerpo}", language=None)
+                st.code(com_cuerpo, language=None)
+                st.caption("Copia este texto y pégalo en el cuerpo del correo")
 
             st.markdown("</div>", unsafe_allow_html=True)
