@@ -2559,17 +2559,21 @@ with tab_proyectos:
     }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
     .ctto-table tbody tr:hover td {{ filter: brightness(0.97); }}
+    .ctto-table tbody tr td:first-child {{ padding-left: 1.3rem !important; }}
+    .ctto-table thead tr th:first-child {{ padding-left: 1.3rem !important; }}
 
     /* ── Celda valor ── */
     .ctto-valor {{
         font-family: 'DM Mono', monospace; font-weight: 800;
         font-size: 0.82rem; white-space: nowrap;
         color: {C['azul_oscuro']};
+        display: inline-flex; align-items: center; gap: 6px;
     }}
     .ctto-valor-bar {{
-        height: 3px; border-radius: 2px; margin-top: 3px;
-        background: {C['azul_medio']}; opacity: 0.5;
-        transition: opacity 0.2s;
+        display: inline-block;
+        height: 3px; border-radius: 2px;
+        background: {C['azul_medio']}; opacity: 0.45;
+        vertical-align: middle;
     }}
 
     /* ── Pill estado contrato ── */
@@ -2688,20 +2692,22 @@ with tab_proyectos:
             tipo      = ctto.get("TIPO CONTRATO") or "—"
             objeto    = ctto.get("CONTRATO OBJETO") or "—"
 
-            # Barra proporcional al valor
-            ratio_pct = 0
+            # Barra proporcional al valor — ancho en px (inline, no ocupa altura)
+            bar_px = 0
             if valor and v_max > v_min:
-                ratio_pct = int(max(8, min(100, (valor - v_min) / (v_max - v_min) * 100)))
+                bar_px = int(max(6, min(60, (valor - v_min) / (v_max - v_min) * 60)))
             elif valor:
-                ratio_pct = 100
+                bar_px = 60
 
             rows += f"""<tr style="background:{bg_grad}">
                 <td><span class="ctto-proceso">{proceso}</span></td>
                 <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
                 <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
                 <td>
-                    <span class="ctto-valor">{_fmt_valor(valor)}</span>
-                    <div class="ctto-valor-bar" style="width:{ratio_pct}%"></div>
+                    <span class="ctto-valor">
+                        {_fmt_valor(valor)}
+                        <span class="ctto-valor-bar" style="width:{bar_px}px"></span>
+                    </span>
                 </td>
                 <td><span class="ctto-estado-pill" style="background:{bg_e};color:{fg_e};border:1px solid {fg_e}40">{ctto.get("ESTADO CONTRATO") or "—"}</span></td>
                 <td><div class="ctto-objeto">{objeto}</div></td>
