@@ -1755,7 +1755,8 @@ def _cargar_desde_github(url: str):
 def procesar_contratos(file_bytes):
     """
     Lee y limpia el reporte de contratos de GESPROY.
-    Retorna pl.DataFrame o None si el archivo no tiene el formato esperado.
+    Retorna (df, diagnostico_str) — df puede ser None si falla.
+    diagnostico tiene info útil para debugging.
     """
     COLS_CONTRATOS = [
         "BPIN",
@@ -1766,72 +1767,126 @@ def procesar_contratos(file_bytes):
         "CONTRATO VALOR TOTAL",
         "ESTADO CONTRATO",
     ]
+    diag = []
     try:
-        # GESPROY exporta con 2 filas de encabezado: fila 0 = metadatos, fila 1 = nombres reales
-        df_raw = pl.read_excel(io.BytesIO(file_bytes), has_header=False, infer_schema_length=0)
+        # ── Leer raw sin encabezado (GESPROY exporta 2 filas de meta antes de los datos) ──
+        df_raw = pl.read_excel(
+            io.BytesIO(file_bytes),
+            has_header=False,
+            infer_schema_length=0,  # todo como string inicialmente
+        )
+        diag.append(f"Filas raw: {df_raw.height}, Cols: {df_raw.width}")
 
         if df_raw.height < 3:
-            return None
+            return None, f"Archivo muy pequeño ({df_raw.height} filas)"
 
-        # Fila 1 (índice 1) contiene los encabezados reales
-        encabezados_raw = df_raw.row(1)
-        encabezados = [str(v).strip() if v is not None else f"_col_{i}"
-                       for i, v in enumerate(encabezados_raw)]
+        # ── Detectar fila de encabezados robustamente ────────────────────────
+        # Buscar la fila que contiene "BPIN" en alguna celda (puede ser fila 0 o 1)
+        header_row_idx = None
+        for row_idx in range(min(5, df_raw.height)):
+            row_vals = [str(v).strip().upper() for v in df_raw.row(row_idx) if v is not None]
+            if "BPIN" in row_vals:
+                header_row_idx = row_idx
+                break
 
-        # Renombrar columnas y saltar las 2 primeras filas de encabezado
-        df = df_raw.rename(dict(zip(df_raw.columns, encabezados))).slice(2)
+        if header_row_idx is None:
+            diag.append("ERROR: no se encontró fila con 'BPIN'")
+            diag.append(f"Fila 0: {list(df_raw.row(0))[:8]}")
+            diag.append(f"Fila 1: {list(df_raw.row(1))[:8]}")
+            return None, " | ".join(diag)
 
-        # Verificar que estén las columnas necesarias
+        diag.append(f"Fila de headers detectada: {header_row_idx}")
+
+        # ── Construir encabezados desde la fila detectada ────────────────────
+        encabezados_raw = df_raw.row(header_row_idx)
+        encabezados = []
+        seen = {}
+        for i, v in enumerate(encabezados_raw):
+            name = str(v).strip() if v is not None and str(v).strip() not in ("", "None") else f"_col_{i}"
+            # Deduplicar nombres repetidos
+            if name in seen:
+                seen[name] += 1
+                name = f"{name}_{seen[name]}"
+            else:
+                seen[name] = 0
+            encabezados.append(name)
+
+        # ── Renombrar y saltar filas de encabezado ───────────────────────────
+        df = (
+            df_raw
+            .rename(dict(zip(df_raw.columns, encabezados)))
+            .slice(header_row_idx + 1)  # datos empiezan después del header
+        )
+        diag.append(f"Columnas detectadas (primeras 10): {list(df.columns[:10])}")
+        diag.append(f"Filas de datos: {df.height}")
+
+        # ── Verificar columnas necesarias ────────────────────────────────────
         cols_presentes = set(df.columns)
         faltantes = [c for c in COLS_CONTRATOS if c not in cols_presentes]
         if faltantes:
-            return None
+            diag.append(f"ERROR: columnas faltantes: {faltantes}")
+            diag.append(f"Columnas disponibles: {sorted(cols_presentes)}")
+            return None, " | ".join(diag)
 
         df = df.select(COLS_CONTRATOS)
 
-        # ── Limpieza robusta ──────────────────────────────────────────────────
-        # 1. Strip en todas las columnas de texto
+        # ── Limpieza ─────────────────────────────────────────────────────────
+        # 1. Strip todas las columnas texto
         str_cols = [c for c in COLS_CONTRATOS if c != "CONTRATO VALOR TOTAL"]
         df = df.with_columns([
-            pl.col(c).cast(pl.Utf8).str.strip_chars().alias(c)
+            pl.col(c).cast(pl.Utf8, strict=False).str.strip_chars().alias(c)
             for c in str_cols
         ])
 
-        # 2. Normalizar BPIN: quitar puntos, comas y espacios internos
+        # 2. BPIN: forzar string, quitar puntos/comas/espacios/guiones
         df = df.with_columns(
-            pl.col("BPIN").str.replace_all(r"[.\s,]", "").alias("BPIN")
+            pl.col("BPIN")
+            .cast(pl.Utf8, strict=False)
+            .str.strip_chars()
+            .str.replace_all(r"[.\-,\s]", "")
+            .alias("BPIN")
         )
 
-        # 3. Eliminar filas donde BPIN es nulo o vacío (subtotales, etc.)
+        # 3. Filtrar filas sin BPIN válido
         df = df.filter(
             pl.col("BPIN").is_not_null() &
-            (pl.col("BPIN") != "") &
-            (pl.col("BPIN") != "None")
+            (pl.col("BPIN").str.len_chars() >= 5) &
+            (pl.col("BPIN") != "None") &
+            (pl.col("BPIN") != "BPIN")  # filtrar si quedó alguna fila de encabezado
         )
+        diag.append(f"Filas con BPIN válido: {df.height}")
 
-        # 4. CONTRATO VALOR TOTAL → Float64, manejando separadores de miles
+        # 4. Muestra de BPINs para diagnóstico
+        bpins_muestra = df["BPIN"].head(5).to_list()
+        diag.append(f"BPINs muestra: {bpins_muestra}")
+
+        # 5. CONTRATO VALOR TOTAL → Float64
         df = df.with_columns(
             pl.col("CONTRATO VALOR TOTAL")
-            .cast(pl.Utf8)
+            .cast(pl.Utf8, strict=False)
             .str.strip_chars()
-            .str.replace_all(r"[,$\s]", "")   # quitar $, comas, espacios
-            .str.replace_all(r"\.(?=\d{3})", "") # quitar punto como separador de miles
+            .str.replace_all(r"[$\s]", "")        # quitar $ y espacios
+            .str.replace_all(r",(?=\d{3})", "")   # coma como separador miles: 1,234,567
+            .str.replace_all(r"\.(?=\d{3})", "")  # punto como separador miles: 1.234.567
             .cast(pl.Float64, strict=False)
             .alias("CONTRATO VALOR TOTAL")
         )
 
-        # 5. Eliminar duplicados exactos
+        # 6. Deduplicar y uppercase estado
         df = df.unique()
-
-        # 6. Uppercase en campos clave para joins consistentes
         df = df.with_columns(
-            pl.col("ESTADO CONTRATO").str.to_uppercase().alias("ESTADO CONTRATO")
+            pl.col("ESTADO CONTRATO")
+            .cast(pl.Utf8, strict=False)
+            .str.strip_chars()
+            .str.to_uppercase()
+            .alias("ESTADO CONTRATO")
         )
 
-        return df if df.height > 0 else None
+        return (df if df.height > 0 else None), " | ".join(diag)
 
-    except Exception:
-        return None
+    except Exception as e:
+        diag.append(f"EXCEPCIÓN: {type(e).__name__}: {e}")
+        return None, " | ".join(diag)
 
 with st.sidebar:
     st.markdown("<div class='sidebar-section'>📁 Datos</div>", unsafe_allow_html=True)
@@ -1994,7 +2049,7 @@ else:
     with st.spinner("Cargando contratos desde el repositorio…"):
         _cttos_bytes = _cargar_desde_github(GITHUB_CONTRATOS_URL)
 
-df_contratos = procesar_contratos(_cttos_bytes) if _cttos_bytes else None
+df_contratos, _cttos_diag = procesar_contratos(_cttos_bytes) if _cttos_bytes else (None, "No se obtuvieron bytes del archivo de contratos")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FILTROS EN SIDEBAR
@@ -2492,8 +2547,14 @@ with tab_proyectos:
         if df_cttos is None:
             return '<div class="ctto-panel"><div class="ctto-panel-empty">Archivo de contratos no disponible.</div></div>'
 
-        # Normalizar BPIN para el join
-        bpin_norm = str(bpin_str).strip().replace(".", "").replace(",", "").replace(" ", "")
+        # Normalizar BPIN para el join — idéntico a procesar_contratos()
+        bpin_norm = (
+            str(bpin_str).strip()
+            .replace(".", "")
+            .replace("-", "")
+            .replace(",", "")
+            .replace(" ", "")
+        )
         cttos = df_cttos.filter(pl.col("BPIN") == bpin_norm)
 
         if cttos.height == 0:
@@ -2604,6 +2665,36 @@ with tab_proyectos:
 
     # ── Estado de contratos ───────────────────────────────────────────────────
     hay_contratos = df_contratos is not None and df_contratos.height > 0
+
+    # ── Diagnóstico visible (siempre, para detectar problemas de join) ────────
+    with st.expander("🔍 Diagnóstico de contratos", expanded=not hay_contratos):
+        if _cttos_bytes is None:
+            st.error("No se pudo descargar el archivo de contratos desde GitHub.")
+        elif df_contratos is None:
+            st.error(f"El archivo se descargó pero no pudo procesarse.")
+            st.code(_cttos_diag, language=None)
+        else:
+            st.success(f"✓ {df_contratos.height} contratos cargados correctamente.")
+            st.code(_cttos_diag, language=None)
+            # Muestra cruzada: BPINs de proyectos vs BPINs de contratos
+            bpins_matriz  = set(
+                str(b).strip().replace(".", "").replace(",", "").replace(" ", "").replace("-", "")
+                for b in df_f["BPIN"].drop_nulls().to_list()
+            )
+            bpins_cttos   = set(df_contratos["BPIN"].drop_nulls().to_list())
+            en_comun      = bpins_matriz & bpins_cttos
+            solo_matriz   = bpins_matriz - bpins_cttos
+            st.markdown(
+                f"**BPINs en la matriz:** {len(bpins_matriz)} &nbsp;·&nbsp; "
+                f"**BPINs en contratos:** {len(bpins_cttos)} &nbsp;·&nbsp; "
+                f"**En común (matches):** {len(en_comun)} &nbsp;·&nbsp; "
+                f"**Sin contratos:** {len(solo_matriz)}"
+            )
+            if en_comun:
+                st.caption(f"Ejemplo de BPINs que coinciden: {sorted(en_comun)[:5]}")
+            if solo_matriz:
+                st.caption(f"Ejemplo de BPINs de la matriz sin contrato: {sorted(solo_matriz)[:5]}")
+
     if not hay_contratos:
         st.warning("No se pudieron cargar los contratos. Puedes subirlos manualmente desde el panel izquierdo.", icon=None)
 
@@ -2633,7 +2724,14 @@ with tab_proyectos:
             bg_susp  = 'style="background:#fff7ed"' if es_susp else ""
 
             # Contar contratos para este BPIN (badge en el botón)
-            bpin_norm = str(bpin).strip().replace(".", "").replace(",", "").replace(" ", "")
+            # Normalización idéntica a la aplicada en procesar_contratos()
+            bpin_norm = (
+                str(bpin).strip()
+                .replace(".", "")
+                .replace("-", "")
+                .replace(",", "")
+                .replace(" ", "")
+            )
             n_cttos   = 0
             if hay_contratos:
                 n_cttos = df_contratos.filter(pl.col("BPIN") == bpin_norm).height
