@@ -2,6 +2,11 @@ import streamlit as st
 import polars as pl
 import pandas as pd
 import io
+import html
+import json
+import urllib.parse
+import streamlit.components.v1 as components
+import datetime as _dt
 from datetime import date
 
 st.set_page_config(
@@ -1145,11 +1150,15 @@ def procesar(file_bytes):
                 ((pl.col("ESTADO PROYECTO") == "SIN CONTRATAR") | pl.col("ESTADO PROYECTO").is_null() | (pl.col("ESTADO PROYECTO") == "")) &
                 (~pl.col("FECHA APROBACIÓN PROYECTO").is_null()) & (~pl.col("FECHA DE CORTE GESPROY").is_null())
             ).then((pl.col("FECHA DE CORTE GESPROY") - pl.col("FECHA APROBACIÓN PROYECTO")).dt.total_days()).otherwise(None).alias("hito_1_val"),
-            # Hito 2
+            # Hito 2 — clip(0) previene valores negativos por errores de datos
+            # (ej: acta firmada antes de apertura del proceso)
             pl.when(
                 ((pl.col("ESTADO PROYECTO") == "SIN CONTRATAR") | pl.col("ESTADO PROYECTO").is_null() | (pl.col("ESTADO PROYECTO") == "")) &
                 (~pl.col("FECHA DE APERTURA DEL PRIMER PROCESO").is_null())
-            ).then((pl.col("FECHA ACTA INICIO") - pl.col("FECHA DE APERTURA DEL PRIMER PROCESO")).dt.total_days()).otherwise(None).alias("hito_2_val"),
+            ).then(
+                (pl.col("FECHA ACTA INICIO") - pl.col("FECHA DE APERTURA DEL PRIMER PROCESO"))
+                .dt.total_days().clip(lower_bound=0)
+            ).otherwise(None).alias("hito_2_val"),
             # Hito 3
             pl.when(
                 (pl.col("ESTADO PROYECTO") == "CONTRATADO SIN ACTA DE INICIO") &
@@ -1182,7 +1191,6 @@ def procesar(file_bytes):
     )
     return df
 
-@st.cache_data
 def _validar_cols_eval(df, cols, col_agrup):
     """
     Intenta castear las columnas de calificación a Float64.
@@ -1602,10 +1610,8 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map):
                            color="1A2332", fmt="#,##0.0")
 
             elif attr in DATE_COLS:
-                import datetime
                 if val is not None and str(val) not in ("nan","NaT","None",""):
-                    # Polars puede entregar date o datetime
-                    if isinstance(val, (datetime.date, datetime.datetime)):
+                    if isinstance(val, (_dt.date, _dt.datetime)):
                         cell.value          = val
                         cell.number_format  = "DD/MM/YYYY"
                         cell.font           = _font()
@@ -1761,6 +1767,41 @@ def _cargar_desde_github(url: str):
     except Exception:
         return None
 
+def _parse_valor(s):
+    """
+    Convierte string de valor monetario a float.
+    Maneja formatos COP: "1,234,567.89", "1.234.567,89", "1234567", etc.
+    Definida a nivel de módulo para serialización eficiente en map_elements().
+    """
+    if s is None:
+        return None
+    s = str(s).strip().replace("$", "").replace(" ", "")
+    if not s or s in ("", "None", "-", "—"):
+        return None
+    has_comma = "," in s
+    has_dot   = "." in s
+    try:
+        if has_comma and has_dot:
+            last_comma = s.rfind(",")
+            last_dot   = s.rfind(".")
+            if last_dot > last_comma:
+                s = s.replace(",", "")
+            else:
+                s = s.replace(".", "").replace(",", ".")
+        elif has_comma:
+            parts = s.split(",")
+            if len(parts) == 2 and len(parts[1]) <= 2:
+                s = s.replace(",", ".")
+            else:
+                s = s.replace(",", "")
+        elif has_dot:
+            parts = s.split(".")
+            if len(parts) > 2:
+                s = s.replace(".", "")
+        return float(s)
+    except Exception:
+        return None
+
 @st.cache_data(show_spinner=False)
 def procesar_contratos(file_bytes):
     """
@@ -1870,52 +1911,7 @@ def procesar_contratos(file_bytes):
         bpins_muestra = df["BPIN"].head(5).to_list()
         diag.append(f"BPINs muestra: {bpins_muestra}")
 
-        # 5. CONTRATO VALOR TOTAL → Float64
-        # GESPROY puede exportar con punto decimal y coma de miles (1,234,567.89)
-        # o punto de miles y coma decimal (1.234.567,89).
-        # Estrategia: detectar el último separador (punto o coma) como decimal,
-        # quitar el otro como separador de miles.
-        def _parse_valor(s):
-            if s is None:
-                return None
-            s = str(s).strip().replace("$", "").replace(" ", "")
-            if not s or s in ("", "None", "-", "—"):
-                return None
-            # Detectar formato: si hay coma Y punto, el último es el decimal
-            has_comma = "," in s
-            has_dot   = "." in s
-            try:
-                if has_comma and has_dot:
-                    # Ej: "1,234,567.89" → punto decimal, quitar comas
-                    # Ej: "1.234.567,89" → coma decimal, quitar puntos
-                    last_comma = s.rfind(",")
-                    last_dot   = s.rfind(".")
-                    if last_dot > last_comma:
-                        # punto es decimal → quitar comas
-                        s = s.replace(",", "")
-                    else:
-                        # coma es decimal → quitar puntos, reemplazar coma por punto
-                        s = s.replace(".", "").replace(",", ".")
-                elif has_comma:
-                    # Solo comas: puede ser miles (1,234,567) o decimal (1,50)
-                    parts = s.split(",")
-                    if len(parts) == 2 and len(parts[1]) <= 2:
-                        # Es decimal: "1234567,89" → "1234567.89"
-                        s = s.replace(",", ".")
-                    else:
-                        # Es miles: "1,234,567" → "1234567"
-                        s = s.replace(",", "")
-                elif has_dot:
-                    # Solo puntos: puede ser miles (1.234.567) o decimal (1234567.89)
-                    parts = s.split(".")
-                    if len(parts) > 2:
-                        # Múltiples puntos = separador de miles
-                        s = s.replace(".", "")
-                    # Si es uno solo, puede ser decimal → dejarlo como está
-                return float(s)
-            except Exception:
-                return None
-
+        # 5. CONTRATO VALOR TOTAL → Float64 (usa _parse_valor definida a nivel de módulo)
         df = df.with_columns(
             pl.col("CONTRATO VALOR TOTAL")
             .cast(pl.Utf8, strict=False)
@@ -1980,13 +1976,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Determinar fuente de datos: manual > GitHub > error
+# IMPORTANTE: UploadedFile.read() es un stream — se consume en el primer rerun.
+# Cacheamos los bytes en session_state indexados por nombre+tamaño del archivo.
 if uploaded is not None:
-    file_bytes = uploaded.read()
-    _fuente = "manual"
+    _upload_id = f"{uploaded.name}_{uploaded.size}"
+    if st.session_state.get("_upload_id") != _upload_id:
+        st.session_state["_upload_id"]    = _upload_id
+        st.session_state["_file_bytes"]   = uploaded.read()
+    file_bytes = st.session_state["_file_bytes"]
 else:
+    st.session_state.pop("_upload_id",  None)
+    st.session_state.pop("_file_bytes", None)
     with st.spinner("Cargando datos desde el repositorio…"):
         file_bytes = _cargar_desde_github(GITHUB_RAW_URL)
-    _fuente = "github"
 
 if file_bytes is None:
     st.error(
@@ -2095,8 +2097,14 @@ except Exception as e:
 # CARGA DE CONTRATOS
 # ─────────────────────────────────────────────────────────────────────────────
 if uploaded_cttos is not None:
-    _cttos_bytes = uploaded_cttos.read()
+    _cttos_id = f"{uploaded_cttos.name}_{uploaded_cttos.size}"
+    if st.session_state.get("_cttos_id") != _cttos_id:
+        st.session_state["_cttos_id"]    = _cttos_id
+        st.session_state["_cttos_bytes"] = uploaded_cttos.read()
+    _cttos_bytes = st.session_state["_cttos_bytes"]
 else:
+    st.session_state.pop("_cttos_id",    None)
+    st.session_state.pop("_cttos_bytes", None)
     with st.spinner("Cargando contratos desde el repositorio…"):
         _cttos_bytes = _cargar_desde_github(GITHUB_CONTRATOS_URL)
 
@@ -2224,13 +2232,155 @@ agrupacion = (
     .sort("ENTIDAD O SECRETARIA")
 )
 
-clasi_por_entidad = {}
-for entidad in agrupacion["ENTIDAD O SECRETARIA"].to_list():
-    sub = df_f.filter(pl.col("ENTIDAD O SECRETARIA") == entidad)
-    clasi_por_entidad[entidad] = {}
-    for cc in ["clasi_1", "clasi_2", "clasi_3", "clasi_4", "clasi_5"]:
-        vals = sub[cc].drop_nulls()
-        clasi_por_entidad[entidad][cc] = vals.value_counts().sort("count", descending=True)[0, 0] if len(vals) > 0 else None
+# Clasificación modal por entidad — un solo group_by vectorizado en lugar de N filtros separados
+# Equivalente a: para cada entidad, la clasificación más frecuente en cada hito
+_CLASI_COLS = ["clasi_1", "clasi_2", "clasi_3", "clasi_4", "clasi_5"]
+
+def _moda_str(s: pl.Series) -> str | None:
+    """Devuelve el valor más frecuente de una serie string, o None si está vacía."""
+    vals = s.drop_nulls()
+    if len(vals) == 0:
+        return None
+    return vals.value_counts().sort("count", descending=True)[0, 0]
+
+_clasi_modal = (
+    df_f
+    .group_by("ENTIDAD O SECRETARIA")
+    .agg([pl.col(c).map_elements(_moda_str, return_dtype=pl.Utf8).first().alias(c)
+          for c in _CLASI_COLS])
+)
+
+clasi_por_entidad = {
+    row["ENTIDAD O SECRETARIA"]: {c: row[c] for c in _CLASI_COLS}
+    for row in _clasi_modal.to_dicts()
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FUNCIONES Y CONSTANTES DE RENDERIZADO — definidas a nivel de módulo
+# para evitar recrearlas en cada rerun de Streamlit
+# ─────────────────────────────────────────────────────────────────────────────
+ESTADO_PROY_COLORS = {
+    "SIN CONTRATAR":                 (C["cian"],        "#e0f7fa"),
+    "CONTRATADO EN EJECUCIÓN":       (C["verde_medio"], "#d1fae5"),
+    "CONTRATADO SIN ACTA DE INICIO": (C["azul_medio"],  "#dbeafe"),
+    "TERMINADO":                     (C["muted"],       "#f1f5f9"),
+    "PARA CIERRE":                   (C["cafe"],        "#fef3c7"),
+}
+ESTADO_CONT_COLORS = {
+    "EN EJECUCIÓN":  (C["verde_medio"], "#d1fae5"),
+    "TERMINADO":     (C["muted"],       "#f1f5f9"),
+    "LIQUIDADO":     (C["azul_medio"],  "#dbeafe"),
+    "SUSPENDIDO":    (C["naranja_osc"], "#ffedd5"),
+    "SIN CONTRATO":  (C["cian"],        "#e0f7fa"),
+}
+CTTO_ESTADO_COLORS = {
+    "EN EJECUCIÓN":  (C["verde_medio"],  "#d1fae5"),
+    "EJECUTADO":     (C["verde_oscuro"], "#d1fae5"),
+    "TERMINADO":     (C["muted"],        "#f1f5f9"),
+    "LIQUIDADO":     (C["azul_medio"],   "#dbeafe"),
+    "SUSPENDIDO":    (C["naranja_osc"],  "#ffedd5"),
+    "RESCINDIDO":    (C["salmon"],       "#fee2e2"),
+    "SUSCRITO":      (C["cian"],         "#e0f7fa"),
+}
+
+def _pill(texto, color_map, default_fg=None, default_bg=None):
+    if not texto:
+        return '<span class="proy-pill proy-pill--empty">—</span>'
+    eu = texto.strip().upper()
+    fg, bg = color_map.get(eu, (default_fg or C["muted"], default_bg or "#f1f5f9"))
+    extra = "font-weight:700;" if eu == "SUSPENDIDO" else ""
+    return (f'<span class="proy-pill" '
+            f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
+            f'{html.escape(texto)}</span>')
+
+def _fmt_valor(v):
+    """Formatea un valor float como moneda COP."""
+    if v is None or (isinstance(v, float) and v != v):
+        return "—"
+    try:
+        return f"$ {v:,.0f}"
+    except Exception:
+        return str(v)
+
+def _valor_a_gradiente(valor, v_min, v_max):
+    """Devuelve un color de fondo suave proporcional al valor del contrato."""
+    if valor is None or v_max == v_min:
+        return "#ffffff"
+    ratio = max(0.0, min(1.0, (valor - v_min) / (v_max - v_min)))
+    r = int(255 - ratio * (255 - 219))
+    g = int(255 - ratio * (255 - 234))
+    b = int(255 - ratio * (255 - 254))
+    return f"rgb({r},{g},{b})"
+
+def _contratos_panel(bpin_str, df_cttos):
+    """Genera el HTML del panel de contratos para un BPIN dado."""
+    if df_cttos is None:
+        return '<div class="ctto-panel"><div class="ctto-panel-empty">Archivo de contratos no disponible.</div></div>'
+
+    bpin_norm = (
+        str(bpin_str).strip()
+        .replace(".", "").replace("-", "").replace(",", "").replace(" ", "")
+    )
+    cttos = df_cttos.filter(pl.col("BPIN") == bpin_norm)
+
+    if cttos.height == 0:
+        return '<div class="ctto-panel"><div class="ctto-panel-empty">Sin contratos registrados para este proyecto.</div></div>'
+
+    valores     = [r.get("CONTRATO VALOR TOTAL") for r in cttos.to_dicts()]
+    valores_num = [v for v in valores if v is not None and isinstance(v, float) and v == v]
+    v_min = min(valores_num) if valores_num else 0
+    v_max = max(valores_num) if valores_num else 0
+
+    n      = cttos.height
+    header = f"""
+    <div class="ctto-panel-header">
+        <span class="ctto-panel-title">Contratos</span>
+        <span class="ctto-panel-count">{n}</span>
+    </div>"""
+
+    rows = ""
+    for ctto in cttos.to_dicts():
+        valor    = ctto.get("CONTRATO VALOR TOTAL")
+        bg_grad  = _valor_a_gradiente(valor, v_min, v_max)
+        estado_c = (ctto.get("ESTADO CONTRATO") or "").strip().upper()
+        fg_e, bg_e = CTTO_ESTADO_COLORS.get(estado_c, (C["muted"], "#f1f5f9"))
+        proceso   = html.escape(ctto.get("NO. PROCESO PRECONTRACTUAL") or "—")
+        modalidad = html.escape(ctto.get("MODALIDAD CONTRATACION") or "—")
+        tipo      = html.escape(ctto.get("TIPO CONTRATO") or "—")
+        objeto    = html.escape(ctto.get("CONTRATO OBJETO") or "—")
+
+        bar_px = 0
+        if valor and v_max > v_min:
+            bar_px = int(max(6, min(60, (valor - v_min) / (v_max - v_min) * 60)))
+        elif valor:
+            bar_px = 60
+
+        rows += f"""<tr style="background:{bg_grad}">
+            <td class="ctto-col1"><span class="ctto-proceso">{proceso}</span></td>
+            <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
+            <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
+            <td>
+                <div class="ctto-valor-wrap">
+                    <span class="ctto-valor">{_fmt_valor(valor)}</span>
+                    <div class="ctto-valor-bar" style="width:{bar_px}px"></div>
+                </div>
+            </td>
+            <td><span class="ctto-estado-pill" style="background:{bg_e};color:{fg_e};border:1px solid {fg_e}40">{html.escape(ctto.get("ESTADO CONTRATO") or "—")}</span></td>
+            <td><div class="ctto-objeto">{objeto}</div></td>
+        </tr>"""
+
+    tabla = f"""
+    <div style="border-radius:10px;overflow:hidden;box-shadow:0 1px 10px rgba(0,40,90,0.10);">
+    <table class="ctto-table">
+    <thead><tr>
+        <th class="ctto-col1">No. proceso</th>
+        <th>Modalidad</th><th>Tipo</th>
+        <th>Valor total</th><th>Estado</th>
+        <th>Objeto del contrato</th>
+    </tr></thead>
+    <tbody>{rows}</tbody>
+    </table></div>"""
+    return f'<div class="ctto-panel">{header}{tabla}</div>'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TABS
@@ -2604,140 +2754,6 @@ with tab_proyectos:
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Colores ───────────────────────────────────────────────────────────────
-    ESTADO_PROY_COLORS = {
-        "SIN CONTRATAR":                 (C["cian"],        "#e0f7fa"),
-        "CONTRATADO EN EJECUCIÓN":       (C["verde_medio"], "#d1fae5"),
-        "CONTRATADO SIN ACTA DE INICIO": (C["azul_medio"],  "#dbeafe"),
-        "TERMINADO":                     (C["muted"],       "#f1f5f9"),
-        "PARA CIERRE":                   (C["cafe"],        "#fef3c7"),
-    }
-    ESTADO_CONT_COLORS = {
-        "EN EJECUCIÓN":  (C["verde_medio"], "#d1fae5"),
-        "TERMINADO":     (C["muted"],       "#f1f5f9"),
-        "LIQUIDADO":     (C["azul_medio"],  "#dbeafe"),
-        "SUSPENDIDO":    (C["naranja_osc"], "#ffedd5"),
-        "SIN CONTRATO":  (C["cian"],        "#e0f7fa"),
-    }
-    CTTO_ESTADO_COLORS = {
-        "EN EJECUCIÓN":  (C["verde_medio"],  "#d1fae5"),
-        "EJECUTADO":     (C["verde_oscuro"], "#d1fae5"),
-        "TERMINADO":     (C["muted"],        "#f1f5f9"),
-        "LIQUIDADO":     (C["azul_medio"],   "#dbeafe"),
-        "SUSPENDIDO":    (C["naranja_osc"],  "#ffedd5"),
-        "RESCINDIDO":    (C["salmon"],       "#fee2e2"),
-        "SUSCRITO":      (C["cian"],         "#e0f7fa"),
-    }
-
-    def _pill(texto, color_map, default_fg=None, default_bg=None):
-        if not texto:
-            return '<span class="proy-pill proy-pill--empty">—</span>'
-        eu = texto.strip().upper()
-        fg, bg = color_map.get(eu, (default_fg or C["muted"], default_bg or "#f1f5f9"))
-        extra = "font-weight:700;" if eu == "SUSPENDIDO" else ""
-        return (f'<span class="proy-pill" '
-                f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
-                f'{texto}</span>')
-
-    def _fmt_valor(v):
-        """Formatea un valor float como moneda COP."""
-        if v is None or (isinstance(v, float) and v != v):
-            return "—"
-        try:
-            return f"$ {v:,.0f}"
-        except Exception:
-            return str(v)
-
-    def _valor_a_gradiente(valor, v_min, v_max):
-        """Devuelve un color de fondo suave proporcional al valor del contrato."""
-        if valor is None or v_max == v_min:
-            return "#ffffff"
-        ratio = max(0.0, min(1.0, (valor - v_min) / (v_max - v_min)))
-        # Degradado: blanco (#ffffff) → azul muy suave (#dbeafe) en el máximo
-        r = int(255 - ratio * (255 - 219))  # 255 → 219
-        g = int(255 - ratio * (255 - 234))  # 255 → 234
-        b = int(255 - ratio * (255 - 254))  # 255 → 254
-        return f"rgb({r},{g},{b})"
-
-    def _contratos_panel(bpin_str, df_cttos):
-        """Genera el HTML del panel de contratos para un BPIN dado."""
-        if df_cttos is None:
-            return '<div class="ctto-panel"><div class="ctto-panel-empty">Archivo de contratos no disponible.</div></div>'
-
-        # Normalizar BPIN para el join — idéntico a procesar_contratos()
-        bpin_norm = (
-            str(bpin_str).strip()
-            .replace(".", "")
-            .replace("-", "")
-            .replace(",", "")
-            .replace(" ", "")
-        )
-        cttos = df_cttos.filter(pl.col("BPIN") == bpin_norm)
-
-        if cttos.height == 0:
-            return '<div class="ctto-panel"><div class="ctto-panel-empty">Sin contratos registrados para este proyecto.</div></div>'
-
-        # Rango de valores para degradado
-        valores = [r.get("CONTRATO VALOR TOTAL") for r in cttos.to_dicts()]
-        valores_num = [v for v in valores if v is not None and isinstance(v, float) and v == v]
-        v_min = min(valores_num) if valores_num else 0
-        v_max = max(valores_num) if valores_num else 0
-
-        n = cttos.height
-        header = f"""
-        <div class="ctto-panel-header">
-            <span class="ctto-panel-title">Contratos</span>
-            <span class="ctto-panel-count">{n}</span>
-        </div>"""
-
-        rows = ""
-        for ctto in cttos.to_dicts():
-            valor    = ctto.get("CONTRATO VALOR TOTAL")
-            bg_grad  = _valor_a_gradiente(valor, v_min, v_max)
-            estado_c = (ctto.get("ESTADO CONTRATO") or "").strip().upper()
-            fg_e, bg_e = CTTO_ESTADO_COLORS.get(estado_c, (C["muted"], "#f1f5f9"))
-            proceso   = ctto.get("NO. PROCESO PRECONTRACTUAL") or "—"
-            modalidad = ctto.get("MODALIDAD CONTRATACION") or "—"
-            tipo      = ctto.get("TIPO CONTRATO") or "—"
-            objeto    = ctto.get("CONTRATO OBJETO") or "—"
-
-            # Barra proporcional al valor — ancho en px (inline, no ocupa altura)
-            bar_px = 0
-            if valor and v_max > v_min:
-                bar_px = int(max(6, min(60, (valor - v_min) / (v_max - v_min) * 60)))
-            elif valor:
-                bar_px = 60
-
-            rows += f"""<tr style="background:{bg_grad}">
-                <td class="ctto-col1"><span class="ctto-proceso">{proceso}</span></td>
-                <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
-                <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
-                <td>
-                    <div class="ctto-valor-wrap">
-                        <span class="ctto-valor">{_fmt_valor(valor)}</span>
-                        <div class="ctto-valor-bar" style="width:{bar_px}px"></div>
-                    </div>
-                </td>
-                <td><span class="ctto-estado-pill" style="background:{bg_e};color:{fg_e};border:1px solid {fg_e}40">{ctto.get("ESTADO CONTRATO") or "—"}</span></td>
-                <td><div class="ctto-objeto">{objeto}</div></td>
-            </tr>"""
-
-        tabla = f"""
-        <div style="border-radius:10px;overflow:hidden;box-shadow:0 1px 10px rgba(0,40,90,0.10);">
-        <table class="ctto-table">
-        <thead><tr>
-            <th class="ctto-col1">No. proceso</th>
-            <th>Modalidad</th>
-            <th>Tipo</th>
-            <th>Valor total</th>
-            <th>Estado</th>
-            <th>Objeto del contrato</th>
-        </tr></thead>
-        <tbody>{rows}</tbody>
-        </table>
-        </div>"""
-        return f'<div class="ctto-panel">{header}{tabla}</div>'
-
     # ── Banner de filtros ─────────────────────────────────────────────────────
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:0.6rem;
@@ -2854,9 +2870,9 @@ with tab_proyectos:
         # Construir tabla con filas de contratos intercaladas
         rows_html = ""
         for idx, r in enumerate(df_proy.to_dicts()):
-            entidad  = r.get("ENTIDAD O SECRETARIA") or "—"
-            bpin     = r.get("BPIN") or "—"
-            nombre   = r.get("NOMBRE PROYECTO") or "—"
+            entidad  = html.escape(r.get("ENTIDAD O SECRETARIA") or "—")
+            bpin     = html.escape(str(r.get("BPIN") or "—"))
+            nombre   = html.escape(r.get("NOMBRE PROYECTO") or "—")
             est_proy = r.get("ESTADO PROYECTO") or ""
             est_cont = r.get("ESTADO CONTRATO") or ""
             row_id   = f"proy-{idx}"
@@ -3312,18 +3328,19 @@ with tab_comunicaciones:
             )
 
             # ── Botones copiar + abrir correo ─────────────────────────────────
-            import urllib.parse as _up
-            import streamlit.components.v1 as _comp
-
             _dest   = com_dest.strip() if com_dest.strip() else ""
-            _mailto = f"mailto:{_up.quote(_dest)}" if _dest else "mailto:"
+            _mailto = f"mailto:{urllib.parse.quote(_dest)}" if _dest else "mailto:"
             _gmail  = "https://mail.google.com/mail/#compose"
             _verde  = C["verde_oscuro"]
 
-            _asunto_js = com_asunto.replace("'", "\\'").replace("\n", "\\n")
-            _cuerpo_js = com_cuerpo.replace("'", "\\'").replace("\n", "\\n")
+            # json.dumps escapa correctamente todos los caracteres especiales
+            # incluyendo \, comillas, saltos de línea, caracteres Unicode, etc.
+            # Mucho más seguro que replace("'", "\\'")
+            _asunto_js = json.dumps(com_asunto)
+            _cuerpo_js = json.dumps(com_cuerpo)
+            _dest_js   = json.dumps(com_dest)
 
-            _comp.html(f"""
+            components.html(f"""
             <style>
             .copy-btn {{
                 display:inline-flex; align-items:center; gap:6px;
@@ -3349,6 +3366,9 @@ with tab_comunicaciones:
             </style>
 
             <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:8px">
+                <button class="copy-btn" id="btn_dest"   onclick="doCopy('{_dest_js}','btn_dest','Copiar destinatario')">
+                    Copiar destinatario
+                </button>
                 <button class="copy-btn" id="btn_asunto" onclick="doCopy('{_asunto_js}','btn_asunto','Copiar asunto')">
                     Copiar asunto
                 </button>
