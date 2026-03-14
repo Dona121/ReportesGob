@@ -2558,6 +2558,10 @@ with tab_proyectos:
     }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
     .ctto-table tbody tr:hover td     {{ filter: brightness(0.97); }}
+    /* Primera columna — clase dedicada para máxima especificidad */
+    td.ctto-col1, th.ctto-col1 {{
+        padding-left: 1.4rem !important;
+    }}
 
     /* ── Celda valor ── */
     .ctto-valor {{
@@ -2697,7 +2701,7 @@ with tab_proyectos:
                 bar_px = 60
 
             rows += f"""<tr style="background:{bg_grad}">
-                <td style="padding-left:1.3rem"><span class="ctto-proceso">{proceso}</span></td>
+                <td class="ctto-col1"><span class="ctto-proceso">{proceso}</span></td>
                 <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
                 <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
                 <td>
@@ -2714,7 +2718,7 @@ with tab_proyectos:
         <div style="border-radius:10px;overflow:hidden;box-shadow:0 1px 10px rgba(0,40,90,0.10);">
         <table class="ctto-table">
         <thead><tr>
-            <th style="padding-left:1.3rem">No. proceso</th>
+            <th class="ctto-col1">No. proceso</th>
             <th>Modalidad</th>
             <th>Tipo</th>
             <th>Valor total</th>
