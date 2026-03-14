@@ -1861,13 +1861,14 @@ def procesar_contratos(file_bytes):
         diag.append(f"BPINs muestra: {bpins_muestra}")
 
         # 5. CONTRATO VALOR TOTAL → Float64
+        # Polars no soporta lookahead (?=\d{3}) — limpieza sin regex avanzado:
+        # Estrategia: quitar todo símbolo no numérico excepto el punto/coma decimal
+        # Los valores COP son enteros (sin decimales), así que quitamos todo lo que no sea dígito
         df = df.with_columns(
             pl.col("CONTRATO VALOR TOTAL")
             .cast(pl.Utf8, strict=False)
             .str.strip_chars()
-            .str.replace_all(r"[$\s]", "")        # quitar $ y espacios
-            .str.replace_all(r",(?=\d{3})", "")   # coma como separador miles: 1,234,567
-            .str.replace_all(r"\.(?=\d{3})", "")  # punto como separador miles: 1.234.567
+            .str.replace_all(r"[^\d]", "")   # quitar todo excepto dígitos: $, puntos, comas, espacios
             .cast(pl.Float64, strict=False)
             .alias("CONTRATO VALOR TOTAL")
         )
