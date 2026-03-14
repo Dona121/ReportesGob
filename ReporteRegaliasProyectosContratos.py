@@ -2507,14 +2507,15 @@ with tab_proyectos:
     .ctto-detail-row.visible {{ display: table-row; }}
     .ctto-detail-row td {{
         padding: 0 !important;
-        border-bottom: 3px solid {C['azul_oscuro']}30 !important;
-        border-left: 4px solid {C['azul_medio']} !important;
+        border: none !important;
+        border-bottom: 3px solid {C['azul_oscuro']}25 !important;
     }}
 
     /* ── Panel interior ── */
     .ctto-panel {{
-        padding: 1.1rem 1.4rem 1.2rem 1.8rem;
+        padding: 1.1rem 1.4rem 1.2rem 1.4rem;
         background: linear-gradient(180deg, #edf3fb 0%, #f4f8fd 100%);
+        border-left: 4px solid {C['azul_medio']};
     }}
     .ctto-panel-header {{
         display: flex; align-items: center; gap: 0.7rem;
@@ -2539,8 +2540,7 @@ with tab_proyectos:
     /* ── Tabla de contratos ── */
     .ctto-table {{
         width: 100%; border-collapse: collapse;
-        font-size: 0.77rem; border-radius: 10px; overflow: hidden;
-        box-shadow: 0 1px 8px rgba(0,40,90,0.10);
+        font-size: 0.77rem; overflow: hidden;
     }}
     .ctto-table thead tr {{ background: {C['azul_medio']}; }}
     .ctto-table th {{
@@ -2548,11 +2548,12 @@ with tab_proyectos:
         font-size: 0.59rem; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.8px; color: rgba(255,255,255,0.95);
         text-align: left; white-space: nowrap;
+        border: none;
     }}
     .ctto-table td {{
         padding: 0.75rem 1rem; vertical-align: middle;
+        border: none;
         border-bottom: 1px solid rgba(0,0,0,0.06);
-        background: inherit;
     }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
     .ctto-table tbody tr:hover td {{ filter: brightness(0.97); }}
