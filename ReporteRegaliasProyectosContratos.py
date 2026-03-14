@@ -1871,15 +1871,55 @@ def procesar_contratos(file_bytes):
         diag.append(f"BPINs muestra: {bpins_muestra}")
 
         # 5. CONTRATO VALOR TOTAL → Float64
-        # Polars no soporta lookahead (?=\d{3}) — limpieza sin regex avanzado:
-        # Estrategia: quitar todo símbolo no numérico excepto el punto/coma decimal
-        # Los valores COP son enteros (sin decimales), así que quitamos todo lo que no sea dígito
+        # GESPROY puede exportar con punto decimal y coma de miles (1,234,567.89)
+        # o punto de miles y coma decimal (1.234.567,89).
+        # Estrategia: detectar el último separador (punto o coma) como decimal,
+        # quitar el otro como separador de miles.
+        def _parse_valor(s):
+            if s is None:
+                return None
+            s = str(s).strip().replace("$", "").replace(" ", "")
+            if not s or s in ("", "None", "-", "—"):
+                return None
+            # Detectar formato: si hay coma Y punto, el último es el decimal
+            has_comma = "," in s
+            has_dot   = "." in s
+            try:
+                if has_comma and has_dot:
+                    # Ej: "1,234,567.89" → punto decimal, quitar comas
+                    # Ej: "1.234.567,89" → coma decimal, quitar puntos
+                    last_comma = s.rfind(",")
+                    last_dot   = s.rfind(".")
+                    if last_dot > last_comma:
+                        # punto es decimal → quitar comas
+                        s = s.replace(",", "")
+                    else:
+                        # coma es decimal → quitar puntos, reemplazar coma por punto
+                        s = s.replace(".", "").replace(",", ".")
+                elif has_comma:
+                    # Solo comas: puede ser miles (1,234,567) o decimal (1,50)
+                    parts = s.split(",")
+                    if len(parts) == 2 and len(parts[1]) <= 2:
+                        # Es decimal: "1234567,89" → "1234567.89"
+                        s = s.replace(",", ".")
+                    else:
+                        # Es miles: "1,234,567" → "1234567"
+                        s = s.replace(",", "")
+                elif has_dot:
+                    # Solo puntos: puede ser miles (1.234.567) o decimal (1234567.89)
+                    parts = s.split(".")
+                    if len(parts) > 2:
+                        # Múltiples puntos = separador de miles
+                        s = s.replace(".", "")
+                    # Si es uno solo, puede ser decimal → dejarlo como está
+                return float(s)
+            except Exception:
+                return None
+
         df = df.with_columns(
             pl.col("CONTRATO VALOR TOTAL")
             .cast(pl.Utf8, strict=False)
-            .str.strip_chars()
-            .str.replace_all(r"[^\d]", "")   # quitar todo excepto dígitos: $, puntos, comas, espacios
-            .cast(pl.Float64, strict=False)
+            .map_elements(_parse_valor, return_dtype=pl.Float64)
             .alias("CONTRATO VALOR TOTAL")
         )
 
@@ -2498,26 +2538,24 @@ with tab_proyectos:
 
     /* ── Tabla de contratos ── */
     .ctto-table {{
-        width: 100%; border-collapse: separate; border-spacing: 0;
+        width: 100%; border-collapse: collapse;
         font-size: 0.77rem; border-radius: 10px; overflow: hidden;
         box-shadow: 0 1px 8px rgba(0,40,90,0.10);
     }}
     .ctto-table thead tr {{ background: {C['azul_medio']}; }}
     .ctto-table th {{
-        padding: 0.6rem 1rem; font-family: 'Montserrat', sans-serif;
+        padding: 0.65rem 1rem; font-family: 'Montserrat', sans-serif;
         font-size: 0.59rem; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.8px; color: rgba(255,255,255,0.95);
         text-align: left; white-space: nowrap;
-        border-bottom: 2px solid {C['azul_oscuro']}40;
     }}
     .ctto-table td {{
         padding: 0.75rem 1rem; vertical-align: middle;
-        border-bottom: 1px solid rgba(0,0,0,0.05);
+        border-bottom: 1px solid rgba(0,0,0,0.06);
         background: inherit;
     }}
-    .ctto-table tbody tr {{ transition: filter 0.12s; }}
-    .ctto-table tbody tr:hover {{ filter: brightness(0.96); }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
+    .ctto-table tbody tr:hover td {{ filter: brightness(0.97); }}
 
     /* ── Celda valor ── */
     .ctto-valor {{
