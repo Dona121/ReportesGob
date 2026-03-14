@@ -2564,17 +2564,17 @@ with tab_proyectos:
     }}
 
     /* ── Celda valor ── */
+    .ctto-valor-wrap {{
+        display: inline-block;
+    }}
     .ctto-valor {{
         font-family: 'DM Mono', monospace; font-weight: 800;
         font-size: 0.82rem; white-space: nowrap;
-        color: {C['azul_oscuro']};
-        display: inline-flex; align-items: center; gap: 6px;
+        color: {C['azul_oscuro']}; display: block;
     }}
     .ctto-valor-bar {{
-        display: inline-block;
-        height: 3px; border-radius: 2px;
-        background: {C['azul_medio']}; opacity: 0.45;
-        vertical-align: middle;
+        display: block; height: 3px; border-radius: 2px; margin-top: 4px;
+        background: {C['azul_medio']}; opacity: 0.4;
     }}
 
     /* ── Pill estado contrato ── */
@@ -2705,10 +2705,10 @@ with tab_proyectos:
                 <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
                 <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
                 <td>
-                    <span class="ctto-valor">
-                        {_fmt_valor(valor)}
-                        <span class="ctto-valor-bar" style="width:{bar_px}px"></span>
-                    </span>
+                    <div class="ctto-valor-wrap">
+                        <span class="ctto-valor">{_fmt_valor(valor)}</span>
+                        <div class="ctto-valor-bar" style="width:{bar_px}px"></div>
+                    </div>
                 </td>
                 <td><span class="ctto-estado-pill" style="background:{bg_e};color:{fg_e};border:1px solid {fg_e}40">{ctto.get("ESTADO CONTRATO") or "—"}</span></td>
                 <td><div class="ctto-objeto">{objeto}</div></td>
