@@ -3212,27 +3212,27 @@ with tab_comunicaciones:
             HITO_CALC_EXPLICACION = {
                 "H1 · Sin contratar sin apertura": (
                     "hito_1_val",
-                    "Este indicador mide los días transcurridos desde la aprobación del proyecto "
+                    "Este hito mide los días transcurridos desde la aprobación del proyecto "
                     "hasta la fecha de corte GESPROY, sin que se haya abierto ningún proceso precontractual."
                 ),
                 "H2 · Sin contratar con apertura": (
                     "hito_2_val",
-                    "Este indicador mide los días entre la apertura del primer proceso precontractual "
+                    "Este hito mide los días entre la apertura del primer proceso precontractual "
                     "y la firma del acta de inicio del contrato."
                 ),
                 "H3 · Contratado sin acta de inicio": (
                     "hito_3_val",
-                    "Este indicador mide los días transcurridos desde la suscripción del contrato "
+                    "Este hito mide los días transcurridos desde la suscripción del contrato "
                     "hasta la fecha de corte GESPROY, sin que se haya firmado el acta de inicio."
                 ),
                 "H4 · En ejecución rezagado": (
                     "hito_4_val",
-                    "Este indicador mide los meses de retraso del proyecto respecto a su horizonte "
+                    "Este hito mide los meses de retraso del proyecto respecto a su horizonte "
                     "de ejecución previsto, bajo condición de CPI=0 y SPI=0."
                 ),
                 "H5 · Proyectos terminados": (
                     "hito_5_val",
-                    "Este indicador mide los días transcurridos desde la fecha de finalización "
+                    "Este hito mide los días transcurridos desde la fecha de finalización "
                     "registrada del proyecto hasta la fecha de corte GESPROY."
                 ),
             }
@@ -3301,52 +3301,37 @@ with tab_comunicaciones:
             import urllib.parse as _up
             _dest  = com_dest.strip() if com_dest.strip() else ""
 
-            # Outlook: mailto con asunto y cuerpo (funciona con cualquier cliente)
-            _params_outlook = {"subject": com_asunto, "body": com_cuerpo}
-            _qs_outlook = _up.urlencode(_params_outlook, quote_via=_up.quote)
-            _mailto = f"mailto:{_up.quote(_dest)}?{_qs_outlook}" if _dest else f"mailto:?{_qs_outlook}"
+            # Ambos clientes: solo abrir con destinatario
+            # El asunto y cuerpo se copian manualmente — evita ERR_TOO_MANY_REDIRECTS
+            _mailto = f"mailto:{_up.quote(_dest)}" if _dest else "mailto:"
+            _gmail  = f"https://mail.google.com/mail/?view=cm" + (f"&to={_up.quote(_dest)}" if _dest else "")
+            _verde  = C["verde_oscuro"]
 
-            # Gmail: solo to + subject — el cuerpo va en el clipboard para pegar
-            # Gmail no acepta body largo en URL (ERR_TOO_MANY_REDIRECTS)
-            _gmail_params = {"view": "cm"}
-            if _dest:
-                _gmail_params["to"] = _dest
-            _gmail_params["su"] = com_asunto
-            _gmail = f"https://mail.google.com/mail/?" + _up.urlencode(_gmail_params)
+            st.markdown(
+                f"""<div style="background:#f0f7ff;border-radius:8px;padding:0.7rem 1rem;
+                    font-size:0.78rem;color:{C['azul_oscuro']};margin-bottom:0.8rem;
+                    border-left:3px solid {C['cian']}">
+                    <strong>¿Cómo enviar?</strong> Haz clic en el botón de tu correo →
+                    se abrirá con el destinatario listo. Luego copia el asunto y el cuerpo
+                    desde las cajas de abajo y pégalos en el correo.
+                </div>""",
+                unsafe_allow_html=True,
+            )
 
-            _largo = len(_mailto) > 1800
-            if _largo:
-                st.warning(
-                    f"El correo es extenso ({len(com_cuerpo)} caracteres). "
-                    "Outlook puede no precargarlo completo. "
-                    "Para Gmail, copia el cuerpo desde la caja de abajo y pégalo en el correo.",
-                    icon=None,
-                )
-            else:
-                st.info(
-                    "Para Gmail: abre el correo, luego copia el cuerpo desde la caja de texto y pégalo.",
-                    icon=None,
-                )
-
-            _verde = C["verde_oscuro"]
-            bc1, bc2, bc3 = st.columns([1.1, 1.1, 2])
+            bc1, bc2 = st.columns([1.1, 1.1])
             with bc1:
                 st.markdown(
-                    f'<a href="{_mailto}" class="com-btn-primary" target="_blank">'
-                    f'Abrir en Outlook</a>',
+                    f'<a href="{_mailto}" class="com-btn-primary" target="_blank">Abrir en Outlook</a>',
                     unsafe_allow_html=True,
                 )
-                st.caption("Abre tu cliente de correo con todo precargado")
             with bc2:
                 st.markdown(
-                    f'<a href="{_gmail}" class="com-btn-primary" '
-                    f'style="background:{_verde}" target="_blank">'
-                    f'Abrir en Gmail</a>',
+                    f'<a href="{_gmail}" class="com-btn-primary" style="background:{_verde}" target="_blank">Abrir en Gmail</a>',
                     unsafe_allow_html=True,
                 )
-                st.caption("Abre Gmail — copia el cuerpo desde abajo")
-            with bc3:
-                st.code(com_cuerpo, language=None)
-                st.caption("Copia este texto y pégalo en el cuerpo del correo")
+
+            st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
+            st.text_input("Asunto (copia esto)", value=com_asunto, key="com_asunto_copy", disabled=True)
+            st.text_area("Cuerpo (copia esto)", value=com_cuerpo, height=300, key="com_cuerpo_copy", disabled=True)
 
             st.markdown("</div>", unsafe_allow_html=True)
