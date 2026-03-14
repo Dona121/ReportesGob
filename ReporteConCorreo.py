@@ -2232,28 +2232,30 @@ agrupacion = (
     .sort("ENTIDAD O SECRETARIA")
 )
 
-# Clasificación modal por entidad — un solo group_by vectorizado en lugar de N filtros separados
-# Equivalente a: para cada entidad, la clasificación más frecuente en cada hito
+# Clasificación modal por entidad — 100% nativo Polars, sin UDFs
+# Estrategia: doble group_by → contar frecuencias → ordenar → primera por entidad
 _CLASI_COLS = ["clasi_1", "clasi_2", "clasi_3", "clasi_4", "clasi_5"]
 
-def _moda_str(s: pl.Series) -> str | None:
-    """Devuelve el valor más frecuente de una serie string, o None si está vacía."""
-    vals = s.drop_nulls()
-    if len(vals) == 0:
-        return None
-    return vals.value_counts().sort("count", descending=True)[0, 0]
+def _calcular_clasi_modal(df: pl.DataFrame, cols: list) -> dict:
+    result: dict = {}
+    for col in cols:
+        modal = (
+            df.filter(pl.col(col).is_not_null())
+            .group_by(["ENTIDAD O SECRETARIA", col])
+            .agg(pl.len().alias("_n"))
+            .sort(["ENTIDAD O SECRETARIA", "_n"], descending=[False, True])
+            .group_by("ENTIDAD O SECRETARIA")
+            .first()
+            .select(["ENTIDAD O SECRETARIA", col])
+        )
+        for row in modal.to_dicts():
+            ent = row["ENTIDAD O SECRETARIA"]
+            if ent not in result:
+                result[ent] = {c: None for c in cols}
+            result[ent][col] = row[col]
+    return result
 
-_clasi_modal = (
-    df_f
-    .group_by("ENTIDAD O SECRETARIA")
-    .agg([pl.col(c).map_elements(_moda_str, return_dtype=pl.Utf8).first().alias(c)
-          for c in _CLASI_COLS])
-)
-
-clasi_por_entidad = {
-    row["ENTIDAD O SECRETARIA"]: {c: row[c] for c in _CLASI_COLS}
-    for row in _clasi_modal.to_dicts()
-}
+clasi_por_entidad = _calcular_clasi_modal(df_f, _CLASI_COLS)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FUNCIONES Y CONSTANTES DE RENDERIZADO — definidas a nivel de módulo
@@ -3218,7 +3220,7 @@ with tab_comunicaciones:
                 "Alerta":              st.column_config.TextColumn("Alerta", width="small"),
             },
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             key="com_editor",
         )
 
