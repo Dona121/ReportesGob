@@ -2541,6 +2541,8 @@ with tab_proyectos:
     .ctto-table {{
         width: 100%; border-collapse: collapse;
         font-size: 0.77rem; overflow: hidden;
+        border-radius: 10px;
+        box-shadow: 0 1px 10px rgba(0,40,90,0.10);
     }}
     .ctto-table thead tr {{ background: {C['azul_medio']}; }}
     .ctto-table th {{
@@ -2550,11 +2552,13 @@ with tab_proyectos:
         text-align: left; white-space: nowrap;
         border: none;
     }}
+    .ctto-table th:first-child {{ padding-left: 1.3rem; }}
     .ctto-table td {{
         padding: 0.75rem 1rem; vertical-align: middle;
         border: none;
         border-bottom: 1px solid rgba(0,0,0,0.06);
     }}
+    .ctto-table td:first-child {{ padding-left: 1.3rem; }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
     .ctto-table tbody tr:hover td {{ filter: brightness(0.97); }}
 
