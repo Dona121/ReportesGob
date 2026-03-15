@@ -4,10 +4,18 @@ import pandas as pd
 import io
 import html
 import json
+import logging
 import urllib.parse
+import urllib.request
 import streamlit.components.v1 as components
 import datetime as _dt
 from datetime import date
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.comments import Comment
+from openpyxl.utils import get_column_letter
+
+_log = logging.getLogger(__name__)
 
 st.set_page_config(
     page_title="Seguimiento Regalías",
@@ -908,7 +916,6 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
 """, unsafe_allow_html=True)
 
 # JS para tooltip dinámico — inyectado con components.v1.html para que se ejecute
-import streamlit.components.v1 as components
 components.html("""
 <script>
 (function() {
@@ -1252,7 +1259,7 @@ def _render_eval_errors(errores, contexto=""):
         tipo_raw = e["tipo"].lower()
         tipo_legible = next((v for k, v in tipo_amigable.items() if k in tipo_raw), "no numérico")
         # Formatear ejemplos
-        ejemplos_str = " · ".join([f'<code>{v}</code>' for v in e["ejemplos"]])
+        ejemplos_str = " · ".join([f'<code>{html.escape(str(v))}</code>' for v in e["ejemplos"]])
         st.markdown(f"""
 <div class="error-card">
   <div class="error-title">&#9888; Calificación con valores incorrectos</div>
@@ -1288,6 +1295,7 @@ def procesar_descentralizadas(file_bytes):
         resultado = df.group_by("EJECUTOR").agg(agg_exprs).sort("EJECUTOR")
         return resultado, cols_ok, errores
     except Exception:
+        _log.exception("procesar_descentralizadas: error inesperado al procesar tabla Descentralizadas")
         return None, [], []
 
 
@@ -1306,6 +1314,7 @@ def procesar_eval_sucre(file_bytes):
         resultado = df.group_by("ENTIDAD O SECRETARIA").agg(agg_exprs).sort("ENTIDAD O SECRETARIA")
         return resultado, cols_ok, errores
     except Exception:
+        _log.exception("procesar_eval_sucre: error inesperado al procesar tabla Sucre")
         return None, [], []
 
 
@@ -1341,11 +1350,6 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map):
     df_agr     : pl.DataFrame agrupado por entidad
     clasi_por_entidad_map: dict {entidad -> {clasi_k -> valor_mas_frecuente}}
     """
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.comments import Comment
-    from openpyxl.utils import get_column_letter
-
     # ── Paleta ────────────────────────────────────────────────────────────────
     AZUL_OSC  = "003D6C"
     VERDE_OSC = "005931"
@@ -1761,7 +1765,6 @@ GITHUB_CONTRATOS_URL    = "https://raw.githubusercontent.com/Dona121/Matriz-Eval
 def _cargar_desde_github(url: str):
     """Descarga el Excel desde GitHub Raw y devuelve los bytes. Cachea 1 hora."""
     try:
-        import urllib.request
         with urllib.request.urlopen(url, timeout=15) as r:
             return r.read()
     except Exception:
@@ -2357,7 +2360,7 @@ def _contratos_panel(bpin_str, df_cttos):
         elif valor:
             bar_px = 60
 
-        rows += f"""<tr style="background:{bg_grad}">
+        rows_list.append(f"""<tr style="background:{bg_grad}">
             <td class="ctto-col1"><span class="ctto-proceso">{proceso}</span></td>
             <td style="font-size:0.73rem;color:{C['text']}">{modalidad}</td>
             <td style="font-size:0.73rem;color:{C['muted']}">{tipo}</td>
@@ -2369,8 +2372,9 @@ def _contratos_panel(bpin_str, df_cttos):
             </td>
             <td><span class="ctto-estado-pill" style="background:{bg_e};color:{fg_e};border:1px solid {fg_e}40">{html.escape(ctto.get("ESTADO CONTRATO") or "—")}</span></td>
             <td><div class="ctto-objeto">{objeto}</div></td>
-        </tr>"""
+        </tr>""")
 
+    rows = "".join(rows_list)
     tabla = f"""
     <div style="border-radius:10px;overflow:hidden;box-shadow:0 1px 10px rgba(0,40,90,0.10);">
     <table class="ctto-table">
@@ -2385,8 +2389,85 @@ def _contratos_panel(bpin_str, df_cttos):
     return f'<div class="ctto-panel">{header}{tabla}</div>'
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TABS
+# FUNCIONES DE RENDERIZADO — nivel de módulo (no se recrean en cada rerun)
 # ─────────────────────────────────────────────────────────────────────────────
+def _fmt_date(val):
+    """Formatea una fecha como DD/MM/YYYY o devuelve '—'."""
+    if val is None:
+        return "—"
+    try:
+        return val.strftime("%d/%m/%Y")
+    except Exception:
+        return str(val)
+
+HITO_CALC_META = {
+    "hito_1_val": (
+        "Fecha aprobación",    "FECHA APROBACIÓN PROYECTO",
+        "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
+        "Días desde la aprobación del proyecto hasta el corte, sin proceso de contratación abierto.",
+    ),
+    "hito_2_val": (
+        "Fecha apertura proceso", "FECHA DE APERTURA DEL PRIMER PROCESO",
+        "Fecha acta de inicio",   "FECHA ACTA INICIO",
+        "Días desde la apertura del primer proceso hasta el acta de inicio.",
+    ),
+    "hito_3_val": (
+        "Fecha suscripción",   "FECHA SUSCRIPCION",
+        "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
+        "Días desde la suscripción del contrato hasta el corte, sin acta de inicio.",
+    ),
+    "hito_4_val": (
+        "Horizonte del proyecto", "HORIZONTE DEL PROYECTO",
+        "Fecha corte GESPROY",    "FECHA DE CORTE GESPROY",
+        "Días de retraso sobre el horizonte (CPI=0, SPI=0). El resultado se muestra en meses.",
+    ),
+    "hito_5_val": (
+        "Fecha finalización",  "FECHA DE FINALIZACIÓN",
+        "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
+        "Días entre la fecha de finalización registrada y el corte.",
+    ),
+}
+
+def _dias_tooltip(r, hito_col):
+    """Genera el HTML del tooltip con las fechas y fórmula del cálculo."""
+    meta = HITO_CALC_META.get(hito_col)
+    if not meta:
+        return ""
+    lbl_a, col_a, lbl_b, col_b, nota = meta
+    fecha_a = _fmt_date(r.get(col_a))
+    fecha_b = _fmt_date(r.get(col_b))
+    dias_v  = r.get(hito_col)
+    dias_display = f"{dias_v:.0f} días" if dias_v is not None else "—"
+    es_h4 = hito_col == "hito_4_val"
+    resultado_label = f"{dias_v/30:.1f} meses ({dias_display})" if es_h4 and dias_v else dias_display
+    return (
+        f'<div class="dias-tip-box">'
+        f'  <div class="dias-tip-title">Cálculo del hito</div>'
+        f'  <div class="dias-tip-row"><span class="dias-tip-lbl">{lbl_b}</span>'
+        f'    <span class="dias-tip-val">{fecha_b}</span></div>'
+        f'  <div class="dias-tip-op">menos (−)</div>'
+        f'  <div class="dias-tip-row"><span class="dias-tip-lbl">{lbl_a}</span>'
+        f'    <span class="dias-tip-val">{fecha_a}</span></div>'
+        f'  <div class="dias-tip-sep"></div>'
+        f'  <div class="dias-tip-result">= &nbsp;{resultado_label}</div>'
+        f'  <div class="dias-tip-nota">{nota}</div>'
+        f'</div>'
+    )
+
+def eval_color(score, max_score=100.0):
+    """Devuelve (color_hex, etiqueta) según el score en escala 0-100."""
+    ratio = score / max_score if max_score > 0 else 0
+    if ratio >= 0.8:   return C["verde_medio"],  "Sobresaliente"
+    elif ratio >= 0.6: return C["cian"],         "Satisfactorio"
+    elif ratio >= 0.4: return C["naranja"],      "Aceptable"
+    else:              return C["salmon"],        "Por mejorar"
+
+# hito_cell necesita clasi_por_entidad (recalculado con filtros) → definida
+# dentro del tab para tener acceso al dict actualizado. Documentado como excepción
+# aceptada al criterio A2 dado que su tamaño (3 líneas) no justifica el overhead
+# de pasar el dict como argumento en cada llamada.
+
+
 tab_resumen, tab_proyectos, tab_evaluacion, tab_comunicaciones, tab_exportar = st.tabs([
     "Resumen por entidad",
     "Todos los proyectos",
@@ -2413,22 +2494,22 @@ with tab_resumen:
         hito_k = HITO_KEY_MAP.get(clasi_key)
         return f"<td><span class='dias-val'>{dias_val:.1f} d</span>{badge_html(clasi, hito_k)}</td>"
 
-    rows_html = ""
-    for row in agrupacion.to_dicts():
-        e    = row["ENTIDAD O SECRETARIA"]
+    def _build_row(row):
+        e    = html.escape(row["ENTIDAD O SECRETARIA"] or "")
         susp = int(row["Suspendidos"]) if row["Suspendidos"] else 0
         pc   = int(row["Para cierre"]) if row["Para cierre"] else 0
-        rows_html += f"""<tr>
+        return f"""<tr>
             <td class="entidad-name">{e}</td>
-            {hito_cell(row['Hito 1 (días)'], e, 'clasi_1')}
-            {hito_cell(row['Hito 2 (días)'], e, 'clasi_2')}
-            {hito_cell(row['Hito 3 (días)'], e, 'clasi_3')}
-            {hito_cell(row['Hito 4 (días)'], e, 'clasi_4')}
-            {hito_cell(row['Hito 5 (días)'], e, 'clasi_5')}
+            {hito_cell(row['Hito 1 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_1')}
+            {hito_cell(row['Hito 2 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_2')}
+            {hito_cell(row['Hito 3 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_3')}
+            {hito_cell(row['Hito 4 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_4')}
+            {hito_cell(row['Hito 5 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_5')}
             <td style="text-align:center;font-weight:500">{susp}</td>
             <td style="text-align:center;font-weight:500">{pc}</td>
             <td class="col-total">{int(row['Total'])}</td>
         </tr>"""
+    rows_html = "".join(_build_row(row) for row in agrupacion.to_dicts())
 
     st.markdown(f"""
     <table class="summary-table">
@@ -2488,68 +2569,6 @@ with tab_resumen:
         .sort(["ENTIDAD O SECRETARIA", sel_hito_col_r], descending=[False, True])
     )
 
-    def _fmt_date(val):
-        """Formatea una fecha como DD/MM/YYYY o devuelve '—'."""
-        if val is None:
-            return "—"
-        try:
-            return val.strftime("%d/%m/%Y")
-        except Exception:
-            return str(val)
-
-    HITO_CALC_META = {
-        "hito_1_val": (
-            "Fecha aprobación",    "FECHA APROBACIÓN PROYECTO",
-            "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
-            "Días desde la aprobación del proyecto hasta el corte, sin proceso de contratación abierto.",
-        ),
-        "hito_2_val": (
-            "Fecha apertura proceso", "FECHA DE APERTURA DEL PRIMER PROCESO",
-            "Fecha acta de inicio",   "FECHA ACTA INICIO",
-            "Días desde la apertura del primer proceso hasta el acta de inicio.",
-        ),
-        "hito_3_val": (
-            "Fecha suscripción",   "FECHA SUSCRIPCION",
-            "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
-            "Días desde la suscripción del contrato hasta el corte, sin acta de inicio.",
-        ),
-        "hito_4_val": (
-            "Horizonte del proyecto", "HORIZONTE DEL PROYECTO",
-            "Fecha corte GESPROY",    "FECHA DE CORTE GESPROY",
-            "Días de retraso sobre el horizonte (CPI=0, SPI=0). El resultado se muestra en meses.",
-        ),
-        "hito_5_val": (
-            "Fecha finalización",  "FECHA DE FINALIZACIÓN",
-            "Fecha corte GESPROY", "FECHA DE CORTE GESPROY",
-            "Días entre la fecha de finalización registrada y el corte.",
-        ),
-    }
-
-    def _dias_tooltip(r, hito_col):
-        meta = HITO_CALC_META.get(hito_col)
-        if not meta:
-            return ""
-        lbl_a, col_a, lbl_b, col_b, nota = meta
-        fecha_a = _fmt_date(r.get(col_a))
-        fecha_b = _fmt_date(r.get(col_b))
-        dias_v  = r.get(hito_col)
-        dias_display = f"{dias_v:.0f} días" if dias_v is not None else "—"
-        es_h4 = hito_col == "hito_4_val"
-        resultado_label = f"{dias_v/30:.1f} meses ({dias_display})" if es_h4 and dias_v else dias_display
-        return (
-            f'<div class="dias-tip-box">'
-            f'  <div class="dias-tip-title">Cálculo del hito</div>'
-            f'  <div class="dias-tip-row"><span class="dias-tip-lbl">{lbl_b}</span>'
-            f'    <span class="dias-tip-val">{fecha_b}</span></div>'
-            f'  <div class="dias-tip-op">menos (−)</div>'
-            f'  <div class="dias-tip-row"><span class="dias-tip-lbl">{lbl_a}</span>'
-            f'    <span class="dias-tip-val">{fecha_a}</span></div>'
-            f'  <div class="dias-tip-sep"></div>'
-            f'  <div class="dias-tip-result">= &nbsp;{resultado_label}</div>'
-            f'  <div class="dias-tip-nota">{nota}</div>'
-            f'</div>'
-        )
-
     if df_det.height == 0:
         st.info("No hay proyectos con valor en este hito para los filtros seleccionados.")
     else:
@@ -2560,7 +2579,7 @@ with tab_resumen:
             prom_str = f"{prom:.1f} días" if prom is not None else "—"
 
             with st.expander(f"{entidad}   ·   {n} proyecto(s)   ·   Promedio: {prom_str}", expanded=False):
-                det_rows = ""
+                det_rows_list = []
                 for r in sub.to_dicts():
                     dias_v   = r[sel_hito_col_r]
                     clasi_v  = r[sel_clasi_col_r]
@@ -2580,10 +2599,13 @@ with tab_resumen:
                     badge_cls = _cls_badge_map.get(str(clasi_v), "badge-yellow") if clasi_v else ""
                     row_cls   = _row_cls_map.get(badge_cls, "")
                     tooltip   = _dias_tooltip(r, sel_hito_col_r)
-                    det_rows += f"""<tr class="{row_cls}">
-                        <td><span class="bpin-tag">{r['BPIN'] or '—'}</span></td>
-                        <td style="font-size:0.81rem">{r['NOMBRE PROYECTO'] or '—'}</td>
-                        <td><span class="estado-tag">{r['ESTADO PROYECTO'] or '(Sin estado)'}</span></td>
+                    _bpin_h   = html.escape(str(r['BPIN'] or '—'))
+                    _nom_h    = html.escape(r['NOMBRE PROYECTO'] or '—')
+                    _est_h    = html.escape(r['ESTADO PROYECTO'] or '(Sin estado)')
+                    det_rows_list.append(f"""<tr class="{row_cls}">
+                        <td><span class="bpin-tag">{_bpin_h}</span></td>
+                        <td style="font-size:0.81rem">{_nom_h}</td>
+                        <td><span class="estado-tag">{_est_h}</span></td>
                         <td>
                           <div class="dias-tip-wrap">
                             <span class="dias-val-link">{dias_str}</span>
@@ -2591,7 +2613,7 @@ with tab_resumen:
                           </div>
                         </td>
                         <td>{badge_html(clasi_v, hito_key_detalle)}</td>
-                    </tr>"""
+                    </tr>""")
                 st.markdown(f"""
                 <table class="detail-table">
                 <thead><tr>
@@ -2599,7 +2621,7 @@ with tab_resumen:
                     <th>Días <span style="font-size:0.58rem;font-weight:500;opacity:0.7">(pasar el cursor)</span></th>
                     <th>Clasificación</th>
                 </tr></thead>
-                <tbody>{det_rows}</tbody>
+                <tbody>{"".join(det_rows_list)}</tbody>
                 </table>""", unsafe_allow_html=True)
 
 # ── TAB 2: Todos los proyectos ────────────────────────────────────────────────
@@ -2870,7 +2892,7 @@ with tab_proyectos:
         st.info("No hay proyectos que coincidan con los filtros aplicados.")
     else:
         # Construir tabla con filas de contratos intercaladas
-        rows_html = ""
+        rows_html_list = []
         for idx, r in enumerate(df_proy.to_dicts()):
             entidad  = html.escape(r.get("ENTIDAD O SECRETARIA") or "—")
             bpin     = html.escape(str(r.get("BPIN") or "—"))
@@ -2882,8 +2904,6 @@ with tab_proyectos:
             es_susp  = est_cont.strip().upper() == "SUSPENDIDO"
             bg_susp  = 'style="background:#fff7ed"' if es_susp else ""
 
-            # Contar contratos para este BPIN (badge en el botón)
-            # Normalización idéntica a la aplicada en procesar_contratos()
             bpin_norm = (
                 str(bpin).strip()
                 .replace(".", "")
@@ -2904,7 +2924,7 @@ with tab_proyectos:
 
             panel_html = _contratos_panel(bpin, df_contratos)
 
-            rows_html += f"""
+            rows_html_list.append(f"""
             <tr class="proy-data-row" {bg_susp}>
                 <td class="proy-ent">{entidad}</td>
                 <td><span class="bpin-tag">{bpin}</span></td>
@@ -2919,7 +2939,8 @@ with tab_proyectos:
             </tr>
             <tr class="ctto-detail-row" id="{row_id}">
                 <td colspan="6">{panel_html}</td>
-            </tr>"""
+            </tr>""")
+        rows_html = "".join(rows_html_list)
 
         st.markdown(f"""
         <table class="proy-table">
@@ -2964,14 +2985,6 @@ with tab_evaluacion:
     if df_eval is None or df_eval.height == 0:
         st.info(f"No se encontraron datos de evaluación para «{modelo_sel}».")
     else:
-        # ── Colores de calificación (escala 0-100) ──
-        def eval_color(score, max_score=100.0):
-            ratio = score / max_score if max_score > 0 else 0
-            if ratio >= 0.8:   return C["verde_medio"],  "Sobresaliente"
-            elif ratio >= 0.6: return C["cian"],         "Satisfactorio"
-            elif ratio >= 0.4: return C["naranja"],      "Aceptable"
-            else:              return C["salmon"],        "Por mejorar"
-
         max_score = 100.0
 
         # ── CSS extra para tabla de evaluación ──
