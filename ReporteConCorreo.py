@@ -2343,7 +2343,7 @@ def _contratos_panel(bpin_str, df_cttos):
         <span class="ctto-panel-count">{n}</span>
     </div>"""
 
-    rows = ""
+    rows_list = []
     for ctto in cttos.to_dicts():
         valor    = ctto.get("CONTRATO VALOR TOTAL")
         bg_grad  = _valor_a_gradiente(valor, v_min, v_max)
