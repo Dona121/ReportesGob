@@ -552,6 +552,7 @@ columnas_fecha_h1 = {
     "FECHA ACTA INICIO", "FECHA DE CORTE GESPROY",
     "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
     "FECHA DE INCORPORACIÓN DE RECURSOS",
+    "HORIZONTE DEL PROYECTO", "FECHA DE FINALIZACIÓN",
 }
 columnas_numero_h1 = {
     "VALOR SGR", "VALOR NACIÓN", "VALOR OTROS", "VALOR OTRAS FUENTES NO SUIFP",
@@ -847,7 +848,7 @@ def escribir_hoja(
         FILA_HEADER, 0, FILA_HEADER + n_rows, n_cols - 1,
         {
             "name": nombre_tabla,
-            "style": "Table Style Medium 2",
+            "style": None,
             "autofilter": True,
             "header_row": True,
             "columns": [{"header": c} for c in todas],
@@ -1148,7 +1149,12 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
             ],
         )
-        BPINes_version_anterior = df_h1_raw.select(list(ESQUEMA_MATRIZ_H1.keys()))
+        BPINes_version_anterior = normalizar_fecha(
+            df_h1_raw.select(list(ESQUEMA_MATRIZ_H1.keys())),
+            ["FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
+             "FECHA DE INCORPORACIÓN DE RECURSOS", "FECHA DE FINALIZACIÓN",
+             "HORIZONTE DEL PROYECTO"],
+        )
 
         # ══════════════════════════════════════════════════════════════════════
         # ── Consolidación ─────────────────────────────────────────────────────
