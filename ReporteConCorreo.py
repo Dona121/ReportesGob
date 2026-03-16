@@ -3341,32 +3341,38 @@ with tab_comunicaciones:
             .copy-btn.copied {{ background:#d1fae5; border-color:#059669; color:#065f46; }}
             </style>
             <div style="margin-top:8px">
-                <button class="copy-btn" id="btn_cuerpo"
-                    onclick="doCopy({_cuerpo_js},'btn_cuerpo','Copiar texto del correo')">
+                <button class="copy-btn" id="btn_cuerpo" onclick="doCopy()">
                     Copiar texto del correo
                 </button>
             </div>
             <script>
-            function doCopy(text, btnId, label) {{
-                var btn = document.getElementById(btnId);
-                function confirm() {{
+            var _texto = {_cuerpo_js};
+            function doCopy() {{
+                var btn = document.getElementById('btn_cuerpo');
+                function onOk() {{
                     btn.innerText = '✓ Copiado';
                     btn.classList.add('copied');
                     setTimeout(function() {{
-                        btn.innerText = label;
+                        btn.innerText = 'Copiar texto del correo';
                         btn.classList.remove('copied');
                     }}, 2000);
                 }}
                 if (navigator.clipboard && navigator.clipboard.writeText) {{
-                    navigator.clipboard.writeText(text).then(confirm).catch(function() {{
-                        fallback(text); confirm();
+                    navigator.clipboard.writeText(_texto).then(onOk).catch(function() {{
+                        fallback(); onOk();
                     }});
-                }} else {{ fallback(text); confirm(); }}
+                }} else {{
+                    fallback(); onOk();
+                }}
             }}
-            function fallback(text) {{
+            function fallback() {{
                 var ta = document.createElement('textarea');
-                ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
-                document.body.appendChild(ta); ta.focus(); ta.select();
+                ta.value = _texto;
+                ta.style.position = 'fixed';
+                ta.style.opacity  = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
                 try {{ document.execCommand('copy'); }} catch(e) {{}}
                 document.body.removeChild(ta);
             }}
