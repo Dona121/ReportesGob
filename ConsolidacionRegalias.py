@@ -134,7 +134,11 @@ _TIPOS_NUMERICOS = {
     pl.Float32, pl.Float64,
 }
 
-_FORMATOS_FECHA_VALIDOS = ["%d/%m/%Y", "%Y-%m-%d"]
+_FORMATOS_FECHA_VALIDOS = [
+    "%d/%m/%Y",           # 01/03/2026  — formato de exportación actual
+    "%Y-%m-%d",           # 2026-03-01  — formato legacy
+    "%Y-%m-%d %H:%M:%S",  # 2026-03-01 00:00:00  — Datetime serializado como string
+]
 
 _COMO_CORREGIR = {
     "texto_es_numero": (
@@ -166,9 +170,12 @@ _COMO_CORREGIR = {
 
 def _dtype_es_fecha(dtype) -> bool:
     """True si el dtype es Date o cualquier variante de Datetime."""
-    return dtype == pl.Date or (
-        hasattr(dtype, "base_type") and dtype.base_type() == pl.Datetime
-    )
+    if dtype == pl.Date:
+        return True
+    try:
+        return isinstance(dtype, pl.Datetime)
+    except Exception:
+        return hasattr(dtype, "base_type") and dtype.base_type() == pl.Datetime
 
 
 def _es_fecha_valida_str(serie: pl.Series) -> bool:
@@ -178,9 +185,15 @@ def _es_fecha_valida_str(serie: pl.Series) -> bool:
     if len(no_vacios) == 0:
         return True
     for fmt in _FORMATOS_FECHA_VALIDOS:
-        parseados = no_vacios.str.to_date(fmt, strict=False)
-        if parseados.drop_nulls().len() == len(no_vacios):
-            return True
+        try:
+            if "%S" in fmt:
+                parseados = no_vacios.str.to_datetime(fmt, strict=False)
+            else:
+                parseados = no_vacios.str.to_date(fmt, strict=False)
+            if parseados.drop_nulls().len() == len(no_vacios):
+                return True
+        except Exception:
+            continue
     return False
 
 
@@ -401,6 +414,8 @@ def normalizar_fecha(df: pl.DataFrame, columnas: list[str]) -> pl.DataFrame:
             exprs.append(
                 pl.when(pl.col(col).str.contains(r"^\d{2}/\d{2}/\d{4}$", literal=False))
                 .then(pl.col(col).str.to_date("%d/%m/%Y", strict=False))
+                .when(pl.col(col).str.contains(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", literal=False))
+                .then(pl.col(col).str.to_datetime("%Y-%m-%d %H:%M:%S", strict=False).cast(pl.Date))
                 .otherwise(pl.col(col).str.to_date("%Y-%m-%d", strict=False))
                 .alias(col)
             )
