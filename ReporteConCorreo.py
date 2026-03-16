@@ -3118,10 +3118,9 @@ with tab_comunicaciones:
             Cómo funciona
         </div>
         <b>1. Filtra</b> los proyectos por hito, nivel de alerta y entidad. &nbsp;
-        <b>2. Selecciona</b> con el checkbox los proyectos que quieres incluir en el correo. &nbsp;
-        <b>3. Edita</b> el asunto y el cuerpo del mensaje generado automáticamente. &nbsp;
-        <b>4. Copia</b> el asunto y el cuerpo con los botones de copia. &nbsp;
-        <b>5. Abre</b> Outlook o Gmail y pégalos en el correo.
+        <b>2. Selecciona</b> con el checkbox los proyectos que quieres incluir. &nbsp;
+        <b>3. Edita</b> el texto generado si lo necesitas. &nbsp;
+        <b>4. Copia</b> el texto con el botón y pégalo en tu correo.
     </div>
     """, unsafe_allow_html=True)
 
@@ -3245,19 +3244,10 @@ with tab_comunicaciones:
         )
 
         if n_sel > 0:
-            # ── PASO 2: Redactar ──────────────────────────────────────────────
-            st.markdown(f'<div class="com-card" style="border-left-color:{C["cian"]}"><div class="com-card-title">Paso 2 &nbsp;·&nbsp; Redactar correo</div>', unsafe_allow_html=True)
-
-            col_asunto, col_dest = st.columns([3, 2])
-            with col_asunto:
-                entidad_display = com_entidad if com_entidad != "Todas" else "varias entidades"
-                asunto_default  = f"Seguimiento Regalías · {com_hito_label.split('·')[0].strip()} · {entidad_display}"
-                com_asunto = st.text_input("Asunto", value=asunto_default, key="com_asunto")
-            with col_dest:
-                com_dest = st.text_input("Destinatario(s) — separar con comas", placeholder="correo@entidad.gov.co", key="com_dest")
+            # ── PASO 2: Redactar correo ───────────────────────────────────────
+            st.markdown(f'<div class="com-card" style="border-left-color:{C["cian"]}"><div class="com-card-title">Paso 2 &nbsp;·&nbsp; Cuerpo del correo</div>', unsafe_allow_html=True)
 
             # Generar lista de proyectos para el cuerpo
-            # Mapa hito → (col_clasi, semaforos_dict, calc_explicacion)
             HITO_CALC_EXPLICACION = {
                 "H1 · Sin contratar sin apertura": (
                     "hito_1_val",
@@ -3293,21 +3283,14 @@ with tab_comunicaciones:
                 for _, row in df_sel.iterrows():
                     d       = row["Días"]
                     alerta  = str(row["Alerta"]) if row["Alerta"] == row["Alerta"] else None
-                    # Obtener mensaje del semáforo
                     mensaje_sem = ""
                     if alerta and hito_key_com in SEMAFOROS and alerta in SEMAFOROS[hito_key_com]:
                         _, _, mensaje_sem = SEMAFOROS[hito_key_com][alerta]
-
-                    # Formatear días con contexto
                     es_h4 = com_hito_label == "H4 · En ejecución rezagado"
                     if d == d and d is not None:
-                        if es_h4:
-                            d_str = f"{d/30:.1f} meses ({d:.0f} días)"
-                        else:
-                            d_str = f"{d:.0f} días"
+                        d_str = f"{d/30:.1f} meses ({d:.0f} días)" if es_h4 else f"{d:.0f} días"
                     else:
                         d_str = "—"
-
                     lineas.append(
                         f"  • BPIN {row['BPIN']}  —  {row['Nombre del proyecto']}\n"
                         f"    {mensaje_sem}\n"
@@ -3332,68 +3315,37 @@ with tab_comunicaciones:
                 f"Departamento de Sucre"
             )
 
-            # Key dinámica: cambia con los filtros → Streamlit reinicia el widget
+            # Key dinámica: se reinicia cuando cambian los filtros o la selección
             _body_key = f"com_cuerpo_{com_hito_label}_{com_clasi_label}_{com_entidad}_{n_sel}"
 
             com_cuerpo = st.text_area(
-                "Cuerpo del correo (editable)",
+                "Edita el texto si lo necesitas, luego cópialo con el botón",
                 value=cuerpo_def,
-                height=380,
+                height=400,
                 key=_body_key,
+                label_visibility="visible",
             )
 
-            # ── Botones copiar + abrir correo ─────────────────────────────────
-            _dest   = com_dest.strip() if com_dest.strip() else ""
-            _mailto = f"mailto:{urllib.parse.quote(_dest)}" if _dest else "mailto:"
-            _gmail  = "https://mail.google.com/mail/#compose"
-            _verde  = C["verde_oscuro"]
-
-            # json.dumps escapa correctamente todos los caracteres especiales
-            # incluyendo \, comillas, saltos de línea, caracteres Unicode, etc.
-            # Mucho más seguro que replace("'", "\\'")
-            _asunto_js = json.dumps(com_asunto)
+            # Botón copiar cuerpo via JS
             _cuerpo_js = json.dumps(com_cuerpo)
-            _dest_js   = json.dumps(com_dest)
-
             components.html(f"""
             <style>
             .copy-btn {{
-                display:inline-flex; align-items:center; gap:6px;
+                display:inline-flex; align-items:center; gap:8px;
                 background:#f1f5f9; border:1.5px solid #cbd5e1;
-                color:#1a2332; border-radius:7px; padding:7px 18px;
-                font-size:0.73rem; font-weight:700; cursor:pointer;
-                font-family:'Montserrat',sans-serif; margin:6px 8px 6px 0;
-                transition:all 0.15s;
+                color:#1a2332; border-radius:7px; padding:9px 22px;
+                font-size:0.76rem; font-weight:700; cursor:pointer;
+                font-family:'Montserrat',sans-serif; transition:all 0.15s;
             }}
             .copy-btn:hover {{ background:#e2e8f0; border-color:#94a3b8; }}
             .copy-btn.copied {{ background:#d1fae5; border-color:#059669; color:#065f46; }}
-            .open-btn {{
-                display:inline-flex; align-items:center; gap:6px;
-                border:none; border-radius:7px; padding:7px 18px;
-                font-size:0.73rem; font-weight:700; cursor:pointer;
-                font-family:'Montserrat',sans-serif; margin:6px 8px 6px 0;
-                text-decoration:none; transition:background 0.15s;
-            }}
-            .open-outlook {{ background:#003d6c; color:white; }}
-            .open-outlook:hover {{ background:#1754ab; color:white; }}
-            .open-gmail {{ background:#005931; color:white; }}
-            .open-gmail:hover {{ background:#17743d; color:white; }}
             </style>
-
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:8px">
-                <button class="copy-btn" id="btn_dest"   onclick="doCopy('{_dest_js}','btn_dest','Copiar destinatario')">
-                    Copiar destinatario
+            <div style="margin-top:8px">
+                <button class="copy-btn" id="btn_cuerpo"
+                    onclick="doCopy({_cuerpo_js},'btn_cuerpo','Copiar texto del correo')">
+                    Copiar texto del correo
                 </button>
-                <button class="copy-btn" id="btn_asunto" onclick="doCopy('{_asunto_js}','btn_asunto','Copiar asunto')">
-                    Copiar asunto
-                </button>
-                <button class="copy-btn" id="btn_cuerpo" onclick="doCopy('{_cuerpo_js}','btn_cuerpo','Copiar cuerpo')">
-                    Copiar cuerpo
-                </button>
-                <a href="{_mailto}" class="open-btn open-outlook" target="_blank">Abrir Outlook</a>
-                <a href="{_gmail}"  class="open-btn open-gmail"   target="_blank">Abrir Gmail</a>
             </div>
-
             <script>
             function doCopy(text, btnId, label) {{
                 var btn = document.getElementById(btnId);
@@ -3409,9 +3361,7 @@ with tab_comunicaciones:
                     navigator.clipboard.writeText(text).then(confirm).catch(function() {{
                         fallback(text); confirm();
                     }});
-                }} else {{
-                    fallback(text); confirm();
-                }}
+                }} else {{ fallback(text); confirm(); }}
             }}
             function fallback(text) {{
                 var ta = document.createElement('textarea');
@@ -3421,6 +3371,6 @@ with tab_comunicaciones:
                 document.body.removeChild(ta);
             }}
             </script>
-            """, height=60, scrolling=False)
+            """, height=55, scrolling=False)
 
             st.markdown("</div>", unsafe_allow_html=True)
