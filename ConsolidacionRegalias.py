@@ -579,7 +579,7 @@ cols_desc_generales = [
 ]
 cols_desc_calificacion = [
     "AVANCE FÍSICO", "AVANCE FINANCIERO",
-    "CPI (DATOS DE PRUEBA)", "SPI (DATOS DE PRUEBA)",
+    "CPI", "SPI",
     "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
     "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "FECHA DE CORTE GESPROY",
     "DIAS DESDE LA APROBACIÓN HASTA APERTURA DEL PRIMER PROCESO",
@@ -739,8 +739,8 @@ def formulas_para_fila_desc(r: int) -> dict:
     def ref(c): return f"${col_letter(idx_desc[c])}{r}"
 
     estado       = ref("ESTADO PROYECTO")
-    spi          = ref("SPI (DATOS DE PRUEBA)")
-    cpi          = ref("CPI (DATOS DE PRUEBA)")
+    spi          = ref("SPI")
+    cpi          = ref("CPI")
     af           = ref("AVANCE FINANCIERO")
     afis         = ref("AVANCE FÍSICO")
     col_apoyo    = ref("COLUMNA APOYO")
@@ -784,7 +784,7 @@ def formulas_para_fila_desc(r: int) -> dict:
         f'IF({ext}>=6,0,"")))))))'
     )
     ponderado   = f"({cron}*0.4+{cost}*0.2+{brecha}*0.4)"
-    calculo     = f'IFERROR(IF(ISTEXT({info_sol}),{ponderado},""),"")'
+    calculo     = f'IFERROR(IF(ISNUMBER({info_sol}),{ponderado},""),"")'
     f_ejecucion = (
         f'=IFERROR(IF(AND({en_ejecucion},{ext}>1),'
         f'({calculo})*{col_apoyo2}/100,{calculo}),0)'
@@ -1135,7 +1135,12 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
         # Versión anterior: normalizar fechas
         otros_ejecutores_descentralizadas = normalizar_fecha(
-            df_desc_raw.drop("FECHA DE CORTE GESPROY"),
+            df_desc_raw
+            .drop("FECHA DE CORTE GESPROY")
+            .rename({
+                "CPI (DATOS DE PRUEBA)": "CPI",
+                "SPI (DATOS DE PRUEBA)": "SPI",
+            }),
             [
                 "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
                 "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA APROBACIÓN PROYECTO",
