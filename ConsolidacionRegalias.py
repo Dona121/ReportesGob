@@ -88,8 +88,8 @@ ESQUEMA_MATRIZ_DESC = {
     "FECHA DE INCORPORACIÓN DE RECUROS":           ("Fecha",  "fecha"),
     "AVANCE FÍSICO":                               ("Número", "numero"),
     "AVANCE FINANCIERO":                           ("Número", "numero"),
-    "CPI (DATOS DE PRUEBA)":                       ("Número", "numero"),
-    "SPI (DATOS DE PRUEBA)":                       ("Número", "numero"),
+    "CPI":                                         ("Número", "numero"),
+    "SPI":                                         ("Número", "numero"),
     "FECHA APROBACIÓN PROYECTO":                   ("Fecha",  "fecha"),
     "FECHA DE APERTURA DEL PRIMER PROCESO":        ("Fecha",  "fecha"),
     "FECHA SUSCRIPCION":                           ("Fecha",  "fecha"),
@@ -1135,12 +1135,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
         # Versión anterior: normalizar fechas
         otros_ejecutores_descentralizadas = normalizar_fecha(
-            df_desc_raw
-            .drop("FECHA DE CORTE GESPROY")
-            .rename({
-                "CPI (DATOS DE PRUEBA)": "CPI",
-                "SPI (DATOS DE PRUEBA)": "SPI",
-            }),
+            df_desc_raw.drop("FECHA DE CORTE GESPROY"),
             [
                 "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
                 "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA APROBACIÓN PROYECTO",
