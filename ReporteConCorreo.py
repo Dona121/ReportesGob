@@ -1130,13 +1130,16 @@ def procesar(file_bytes):
                 .alias(col)
             )
         elif dtype in (pl.Utf8, pl.String):
-            # Texto — intentar múltiples formatos comunes
+            # Texto — intentar múltiples formatos incluyendo datetime con timestamp
             cast_exprs.append(
                 pl.coalesce([
-                    pl.col(col).str.to_date("%d/%m/%Y", strict=False),
-                    pl.col(col).str.to_date("%Y-%m-%d", strict=False),
-                    pl.col(col).str.to_date("%m/%d/%Y", strict=False),
-                    pl.col(col).str.to_date("%d-%m-%Y", strict=False),
+                    pl.col(col).str.to_date("%d/%m/%Y",           strict=False),
+                    pl.col(col).str.to_date("%Y-%m-%d",           strict=False),
+                    pl.col(col).str.to_date("%m/%d/%Y",           strict=False),
+                    pl.col(col).str.to_date("%d-%m-%Y",           strict=False),
+                    # Formatos con timestamp (ej: "2026-02-15T00:00:00")
+                    pl.col(col).str.to_datetime("%Y-%m-%dT%H:%M:%S", strict=False).dt.date(),
+                    pl.col(col).str.to_datetime("%Y-%m-%d %H:%M:%S", strict=False).dt.date(),
                 ]).alias(col)
             )
         else:
@@ -1152,10 +1155,11 @@ def procesar(file_bytes):
         )
         .with_columns(cast_exprs)
         .with_columns(
-            # Hito 1
+            # Hito 1 — omitir si la fecha de aprobación es posterior a la fecha de corte
             pl.when(
                 ((pl.col("ESTADO PROYECTO") == "SIN CONTRATAR") | pl.col("ESTADO PROYECTO").is_null() | (pl.col("ESTADO PROYECTO") == "")) &
-                (~pl.col("FECHA APROBACIÓN PROYECTO").is_null()) & (~pl.col("FECHA DE CORTE GESPROY").is_null())
+                (~pl.col("FECHA APROBACIÓN PROYECTO").is_null()) & (~pl.col("FECHA DE CORTE GESPROY").is_null()) &
+                (pl.col("FECHA APROBACIÓN PROYECTO") <= pl.col("FECHA DE CORTE GESPROY"))
             ).then((pl.col("FECHA DE CORTE GESPROY") - pl.col("FECHA APROBACIÓN PROYECTO")).dt.total_days()).otherwise(None).alias("hito_1_val"),
             # Hito 2 — clip(0) previene valores negativos por errores de datos
             # (ej: acta firmada antes de apertura del proceso)
@@ -1343,7 +1347,9 @@ def badge_html(val, hito_key=None):
         f'</span>'
     )
 
-def generar_excel(df_f_full, df_agr, clasi_por_entidad_map):
+def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
+                  df_eval_sucre=None, cols_eval_sucre=None,
+                  df_eval_desc=None, cols_eval_desc=None):
     """
     Genera reporte Excel formateado.
     df_f_full  : pl.DataFrame con todas las columnas (df_f con fechas + hitos)
@@ -1643,6 +1649,101 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map):
                 _data_cell(cell, val if val else "—", bg=bg)
 
     ws2.freeze_panes = ws2.cell(4, 3)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HOJA 3 · Evaluación del modelo
+    # ══════════════════════════════════════════════════════════════════════════
+    def _ws_eval(ws, df_eval, col_entidad, cols_calificacion, labels_calificacion, subtitulo):
+        """Genera una hoja de evaluación con el mismo estilo visual."""
+        ws.sheet_view.showGridLines = False
+
+        EVAL_COLS = [(col_entidad, 30)] + [(c, 22) for c in cols_calificacion]
+        NCOLS = len(EVAL_COLS)
+
+        _title_row(ws,
+                   f"Seguimiento y Evaluación · Regalías — {subtitulo}",
+                   f"Generado: {date.today().strftime('%d/%m/%Y')}   ·   Calificaciones promedio por entidad (escala 0–100)",
+                   NCOLS)
+
+        ws.row_dimensions[3].height = 6
+
+        # Headers col_entidad + calificaciones + promedio general
+        headers = [col_entidad] + labels_calificacion + ["Promedio general"]
+        widths  = [30] + [22] * len(labels_calificacion) + [18]
+        for ci, (label, width) in enumerate(zip(headers, widths), 1):
+            _header_cell(ws.cell(3, ci), label)
+            ws.column_dimensions[get_column_letter(ci)].width = width
+        ws.row_dimensions[3].height = 42
+
+        # Colores semáforo evaluación (escala 0–100)
+        EVAL_SEM = [
+            (80, VERDE_OSC,  "FFFFFF"),  # ≥80 verde
+            (60, "1754AB",   "FFFFFF"),  # ≥60 azul
+            (40, "D88C16",   "FFFFFF"),  # ≥40 naranja
+            (0,  "E68878",   "FFFFFF"),  # <40 salmón
+        ]
+        def _eval_fill(score):
+            if score is None or str(score) in ("nan","None",""): return BLANCO, "1A2332"
+            s = float(score)
+            for threshold, bg, fg in EVAL_SEM:
+                if s >= threshold: return bg, fg
+            return BLANCO, "1A2332"
+
+        df_pd = df_eval.to_pandas() if df_eval is not None else None
+        if df_pd is None or df_pd.empty:
+            ws.cell(4, 1, "Sin datos disponibles").font = Font(name="Arial", size=9, italic=True, color="9CA3AF")
+            return
+
+        for ri, row_vals in enumerate(df_pd.values.tolist(), 4):
+            row_dict = dict(zip(df_pd.columns, row_vals))
+            bg = GRIS_ALT if ri % 2 == 0 else BLANCO
+            ws.row_dimensions[ri].height = 18
+
+            # Entidad
+            entidad_val = row_dict.get(col_entidad, "")
+            _data_cell(ws.cell(ri, 1), str(entidad_val) if entidad_val else "—",
+                       bg=bg, bold=True, color=AZUL_MED)
+
+            scores = []
+            for ci, col in enumerate(cols_calificacion, 2):
+                val = row_dict.get(col)
+                score = float(val) if val is not None and str(val) not in ("nan","None","") else None
+                scores.append(score)
+                cell = ws.cell(ri, ci)
+                if score is not None:
+                    bg_s, fg_s = _eval_fill(score)
+                    _data_cell(cell, round(score, 1), bg=bg_s, color=fg_s, center=True, fmt="0.0")
+                else:
+                    _data_cell(cell, "—", bg=bg, color="9CA3AF", center=True)
+
+            # Promedio general
+            valid = [s for s in scores if s is not None]
+            prom = round(sum(valid) / len(valid), 1) if valid else None
+            ci_prom = len(cols_calificacion) + 2
+            cell_p = ws.cell(ri, ci_prom)
+            if prom is not None:
+                bg_p, fg_p = _eval_fill(prom)
+                _data_cell(cell_p, prom, bg=bg_p, color=fg_p, center=True, bold=True, fmt="0.0")
+            else:
+                _data_cell(cell_p, "—", bg=bg, color="9CA3AF", center=True)
+
+        ws.freeze_panes = ws.cell(4, 2)
+
+    COLS_EVAL_LABELS_MAP = dict(zip(COLS_EVAL, COLS_EVAL_LABELS))
+
+    # Hoja 3a — Departamento de Sucre
+    if df_eval_sucre is not None and cols_eval_sucre:
+        ws3 = wb.create_sheet("Evaluación Sucre")
+        labels_s = [COLS_EVAL_LABELS_MAP.get(c, c) for c in cols_eval_sucre]
+        _ws_eval(ws3, df_eval_sucre, "ENTIDAD O SECRETARIA",
+                 cols_eval_sucre, labels_s, "Evaluación · Departamento de Sucre")
+
+    # Hoja 3b — Descentralizadas
+    if df_eval_desc is not None and cols_eval_desc:
+        ws4 = wb.create_sheet("Evaluación Descentralizadas")
+        labels_d = [COLS_EVAL_LABELS_MAP.get(c, c) for c in cols_eval_desc]
+        _ws_eval(ws4, df_eval_desc, "EJECUTOR",
+                 cols_eval_desc, labels_d, "Evaluación · Entidades Descentralizadas")
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -2258,7 +2359,10 @@ def _calcular_clasi_modal(df: pl.DataFrame, cols: list) -> dict:
             result[ent][col] = row[col]
     return result
 
-clasi_por_entidad = _calcular_clasi_modal(df_f, _CLASI_COLS)
+# Ajuste 2: usar df (sin filtros) para que el semáforo sea consistente
+# independientemente de los filtros del sidebar. df_f puede excluir proyectos
+# y cambiar la moda de clasificación por entidad.
+clasi_por_entidad = _calcular_clasi_modal(df, _CLASI_COLS)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FUNCIONES Y CONSTANTES DE RENDERIZADO — definidas a nivel de módulo
@@ -2467,6 +2571,12 @@ def eval_color(score, max_score=100.0):
 # aceptada al criterio A2 dado que su tamaño (3 líneas) no justifica el overhead
 # de pasar el dict como argumento en cada llamada.
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRE-CARGA EVALUACIÓN — fuera de los tabs para que tab_exportar pueda usarla
+# ─────────────────────────────────────────────────────────────────────────────
+_df_eval_sucre, _cols_eval_sucre, _ = procesar_eval_sucre(file_bytes)
+_df_eval_desc,  _cols_eval_desc,  _ = procesar_descentralizadas(file_bytes)
 
 tab_resumen, tab_proyectos, tab_evaluacion, tab_comunicaciones, tab_exportar = st.tabs([
     "Resumen por entidad",
@@ -3089,15 +3199,22 @@ with tab_evaluacion:
 with tab_exportar:
     st.markdown("<div class='section-heading'>Descargar reporte</div>", unsafe_allow_html=True)
     st.markdown(
-        "El archivo incluye dos hojas: **Resumen por entidad** con los promedios por hito y nivel de alerta, "
-        "y **Detalle proyectos** con cada proyecto, sus fechas de cálculo, días por hito, semáforo y mensaje.",
+        "El archivo incluye hasta **4 hojas**: "
+        "**Resumen por entidad** con promedios por hito y nivel de alerta, "
+        "**Detalle proyectos** con cada proyecto y sus fechas de cálculo, "
+        "**Evaluación Sucre** y **Evaluación Descentralizadas** con las calificaciones "
+        "promedio por entidad (semáforo verde ≥80, azul ≥60, naranja ≥40, rojo <40).",
         unsafe_allow_html=False,
     )
     st.markdown("<div style='height:0.8rem'></div>", unsafe_allow_html=True)
 
     st.download_button(
         label="Descargar reporte Excel",
-        data=generar_excel(df_f, agrupacion, clasi_por_entidad),
+        data=generar_excel(
+            df_f, agrupacion, clasi_por_entidad,
+            df_eval_sucre=_df_eval_sucre, cols_eval_sucre=_cols_eval_sucre,
+            df_eval_desc=_df_eval_desc,   cols_eval_desc=_cols_eval_desc,
+        ),
         file_name=f"regalias_seguimiento_{date.today().strftime('%Y%m%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
