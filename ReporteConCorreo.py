@@ -1120,30 +1120,40 @@ def procesar(file_bytes):
     for col in DATE_COLS:
         dtype = df[col].dtype
         if dtype == pl.Date:
-            # Ya es fecha — no tocar
+            # Ya es fecha nativa — no tocar
             cast_exprs.append(pl.col(col))
+        elif dtype in (pl.Datetime,):
+            # Datetime → extraer solo la parte de fecha
+            cast_exprs.append(pl.col(col).dt.date().alias(col))
         elif dtype in (pl.Int32, pl.Int64, pl.UInt32, pl.UInt16):
-            # Serial numérico de Excel → convertir a Date sumando días desde epoch
+            # Serial numérico Excel → días desde 1899-12-30
             cast_exprs.append(
                 (pl.lit(EXCEL_EPOCH) + pl.duration(days=pl.col(col).cast(pl.Int64)))
                 .cast(pl.Date)
                 .alias(col)
             )
         elif dtype in (pl.Utf8, pl.String):
-            # Texto — intentar múltiples formatos incluyendo datetime con timestamp
+            # Texto — limpiar saltos de línea/tabs/espacios antes de parsear.
+            # GESPROY puede exportar celdas con \n o \r dentro del valor de fecha.
+            cleaned = (
+                pl.col(col)
+                .str.replace_all(r"[\n\r\t]", " ")
+                .str.strip_chars()
+            )
             cast_exprs.append(
                 pl.coalesce([
-                    pl.col(col).str.to_date("%d/%m/%Y",           strict=False),
-                    pl.col(col).str.to_date("%Y-%m-%d",           strict=False),
-                    pl.col(col).str.to_date("%m/%d/%Y",           strict=False),
-                    pl.col(col).str.to_date("%d-%m-%Y",           strict=False),
-                    # Formatos con timestamp (ej: "2026-02-15T00:00:00")
-                    pl.col(col).str.to_datetime("%Y-%m-%dT%H:%M:%S", strict=False).dt.date(),
-                    pl.col(col).str.to_datetime("%Y-%m-%d %H:%M:%S", strict=False).dt.date(),
+                    cleaned.str.to_date("%d/%m/%Y",           strict=False),
+                    cleaned.str.to_date("%Y-%m-%d",           strict=False),
+                    cleaned.str.to_date("%m/%d/%Y",           strict=False),
+                    cleaned.str.to_date("%d-%m-%Y",           strict=False),
+                    # Timestamps con T o espacio (ej: "2026-02-15T00:00:00")
+                    cleaned.str.to_datetime("%Y-%m-%dT%H:%M:%S", strict=False).dt.date(),
+                    cleaned.str.to_datetime("%Y-%m-%d %H:%M:%S", strict=False).dt.date(),
+                    cleaned.str.to_datetime("%d/%m/%Y %H:%M:%S", strict=False).dt.date(),
                 ]).alias(col)
             )
         else:
-            # Fallback genérico
+            # Fallback genérico para tipos inesperados
             cast_exprs.append(pl.col(col).cast(pl.Date, strict=False))
 
     df = (
@@ -2692,8 +2702,26 @@ with tab_resumen:
                 det_rows_list = []
                 for r in sub.to_dicts():
                     dias_v   = r[sel_hito_col_r]
-                    clasi_v  = r[sel_clasi_col_r]
                     dias_str = f"{dias_v:.1f} d" if dias_v is not None else "—"
+
+                    # Reclasificar el valor de días localmente — independiente de
+                    # los filtros del sidebar para que el badge sea siempre consistente
+                    if dias_v is not None:
+                        if sel_hito_col_r == "hito_4_val":
+                            meses = dias_v / 30.0
+                            if   meses <= 1: clasi_v = "0-1"
+                            elif meses <= 3: clasi_v = "1.1-3"
+                            elif meses <= 6: clasi_v = "3.1-6"
+                            else:            clasi_v = ">6"
+                        else:
+                            intervalos = INTERVALOS.get(sel_hito_col_r, [])
+                            clasi_v = None
+                            for label, lo, hi in intervalos:
+                                if hi is None and dias_v >= lo:   clasi_v = label; break
+                                elif hi is not None and lo <= dias_v <= hi: clasi_v = label; break
+                    else:
+                        clasi_v = None
+
                     _row_cls_map = {
                         "badge-green":  "row-green",
                         "badge-yellow": "row-yellow",
