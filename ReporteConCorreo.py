@@ -1394,7 +1394,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
 
     def _side():  return Side(style="thin", color=GRIS_BRD)
     def _border(): return Border(left=_side(), right=_side(), top=_side(), bottom=_side())
-    def _font(bold=False, color="1A2332", size=10, italic=False):
+    def _font(bold=False, color="1A2332", size=11, italic=False):
         return Font(name="Calibri", bold=bold, color=color, size=size, italic=italic)
     def _fill(color): return PatternFill("solid", fgColor=color)
     def _align(h="left", wrap=True, v="top"):
@@ -1402,7 +1402,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
 
     def _header_cell(cell, text):
         cell.value = text
-        cell.font     = Font(name="Calibri", bold=True, color=BLANCO, size=10)
+        cell.font     = Font(name="Calibri", bold=True, color=BLANCO, size=11)
         cell.fill     = _fill(AZUL_OSC)
         cell.alignment= Alignment(horizontal="center", vertical="center", wrap_text=True)
         cell.border   = _border()
@@ -1421,7 +1421,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
         if clasi_s and clasi_s in SEM_FILL:
             bg, fg = SEM_FILL[clasi_s]
             cell.value     = clasi_s
-            cell.font      = Font(name="Calibri", bold=True, color=fg, size=10)
+            cell.font      = Font(name="Calibri", bold=True, color=fg, size=11)
             cell.fill      = _fill(bg)
             cell.alignment = _align("center")
             cell.border    = _border()
@@ -1438,14 +1438,14 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
         c.font = Font(name="Calibri", bold=True, size=14, color=BLANCO)
         c.fill = _fill(AZUL_OSC)
         c.alignment = _align("left")
-        ws.row_dimensions[1].height = 30
+        ws.row_dimensions[1].height = 34
 
         ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
         c2 = ws.cell(2, 1, sub)
-        c2.font = Font(name="Calibri", size=10, color=BLANCO, italic=True)
+        c2.font = Font(name="Calibri", size=11, color=BLANCO, italic=True)
         c2.fill = _fill(VERDE_OSC)
         c2.alignment = _align("left")
-        ws.row_dimensions[2].height = 16
+        ws.row_dimensions[2].height = 20
 
     wb = Workbook()
 
@@ -1485,7 +1485,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
     for ci, (label, width) in enumerate(H1_COLS, 1):
         _header_cell(ws1.cell(4, ci), label)
         ws1.column_dimensions[get_column_letter(ci)].width = width
-    ws1.row_dimensions[4].height = 42
+    ws1.row_dimensions[4].height = 48
 
     agr_pd = df_agr.to_pandas()
     # Columnas del agrupacion en orden garantizado
@@ -1503,7 +1503,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
         row_dict = dict(zip(AGR_COLS, row_vals))
         bg = GRIS_ALT if ri % 2 == 0 else BLANCO
         entidad = row_dict.get("ENTIDAD O SECRETARIA") or ""
-        ws1.row_dimensions[ri].height = 18
+        ws1.row_dimensions[ri].height = 24
 
         _data_cell(ws1.cell(ri, 1), entidad, bg=bg, bold=True, color=AZUL_MED)
 
@@ -1589,7 +1589,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
     for ci, (label, width, _) in enumerate(H2_COLS, 1):
         _header_cell(ws2.cell(3, ci), label)
         ws2.column_dimensions[get_column_letter(ci)].width = width
-    ws2.row_dimensions[3].height = 42
+    ws2.row_dimensions[3].height = 48
 
     DATE_COLS = {
         "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
@@ -1652,7 +1652,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
 
             elif attr.startswith("_msg"):
                 _data_cell(cell, val, bg=bg, color="374151")
-                cell.font = Font(name="Calibri", size=9, color="374151", italic=True)
+                cell.font = Font(name="Calibri", size=11, color="374151", italic=True)
 
             else:
                 _data_cell(cell, val if val else "—", bg=bg)
@@ -1681,7 +1681,7 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
         for ci, (label, width) in enumerate(zip(headers, widths), 1):
             _header_cell(ws.cell(3, ci), label)
             ws.column_dimensions[get_column_letter(ci)].width = width
-        ws.row_dimensions[3].height = 42
+        ws.row_dimensions[3].height = 48
 
         # Colores semáforo evaluación (escala 0–100)
         EVAL_SEM = [
@@ -1699,13 +1699,13 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
 
         df_pd = df_eval.to_pandas() if df_eval is not None else None
         if df_pd is None or df_pd.empty:
-            ws.cell(4, 1, "Sin datos disponibles").font = Font(name="Calibri", size=9, italic=True, color="9CA3AF")
+            ws.cell(4, 1, "Sin datos disponibles").font = Font(name="Calibri", size=11, italic=True, color="9CA3AF")
             return
 
         for ri, row_vals in enumerate(df_pd.values.tolist(), 4):
             row_dict = dict(zip(df_pd.columns, row_vals))
             bg = GRIS_ALT if ri % 2 == 0 else BLANCO
-            ws.row_dimensions[ri].height = 26
+            ws.row_dimensions[ri].height = 30
 
             # Entidad
             entidad_val = row_dict.get(col_entidad, "")
@@ -2676,8 +2676,10 @@ with tab_resumen:
         "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "HORIZONTE DEL PROYECTO",
         "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
     ]
+    # df_det usa df (sin filtros del sidebar) para que la tabla resumen y el
+    # detalle sean completamente independientes de los filtros laterales
     df_det = (
-        df_f
+        df
         .filter(~pl.col(sel_hito_col_r).is_null())
         .select(
             "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO", "ESTADO PROYECTO",
