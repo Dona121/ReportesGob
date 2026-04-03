@@ -1510,13 +1510,28 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
         col = 2
         for dias_col, clasi_key in HITO_AGR:
             dias = row_dict.get(dias_col)
+            dias_num = round(float(dias), 1) if dias is not None and str(dias) != "nan" else None
             _data_cell(ws1.cell(ri, col),
-                       round(float(dias), 1) if dias is not None and str(dias) != "nan" else None,
+                       dias_num,
                        bg=bg, center=True, fmt="#,##0.0")
             col += 1
 
-            clasi = (clasi_por_entidad_map.get(entidad) or {}).get(clasi_key)
-            _sem_cell(ws1.cell(ri, col), clasi, bg_row=bg)
+            # Clasificar desde el promedio de días — coherente con el valor mostrado
+            if dias_num is not None:
+                hito_col = {"clasi_1":"hito_1_val","clasi_2":"hito_2_val",
+                            "clasi_3":"hito_3_val","clasi_4":"hito_4_val",
+                            "clasi_5":"hito_5_val"}.get(clasi_key)
+                clasi_excel = None
+                if hito_col == "hito_4_val":
+                    m = dias_num / 30.0
+                    clasi_excel = "0-1" if m<=1 else "1.1-3" if m<=3 else "3.1-6" if m<=6 else ">6"
+                else:
+                    for label, lo, hi in INTERVALOS.get(hito_col, []):
+                        if (hi is None and dias_num >= lo) or (hi is not None and lo <= dias_num <= hi):
+                            clasi_excel = label; break
+            else:
+                clasi_excel = None
+            _sem_cell(ws1.cell(ri, col), clasi_excel, bg_row=bg)
             col += 1
 
         for extra_col, bold_it, extra_bg in [
@@ -2602,13 +2617,42 @@ HITO_KEY_MAP = {
     "clasi_4": "hito_4_val",
     "clasi_5": "hito_5_val",
 }
+# Mapa inverso: clasi_key → hito_val_col (para clasificar el promedio)
+CLASI_TO_HITO = {
+    "clasi_1": "hito_1_val",
+    "clasi_2": "hito_2_val",
+    "clasi_3": "hito_3_val",
+    "clasi_4": "hito_4_val",
+    "clasi_5": "hito_5_val",
+}
+
+def _clasificar_promedio(dias_val, clasi_key):
+    """Clasifica el promedio de días según los intervalos del hito.
+    Siempre coherente con el número mostrado, independiente de filtros."""
+    if dias_val is None or (isinstance(dias_val, float) and dias_val != dias_val):
+        return None
+    hito_col = CLASI_TO_HITO.get(clasi_key)
+    if hito_col == "hito_4_val":
+        # H4 se mide en meses
+        meses = dias_val / 30.0
+        if   meses <= 1: return "0-1"
+        elif meses <= 3: return "1.1-3"
+        elif meses <= 6: return "3.1-6"
+        else:            return ">6"
+    else:
+        intervalos = INTERVALOS.get(hito_col, [])
+        for label, lo, hi in intervalos:
+            if hi is None and dias_val >= lo:            return label
+            if hi is not None and lo <= dias_val <= hi:  return label
+        return None
 
 # ── TAB 1: Tabla resumen ──────────────────────────────────────────────────────
 with tab_resumen:
-    def hito_cell(dias_val, entidad, clasi_key):
+    def hito_cell(dias_val, clasi_key):
         if dias_val is None or (isinstance(dias_val, float) and dias_val != dias_val):
             return "<td class='null-cell'>—</td>"
-        clasi = clasi_por_entidad[entidad].get(clasi_key)
+        # El semáforo se deriva del promedio de días — siempre coherente
+        clasi  = _clasificar_promedio(dias_val, clasi_key)
         hito_k = HITO_KEY_MAP.get(clasi_key)
         return f"<td><span class='dias-val'>{dias_val:.1f} d</span>{badge_html(clasi, hito_k)}</td>"
 
@@ -2618,11 +2662,11 @@ with tab_resumen:
         pc   = int(row["Para cierre"]) if row["Para cierre"] else 0
         return f"""<tr>
             <td class="entidad-name">{e}</td>
-            {hito_cell(row['Hito 1 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_1')}
-            {hito_cell(row['Hito 2 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_2')}
-            {hito_cell(row['Hito 3 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_3')}
-            {hito_cell(row['Hito 4 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_4')}
-            {hito_cell(row['Hito 5 (días)'], row["ENTIDAD O SECRETARIA"], 'clasi_5')}
+            {hito_cell(row['Hito 1 (días)'], 'clasi_1')}
+            {hito_cell(row['Hito 2 (días)'], 'clasi_2')}
+            {hito_cell(row['Hito 3 (días)'], 'clasi_3')}
+            {hito_cell(row['Hito 4 (días)'], 'clasi_4')}
+            {hito_cell(row['Hito 5 (días)'], 'clasi_5')}
             <td style="text-align:center;font-weight:500">{susp}</td>
             <td style="text-align:center;font-weight:500">{pc}</td>
             <td class="col-total">{int(row['Total'])}</td>
