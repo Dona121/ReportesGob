@@ -1235,10 +1235,10 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 pl.lit("").alias("BRECHA FISICO - FINANCIERA"),
                 "CONTROL EXTERNALIDADES",
                 pl.lit("").alias("CALIFICACIÓN INFORMACIÓN A TIEMPO"),
-                pl.lit("").alias("CALIFICACIÓN CALIDAD INFORMACIÓN"),
+                "CALIFICACIÓN CALIDAD INFORMACIÓN",
                 pl.lit("").alias("COLUMNA APOYO 2"),
                 pl.lit("").alias("CALIFICACIÓN EJECUCIÓN DEL PROYECTO"),
-                pl.lit("").alias("COMENTARIOS CALIFICACIÓN"),
+                "COMENTARIOS CALIFICACIÓN",
             )
         )
 
