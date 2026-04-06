@@ -1208,7 +1208,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "FECHA ACTA INICIO",
                 "HORIZONTE DEL PROYECTO",
                 "FECHA DE FINALIZACIÓN",
-                pl.coalesce(["FECHA DE CORTE GESPROY", pl.lit(fecha_corte)]).alias("FECHA DE CORTE GESPROY"),
+                pl.coalesce([pl.col("FECHA DE CORTE GESPROY"), fecha_corte]).alias("FECHA DE CORTE GESPROY"),
                 "INFORMACIÓN SOLICITADA",
                 "INFORMACIÓN RECIBIDA",
                 "FECHA DE RECIBO DE INFORMACIÓN",
