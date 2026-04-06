@@ -1158,11 +1158,12 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
 
         # Versión anterior: normalizar fechas
         otros_ejecutores_descentralizadas = normalizar_fecha(
-            df_desc_raw.drop("FECHA DE CORTE GESPROY"),
+            df_desc_raw,
             [
                 "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
                 "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA APROBACIÓN PROYECTO",
                 "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
+                "FECHA DE CORTE GESPROY",
             ],
         )
         otros_ejecutores_municipios = normalizar_fecha(
@@ -1242,7 +1243,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         )
 
         otros_ejecutores_descentralizadas = otros_ejecutores_descentralizadas.with_columns(
-            fecha_corte.alias("FECHA DE CORTE GESPROY")
+            pl.coalesce([pl.col("FECHA DE CORTE GESPROY"), fecha_corte]).alias("FECHA DE CORTE GESPROY")
         )
 
         # ══════════════════════════════════════════════════════════════════════
