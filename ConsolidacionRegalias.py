@@ -417,6 +417,21 @@ def normalizar_fecha(df: pl.DataFrame, columnas: list[str]) -> pl.DataFrame:
             exprs.append(pl.col(col))
         elif _dtype_es_fecha(dtype):
             exprs.append(pl.col(col).cast(pl.Date, strict=False))
+        elif dtype in _TIPOS_NUMERICOS:
+            # Número de serie de Excel (días desde 1899-12-30)
+            exprs.append(
+                pl.when(pl.col(col).is_not_null())
+                .then(
+                    pl.col(col).cast(pl.Int32, strict=False)
+                    .map_elements(
+                        lambda n: __import__("datetime").date(1899, 12, 30)
+                        + __import__("datetime").timedelta(days=int(n)),
+                        return_dtype=pl.Date,
+                    )
+                )
+                .otherwise(None)
+                .alias(col)
+            )
         elif dtype == pl.String:
             exprs.append(
                 pl.when(pl.col(col).str.contains(r"^\d{2}/\d{2}/\d{4}$", literal=False))
@@ -426,7 +441,7 @@ def normalizar_fecha(df: pl.DataFrame, columnas: list[str]) -> pl.DataFrame:
                 .otherwise(pl.col(col).str.to_date("%Y-%m-%d", strict=False))
                 .alias(col)
             )
-        # Para tipos numéricos u otros no se toca: ya fueron reportados
+        # Otros tipos sin cambio
     if exprs:
         df = df.with_columns(exprs)
     return df
@@ -560,6 +575,7 @@ columnas_fecha_h1 = {
     "FECHA DE MIGRACIÓN A GESPROY", "FECHA DE ASIGNACIÓN DE RECURSOS",
     "FECHA DE INCORPORACIÓN DE RECURSOS",
     "HORIZONTE DEL PROYECTO", "FECHA DE FINALIZACIÓN",
+    "FECHA DE RECIBO DE INFORMACIÓN",
 }
 columnas_numero_h1 = {
     "VALOR SGR", "VALOR NACIÓN", "VALOR OTROS", "VALOR OTRAS FUENTES NO SUIFP",
