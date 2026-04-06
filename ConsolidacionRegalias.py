@@ -76,6 +76,8 @@ ESQUEMA_MATRIZ_H1 = {
     "FECHA DE RECIBO DE INFORMACIÓN":     ("Fecha",  "fecha"),
     "CONTROL EXTERNALIDADES":             ("Número", "numero"),
     "FECHA DE CORTE GESPROY":             ("Fecha",  "fecha"),
+    "CALIFICACIÓN CALIDAD INFORMACIÓN":   ("Número", "libre"),
+    "COMENTARIOS CALIFICACIÓN":           ("Texto",  "libre"),
 }
 
 ESQUEMA_MATRIZ_DESC = {
@@ -1173,6 +1175,29 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "FECHA DE INCORPORACIÓN DE RECUROS", "FECHA ACTA INICIO",
             ],
         )
+        # Columnas que pueden no existir en versiones anteriores del archivo:
+        # se agregan vacías si no están presentes para garantizar compatibilidad.
+        _cols_opcionales_h1 = {
+            "CPI":                            pl.lit("").cast(pl.String),
+            "SPI":                            pl.lit("").cast(pl.String),
+            "INFORMACIÓN SOLICITADA":         pl.lit("").cast(pl.String),
+            "INFORMACIÓN RECIBIDA":           pl.lit("").cast(pl.String),
+            "FECHA DE RECIBO DE INFORMACIÓN": pl.lit(None).cast(pl.Date),
+            "CONTROL EXTERNALIDADES":         pl.lit(None).cast(pl.Float64),
+            "FECHA DE CORTE GESPROY":         pl.lit(None).cast(pl.Date),
+            "CALIFICACIÓN CALIDAD INFORMACIÓN": pl.lit("").cast(pl.String),
+            "COMENTARIOS CALIFICACIÓN":       pl.lit("").cast(pl.String),
+        }
+        _cols_faltantes_h1 = {
+            col: expr
+            for col, expr in _cols_opcionales_h1.items()
+            if col not in df_h1_raw.columns
+        }
+        if _cols_faltantes_h1:
+            df_h1_raw = df_h1_raw.with_columns(
+                [expr.alias(col) for col, expr in _cols_faltantes_h1.items()]
+            )
+
         BPINes_version_anterior = normalizar_fecha(
             df_h1_raw.select(list(ESQUEMA_MATRIZ_H1.keys())),
             [
@@ -1235,10 +1260,10 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 pl.lit("").alias("BRECHA FISICO - FINANCIERA"),
                 "CONTROL EXTERNALIDADES",
                 pl.lit("").alias("CALIFICACIÓN INFORMACIÓN A TIEMPO"),
-                "CALIFICACIÓN CALIDAD INFORMACIÓN",
+                pl.coalesce([pl.col("CALIFICACIÓN CALIDAD INFORMACIÓN"), pl.lit("")]).alias("CALIFICACIÓN CALIDAD INFORMACIÓN"),
                 pl.lit("").alias("COLUMNA APOYO 2"),
                 pl.lit("").alias("CALIFICACIÓN EJECUCIÓN DEL PROYECTO"),
-                "COMENTARIOS CALIFICACIÓN",
+                pl.coalesce([pl.col("COMENTARIOS CALIFICACIÓN"), pl.lit("")]).alias("COMENTARIOS CALIFICACIÓN"),
             )
         )
 
