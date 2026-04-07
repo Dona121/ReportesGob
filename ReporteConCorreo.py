@@ -1296,40 +1296,51 @@ def _render_eval_errors(errores, contexto=""):
 
 @st.cache_data
 def procesar_descentralizadas(file_bytes):
-    """Lee la tabla de descentralizadas y calcula promedios de calificación por EJECUTOR."""
+    """Lee la tabla de descentralizadas y calcula promedios de calificación por EJECUTOR.
+    Retorna (df_promedio, cols_ok, errores, df_raw)."""
     try:
         df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_DESCENTRALIZADAS)
         cols_disponibles = [c for c in COLS_EVAL if c in df.columns]
         if not cols_disponibles or "EJECUTOR" not in df.columns:
-            return None, [], []
+            return None, [], [], None
         df, cols_ok, errores = _validar_cols_eval(df, cols_disponibles, "EJECUTOR")
         if not cols_ok:
-            return None, [], errores
+            return None, [], errores, None
         agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_ok]
         resultado = df.group_by("EJECUTOR").agg(agg_exprs).sort("EJECUTOR")
-        return resultado, cols_ok, errores
+        raw_cols = ["EJECUTOR"] + cols_ok
+        if "NOMBRE PROYECTO" in df.columns: raw_cols.append("NOMBRE PROYECTO")
+        if "BPIN" in df.columns:            raw_cols.append("BPIN")
+        df_raw = df.select([c for c in raw_cols if c in df.columns])
+        return resultado, cols_ok, errores, df_raw
     except Exception:
         _log.exception("procesar_descentralizadas: error inesperado al procesar tabla Descentralizadas")
-        return None, [], []
+        return None, [], [], None
 
 
 @st.cache_data
 def procesar_eval_sucre(file_bytes):
-    """Calcula promedios de calificación por ENTIDAD O SECRETARIA (tabla Sucre)."""
+    """Calcula promedios de calificación por ENTIDAD O SECRETARIA (tabla Sucre).
+    Retorna (df_promedio, cols_ok, errores, df_raw) — df_raw tiene filas individuales."""
     try:
         df = pl.read_excel(io.BytesIO(file_bytes), table_name=TABLA_ESPERADA)
         cols_disponibles = [c for c in COLS_EVAL if c in df.columns]
         if not cols_disponibles or "ENTIDAD O SECRETARIA" not in df.columns:
-            return None, [], []
+            return None, [], [], None
         df, cols_ok, errores = _validar_cols_eval(df, cols_disponibles, "ENTIDAD O SECRETARIA")
         if not cols_ok:
-            return None, [], errores
+            return None, [], errores, None
         agg_exprs = [pl.col(c).mean().round(2).alias(c) for c in cols_ok]
         resultado = df.group_by("ENTIDAD O SECRETARIA").agg(agg_exprs).sort("ENTIDAD O SECRETARIA")
-        return resultado, cols_ok, errores
+        # Incluir NOMBRE PROYECTO y BPIN si existen para los comentarios
+        raw_cols = ["ENTIDAD O SECRETARIA"] + cols_ok
+        if "NOMBRE PROYECTO" in df.columns: raw_cols.append("NOMBRE PROYECTO")
+        if "BPIN" in df.columns:            raw_cols.append("BPIN")
+        df_raw = df.select([c for c in raw_cols if c in df.columns])
+        return resultado, cols_ok, errores, df_raw
     except Exception:
         _log.exception("procesar_eval_sucre: error inesperado al procesar tabla Sucre")
-        return None, [], []
+        return None, [], [], None
 
 
 def badge_html(val, hito_key=None):
@@ -2598,8 +2609,8 @@ def eval_color(score, max_score=100.0):
 # ─────────────────────────────────────────────────────────────────────────────
 # PRE-CARGA EVALUACIÓN — fuera de los tabs para que tab_exportar pueda usarla
 # ─────────────────────────────────────────────────────────────────────────────
-_df_eval_sucre, _cols_eval_sucre, _ = procesar_eval_sucre(file_bytes)
-_df_eval_desc,  _cols_eval_desc,  _ = procesar_descentralizadas(file_bytes)
+_df_eval_sucre, _cols_eval_sucre, _, _df_eval_sucre_raw = procesar_eval_sucre(file_bytes)
+_df_eval_desc,  _cols_eval_desc,  _, _df_eval_desc_raw  = procesar_descentralizadas(file_bytes)
 
 tab_resumen, tab_proyectos, tab_evaluacion, tab_comunicaciones, tab_exportar = st.tabs([
     "Resumen por entidad",
@@ -3151,12 +3162,12 @@ with tab_evaluacion:
     st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
     if modelo_sel == "Departamento de Sucre":
-        df_eval, cols_eval_ok, eval_errores = procesar_eval_sucre(file_bytes)
+        df_eval, cols_eval_ok, eval_errores, df_eval_raw = procesar_eval_sucre(file_bytes)
         col_entidad    = "ENTIDAD O SECRETARIA"
         label_entidad  = "Entidad / Secretaría"
         contexto_error = "Departamento de Sucre"
     else:
-        df_eval, cols_eval_ok, eval_errores = procesar_descentralizadas(file_bytes)
+        df_eval, cols_eval_ok, eval_errores, df_eval_raw = procesar_descentralizadas(file_bytes)
         col_entidad    = "EJECUTOR"
         label_entidad  = "Ejecutor"
         contexto_error = "Descentralizadas"
@@ -3193,7 +3204,7 @@ with tab_evaluacion:
         .eval-table td {{
             padding: 0.6rem 1rem;
             border-bottom: 1px solid {C['border']};
-            vertical-align: middle;
+            vertical-align: top;
             background: #ffffff;
         }}
         .eval-table tbody tr:nth-child(even) td {{ background: #f7fafd; }}
@@ -3207,6 +3218,21 @@ with tab_evaluacion:
             border-radius: 20px;
             display: inline-block;
         }}
+        .eval-comment {{
+            font-size: 0.75rem;
+            color: {C['muted']};
+            line-height: 1.6;
+        }}
+        .eval-comment strong {{ color: {C['text']}; font-weight: 600; }}
+        .eval-tag {{
+            display: inline-block;
+            font-size: 0.65rem; font-weight: 700;
+            padding: 1px 7px; border-radius: 10px;
+            margin-right: 4px; vertical-align: middle;
+        }}
+        .eval-tag-green  {{ background:#d1fae5; color:#065f46; }}
+        .eval-tag-red    {{ background:#fee2e2; color:#991b1b; }}
+        .eval-tag-gray   {{ background:#f1f5f9; color:#475569; }}
         </style>
         """, unsafe_allow_html=True)
 
@@ -3231,26 +3257,110 @@ with tab_evaluacion:
 
                     if score is None:
                         filas.append(f"""<tr>
-                            <td class="entidad-name">{nombre}</td>
+                            <td class="entidad-name">{html.escape(nombre)}</td>
                             <td style="color:{C['muted']}">—</td>
+                            <td class="eval-comment" style="color:{C['muted']}">Sin datos registrados para este criterio.</td>
                         </tr>""")
                         continue
 
-                    color_bar, _ = eval_color(score, max_score)
-                    # Fondo suave proporcional al color
+                    color_bar, nivel = eval_color(score, max_score)
                     bg_map = {
                         C["verde_medio"]: "#d1fae5", C["cian"]: "#e0f7fa",
                         C["naranja"]:     "#fff7ed", C["salmon"]: "#fee2e2",
                     }
                     bg = bg_map.get(color_bar, "#f1f5f9")
 
+                    # ── Construir comentario desde df_raw ────────────────────
+                    comentario_html = "—"
+                    if df_eval_raw is not None and col_cal in df_eval_raw.columns:
+                        sub = df_eval_raw.filter(pl.col(col_entidad) == nombre)
+                        n_total   = sub.height
+                        n_con_cal = int(sub[col_cal].drop_nulls().len())
+                        n_cero    = int((sub[col_cal] == 0).sum()) if n_con_cal > 0 else 0
+                        n_max     = int((sub[col_cal] == 100).sum()) if n_con_cal > 0 else 0
+                        vals_ok   = sub[col_cal].drop_nulls()
+                        v_min     = float(vals_ok.min()) if n_con_cal > 0 else None
+                        v_max_v   = float(vals_ok.max()) if n_con_cal > 0 else None
+                        dispersion = round(v_max_v - v_min, 1) if v_min is not None and v_max_v is not None else None
+
+                        tiene_nombre = "NOMBRE PROYECTO" in sub.columns
+                        tiene_bpin   = "BPIN" in sub.columns
+
+                        # Proyecto con calificación más baja
+                        proy_bajo = None
+                        if n_con_cal > 0 and v_min is not None and v_min < 60:
+                            fila_baja = sub.filter(pl.col(col_cal) == v_min)
+                            if fila_baja.height > 0:
+                                r_baja = fila_baja.to_dicts()[0]
+                                nm = r_baja.get("NOMBRE PROYECTO","") or ""
+                                bp = r_baja.get("BPIN","") or ""
+                                proy_bajo = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else (bp or None)
+
+                        # Proyecto con calificación más alta
+                        proy_alto = None
+                        if n_con_cal > 0 and v_max_v is not None and v_max_v >= 80:
+                            fila_alta = sub.filter(pl.col(col_cal) == v_max_v)
+                            if fila_alta.height > 0:
+                                r_alta = fila_alta.to_dicts()[0]
+                                nm = r_alta.get("NOMBRE PROYECTO","") or ""
+                                bp = r_alta.get("BPIN","") or ""
+                                proy_alto = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else (bp or None)
+
+                        partes = []
+                        # Línea 1: base del cálculo
+                        partes.append(
+                            f"<strong>Base:</strong> promedio de {n_con_cal} proyecto(s) con calificación"
+                            + (f" de {n_total} registrados" if n_total != n_con_cal else "")
+                            + "."
+                        )
+                        # Línea 2: rango y dispersión
+                        if dispersion is not None:
+                            partes.append(
+                                f"<strong>Rango:</strong> {v_min:.1f} – {v_max_v:.1f} "
+                                f"(dispersión {dispersion:.1f} pts)."
+                            )
+                        # Línea 3: proyectos con calificación 0
+                        if n_cero > 0:
+                            partes.append(
+                                f'<span class="eval-tag eval-tag-red">⚠ {n_cero} en 0</span>'
+                                f"proyecto(s) con calificación cero — arrastran el promedio hacia abajo."
+                            )
+                        # Línea 4: proyectos perfectos
+                        if n_max > 0:
+                            partes.append(
+                                f'<span class="eval-tag eval-tag-green">★ {n_max} en 100</span>'
+                                f"proyecto(s) con calificación perfecta."
+                            )
+                        # Línea 5: proyecto con peor desempeño
+                        if proy_bajo:
+                            partes.append(
+                                f"<strong>Más bajo:</strong> {html.escape(proy_bajo)} "
+                                f"({v_min:.1f} pts)."
+                            )
+                        # Línea 6: proyecto con mejor desempeño
+                        if proy_alto and n_con_cal > 1:
+                            partes.append(
+                                f"<strong>Más alto:</strong> {html.escape(proy_alto)} "
+                                f"({v_max_v:.1f} pts)."
+                            )
+                        # Línea 7: alerta si hay proyectos sin calificación
+                        if n_total > n_con_cal:
+                            sin_cal = n_total - n_con_cal
+                            partes.append(
+                                f'<span class="eval-tag eval-tag-gray">{sin_cal} sin dato</span>'
+                                f"proyecto(s) no tienen calificación registrada y no se incluyen en el promedio."
+                            )
+
+                        comentario_html = "<br>".join(partes) if partes else "—"
+
                     filas.append(f"""<tr>
-                        <td class="entidad-name">{nombre}</td>
-                        <td>
+                        <td class="entidad-name">{html.escape(nombre)}</td>
+                        <td style="white-space:nowrap">
                             <span class="eval-score-pill" style="background:{bg};color:{color_bar}">
                                 {score:.2f}
                             </span>
                         </td>
+                        <td class="eval-comment">{comentario_html}</td>
                     </tr>""")
 
                 if not filas:
@@ -3259,8 +3369,9 @@ with tab_evaluacion:
                     st.markdown(f"""
                     <table class="eval-table">
                     <thead><tr>
-                        <th>{label_entidad}</th>
-                        <th>Calificación promedio &nbsp;(escala 0 – {max_score:.0f})</th>
+                        <th style="width:22%">{label_entidad}</th>
+                        <th style="width:14%">Calificación promedio &nbsp;(escala 0 – {max_score:.0f})</th>
+                        <th>Comentario</th>
                     </tr></thead>
                     <tbody>{"".join(filas)}</tbody>
                     </table>
