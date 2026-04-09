@@ -3281,77 +3281,61 @@ with tab_evaluacion:
                         vals_ok   = sub[col_cal].drop_nulls()
                         v_min     = float(vals_ok.min()) if n_con_cal > 0 else None
                         v_max_v   = float(vals_ok.max()) if n_con_cal > 0 else None
-                        dispersion = round(v_max_v - v_min, 1) if v_min is not None and v_max_v is not None else None
 
-                        tiene_nombre = "NOMBRE PROYECTO" in sub.columns
-                        tiene_bpin   = "BPIN" in sub.columns
-
-                        # Proyecto con calificación más baja
+                        # Identificar el peor proyecto
                         proy_bajo = None
                         if n_con_cal > 0 and v_min is not None and v_min < 60:
                             fila_baja = sub.filter(pl.col(col_cal) == v_min)
                             if fila_baja.height > 0:
-                                r_baja = fila_baja.to_dicts()[0]
-                                nm = r_baja.get("NOMBRE PROYECTO","") or ""
-                                bp = r_baja.get("BPIN","") or ""
-                                proy_bajo = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else (bp or None)
+                                nm = fila_baja.to_dicts()[0].get("NOMBRE PROYECTO", "") or ""
+                                bp = fila_baja.to_dicts()[0].get("BPIN", "") or ""
+                                proy_bajo = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else bp
 
-                        # Proyecto con calificación más alta
+                        # Identificar el mejor proyecto
                         proy_alto = None
                         if n_con_cal > 0 and v_max_v is not None and v_max_v >= 80:
                             fila_alta = sub.filter(pl.col(col_cal) == v_max_v)
                             if fila_alta.height > 0:
-                                r_alta = fila_alta.to_dicts()[0]
-                                nm = r_alta.get("NOMBRE PROYECTO","") or ""
-                                bp = r_alta.get("BPIN","") or ""
-                                proy_alto = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else (bp or None)
+                                nm = fila_alta.to_dicts()[0].get("NOMBRE PROYECTO", "") or ""
+                                bp = fila_alta.to_dicts()[0].get("BPIN", "") or ""
+                                proy_alto = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else bp
 
-                        partes = []
-                        # Línea 1: base del cálculo
-                        partes.append(
-                            f"<strong>Base:</strong> promedio de {n_con_cal} proyecto(s) con calificación"
-                            + (f" de {n_total} registrados" if n_total != n_con_cal else "")
-                            + "."
-                        )
-                        # Línea 2: rango y dispersión
-                        if dispersion is not None:
-                            partes.append(
-                                f"<strong>Rango:</strong> {v_min:.1f} – {v_max_v:.1f} "
-                                f"(dispersión {dispersion:.1f} pts)."
-                            )
-                        # Línea 3: proyectos con calificación 0
-                        if n_cero > 0:
-                            partes.append(
-                                f'<span class="eval-tag eval-tag-red">⚠ {n_cero} en 0</span>'
-                                f"proyecto(s) con calificación cero — arrastran el promedio hacia abajo."
-                            )
-                        # Línea 4: proyectos perfectos
-                        if n_max > 0:
-                            partes.append(
-                                f'<span class="eval-tag eval-tag-green">★ {n_max} en 100</span>'
-                                f"proyecto(s) con calificación perfecta."
-                            )
-                        # Línea 5: proyecto con peor desempeño
-                        if proy_bajo:
-                            partes.append(
-                                f"<strong>Más bajo:</strong> {html.escape(proy_bajo)} "
-                                f"({v_min:.1f} pts)."
-                            )
-                        # Línea 6: proyecto con mejor desempeño
-                        if proy_alto and n_con_cal > 1:
-                            partes.append(
-                                f"<strong>Más alto:</strong> {html.escape(proy_alto)} "
-                                f"({v_max_v:.1f} pts)."
-                            )
-                        # Línea 7: alerta si hay proyectos sin calificación
-                        if n_total > n_con_cal:
-                            sin_cal = n_total - n_con_cal
-                            partes.append(
-                                f'<span class="eval-tag eval-tag-gray">{sin_cal} sin dato</span>'
-                                f"proyecto(s) no tienen calificación registrada y no se incluyen en el promedio."
-                            )
+                        # ── Construir la narrativa ──
+                        if n_con_cal == 0:
+                            comentario_html = "No hay suficientes datos registrados para generar una evaluación."
+                        else:
+                            narrativa = f"Este resultado se obtuvo al evaluar <strong>{n_con_cal} proyecto(s)</strong>"
+                            if n_total > n_con_cal:
+                                narrativa += f" (se excluyeron {n_total - n_con_cal} que no tenían calificación registrada). "
+                            else:
+                                narrativa += ". "
 
-                        comentario_html = "<br>".join(partes) if partes else "—"
+                            if v_min == v_max_v:
+                                narrativa += f"En este caso, la calificación fue uniforme con un puntaje de <strong>{v_min:.1f}</strong>."
+                            else:
+                                narrativa += f"Los puntajes varían desde un mínimo de <strong>{v_min:.1f}</strong> "
+                                if proy_bajo:
+                                    narrativa += f"(como se observa en <em>{html.escape(proy_bajo)}</em>) "
+                                narrativa += f"hasta un máximo de <strong>{v_max_v:.1f}</strong> "
+                                if proy_alto and n_con_cal > 1:
+                                    narrativa += f"(destacando a <em>{html.escape(proy_alto)}</em>)."
+                                else:
+                                    narrativa += "."
+
+                            # Agregar el contexto de los extremos (ceros y cienes)
+                            contexto = []
+                            if n_max > 0:
+                                contexto.append(f"<strong style='color:#065f46'>{n_max} con desempeño perfecto (100)</strong> que impulsan el promedio")
+                            if n_cero > 0:
+                                contexto.append(f"<strong style='color:#991b1b'>{n_cero} con calificación de cero</strong> que afectan negativamente el resultado global")
+                            
+                            if contexto:
+                                if len(contexto) == 2:
+                                    narrativa += f" Como aspecto a resaltar, hay {contexto[0]}, pero también existen {contexto[1]}."
+                                else:
+                                    narrativa += f" Como aspecto a resaltar, encontramos {contexto[0]}."
+
+                            comentario_html = narrativa
 
                     filas.append(f"""<tr>
                         <td class="entidad-name">{html.escape(nombre)}</td>
