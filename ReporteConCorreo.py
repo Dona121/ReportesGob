@@ -3282,23 +3282,21 @@ with tab_evaluacion:
                         v_min     = float(vals_ok.min()) if n_con_cal > 0 else None
                         v_max_v   = float(vals_ok.max()) if n_con_cal > 0 else None
 
-                        # Identificar el peor proyecto
+                        # Identificar el BPIN del peor proyecto
                         proy_bajo = None
                         if n_con_cal > 0 and v_min is not None and v_min < 60:
                             fila_baja = sub.filter(pl.col(col_cal) == v_min)
                             if fila_baja.height > 0:
-                                nm = fila_baja.to_dicts()[0].get("NOMBRE PROYECTO", "") or ""
-                                bp = fila_baja.to_dicts()[0].get("BPIN", "") or ""
-                                proy_bajo = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else bp
+                                bp = fila_baja.to_dicts()[0].get("BPIN", "")
+                                proy_bajo = str(bp).strip() if bp else None
 
-                        # Identificar el mejor proyecto
+                        # Identificar el BPIN del mejor proyecto
                         proy_alto = None
                         if n_con_cal > 0 and v_max_v is not None and v_max_v >= 80:
                             fila_alta = sub.filter(pl.col(col_cal) == v_max_v)
                             if fila_alta.height > 0:
-                                nm = fila_alta.to_dicts()[0].get("NOMBRE PROYECTO", "") or ""
-                                bp = fila_alta.to_dicts()[0].get("BPIN", "") or ""
-                                proy_alto = f"{nm[:45]}{'…' if len(nm)>45 else ''}" if nm else bp
+                                bp = fila_alta.to_dicts()[0].get("BPIN", "")
+                                proy_alto = str(bp).strip() if bp else None
 
                         # ── Construir la narrativa ──
                         if n_con_cal == 0:
@@ -3315,10 +3313,10 @@ with tab_evaluacion:
                             else:
                                 narrativa += f"Los puntajes varían desde un mínimo de <strong>{v_min:.1f}</strong> "
                                 if proy_bajo:
-                                    narrativa += f"(como se observa en <em>{html.escape(proy_bajo)}</em>) "
+                                    narrativa += f"(como se observa en el BPIN <em>{html.escape(proy_bajo)}</em>) "
                                 narrativa += f"hasta un máximo de <strong>{v_max_v:.1f}</strong> "
                                 if proy_alto and n_con_cal > 1:
-                                    narrativa += f"(destacando a <em>{html.escape(proy_alto)}</em>)."
+                                    narrativa += f"(destacando el BPIN <em>{html.escape(proy_alto)}</em>)."
                                 else:
                                     narrativa += "."
 
