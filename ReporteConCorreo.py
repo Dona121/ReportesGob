@@ -3062,6 +3062,37 @@ with tab_proyectos:
         font-family: 'DM Mono', monospace; font-size: 0.72rem;
         color: {C['azul_medio']}; font-weight: 600; white-space: nowrap;
     }}
+
+    /* ── Tooltip interactivo de Estados ── */
+    .est-wrap { 
+        position: relative; 
+        display: inline-block; 
+        cursor: help; 
+    }
+    .est-tooltip {
+        visibility: hidden; opacity: 0; position: absolute;
+        bottom: 130%; left: 50%; transform: translateX(-50%);
+        background: #1a2332; color: white; font-size: 0.68rem;
+        padding: 0.8rem; border-radius: 8px; width: 280px;
+        z-index: 9999; transition: all 0.2s ease-in-out;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        white-space: normal; line-height: 1.4; text-align: left;
+        pointer-events: none;
+    }
+    .est-tooltip::after {
+        content: ""; position: absolute; top: 100%; left: 50%;
+        margin-left: -6px; border-width: 6px; border-style: solid;
+        border-color: #1a2332 transparent transparent transparent;
+    }
+    .est-wrap:hover .est-tooltip { 
+        visibility: visible; 
+        opacity: 1; 
+        bottom: 115%;
+    }
+    .est-row { display: flex; gap: 6px; margin-top: 4px; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 4px; }
+    .est-lbl { color: rgba(255,255,255,0.5); font-weight: 600; font-size: 0.62rem; text-transform: uppercase; white-space: nowrap; }
+    .est-val { font-weight: 500; }
+
     </style>
     """, unsafe_allow_html=True)
 
