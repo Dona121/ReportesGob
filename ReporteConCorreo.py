@@ -2426,6 +2426,52 @@ CTTO_ESTADO_COLORS = {
     "SUSCRITO":      (C["cian"],         "#e0f7fa"),
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# INFORMACIÓN DE ESTADOS (Mapeado desde el archivo CSV)
+# ─────────────────────────────────────────────────────────────────────────────
+INFO_ESTADOS = {
+    "SIN CONTRATAR": {
+        "desc": "Este estado se presenta una vez el proyecto migra a Gesproy. Indica que, al momento de la migración, el proyecto no cuenta con su primer proceso precontractual ni con contrato suscrito; es decir, no se ha adelantado ningún tipo de contratación.",
+        "anterior": "No hay estado inicial",
+        "actual": "Fecha de aprobación del proyecto",
+        "proximo": "Fecha de suscripción del contrato",
+        "requisitos": "No establece requisitos directos; sin embargo, es fundamental realizar un seguimiento riguroso a la contratación del proyecto y a los tiempos definidos por el DNP.",
+        "tooltip": "Proyecto aprobado que aún no cuenta con procesos de contratación iniciados ni contratos suscritos."
+    },
+    "CONTRATADO SIN ACTA DE INICIO": {
+        "desc": "Este estado se presenta cuando se suscribe el primer contrato del proyecto; sin embargo, aún no se ha dado inicio a su ejecución.",
+        "anterior": "SIN CONTRATAR",
+        "actual": "Fecha de suscripción del contrato",
+        "proximo": "Fecha de acta de inicio",
+        "requisitos": "Suscripción del contrato (registro en plataforma). Se debe gestionar prontamente la firma del acta de inicio.",
+        "tooltip": "Contrato principal firmado y suscrito, a la espera de la firma del acta de inicio para comenzar la ejecución."
+    },
+    "CONTRATADO EN EJECUCIÓN": {
+        "desc": "Se presenta cuando se firma el acta de inicio del primer contrato del proyecto y este comienza su ejecución física y financiera.",
+        "anterior": "CONTRATADO SIN ACTA DE INICIO",
+        "actual": "Fecha de acta de inicio",
+        "proximo": "Fecha de finalización y actas finales",
+        "requisitos": "Firma del acta de inicio del contrato. A partir de este momento, el proyecto presenta un horizonte en Gesproy (vigente o vencido) y se debe hacer seguimiento a indicadores (CPI/SPI).",
+        "tooltip": "En etapa de ejecución física y financiera. El proyecto está siendo medido contra su horizonte programado."
+    },
+    "TERMINADO": {
+        "desc": "Este estado se presenta una vez se han cumplido las metas e indicadores del proyecto; es decir, cuando el proyecto ha finalizado.",
+        "anterior": "CONTRATADO EN EJECUCIÓN",
+        "actual": "Registro manual en Gesproy",
+        "proximo": "No requiere fecha en plataforma (Liquidación)",
+        "requisitos": "Para pasar a este estado, el proyecto debe haber finalizado y contar con las actas finales de los contratos. Las entidades sectoriales deben remitir dichas actas como soporte. Este cambio de estado se realiza de forma manual en Gesproy.",
+        "tooltip": "Ejecución física y metas finalizadas, a la espera de la liquidación de contratos para proceder con su cierre."
+    },
+    "PARA CIERRE": {
+        "desc": "Este estado se presenta cuando el proyecto se encuentra liquidado y finalizado, a la espera de la expedición del acto administrativo que formalice su cierre.",
+        "anterior": "TERMINADO",
+        "actual": "Liquidación total de contratos y pagos",
+        "proximo": "Acto administrativo de cierre",
+        "requisitos": "Para pasar a este estado, se debe contar con todos los contratos terminados y liquidados, así como con la totalidad de los pagos del proyecto realizados. Adicionalmente, es necesario expedir el acto administrativo de cierre.",
+        "tooltip": "Proyecto liquidado financieramente, en proceso de elaboración del acto administrativo para formalizar su cierre."
+    }
+}
+
 def _pill(texto, color_map, default_fg=None, default_bg=None):
     if not texto:
         return '<span class="proy-pill proy-pill--empty">—</span>'
@@ -2435,6 +2481,31 @@ def _pill(texto, color_map, default_fg=None, default_bg=None):
     return (f'<span class="proy-pill" '
             f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
             f'{html.escape(texto)}</span>')
+def _pill_estado_proyecto(texto, color_map):
+    """Genera la píldora de estado con un tooltip informativo integrado."""
+    if not texto:
+        return '<span class="proy-pill proy-pill--empty">—</span>'
+    
+    eu = texto.strip().upper()
+    fg, bg = color_map.get(eu, (C["muted"], "#f1f5f9"))
+    pill_html = f'<span class="proy-pill" style="background:{bg};color:{fg};border:1px solid {fg}40;">{html.escape(texto)}</span>'
+    
+    if eu in INFO_ESTADOS:
+        info = INFO_ESTADOS[eu]
+        tooltip_html = f"""
+        <div class="est-tooltip">
+            <div style="color:{C['cian']}; font-weight:800; margin-bottom:6px; font-size:0.75rem; letter-spacing:0.5px;">{eu}</div>
+            <div style="color:rgba(255,255,255,0.95); margin-bottom:10px; line-height:1.4;">{info['tooltip']}</div>
+            <div style="background:rgba(255,255,255,0.05); padding:6px 8px; border-radius:6px; border: 1px solid rgba(255,255,255,0.1);">
+                <div class="est-row" style="border-top:none; padding-top:0;"><span class="est-lbl">Viene de:</span> <span class="est-val">{info['anterior']}</span></div>
+                <div class="est-row"><span class="est-lbl">Entró con:</span> <span class="est-val">{info['actual']}</span></div>
+                <div class="est-row"><span class="est-lbl">Avanza con:</span> <span class="est-val" style="color:#e68878">{info['proximo']}</span></div>
+            </div>
+        </div>
+        """
+        return f'<div class="est-wrap">{pill_html}{tooltip_html}</div>'
+    
+    return pill_html
 
 def _fmt_valor(v):
     """Formatea un valor float como moneda COP."""
@@ -2821,6 +2892,29 @@ with tab_resumen:
 with tab_proyectos:
     st.markdown("<div class='section-heading'>Todos los proyectos</div>", unsafe_allow_html=True)
 
+    with st.expander("Guía: Requisitos y fechas por estado del proyecto"):
+        st.markdown(f"""
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2rem; margin-top:0.5rem;">
+            {"".join([f'''
+            <div style="background:#ffffff; border:1px solid {C['border']}; border-top:4px solid {ESTADO_PROY_COLORS.get(estado, (C["azul_medio"], ""))[0]}; border-radius:8px; padding:1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div style="color:{C['azul_oscuro']}; font-size:0.85rem; font-weight:800; margin-bottom:0.6rem; letter-spacing:0.5px;">{estado}</div>
+                
+                <div style="font-size:0.75rem; font-weight:700; color:{C['muted']}; text-transform:uppercase; margin-bottom:0.2rem;">Descripción</div>
+                <p style="font-size:0.78rem; color:{C['text']}; margin:0 0 1rem 0; line-height:1.5;">{datos['desc']}</p>
+                
+                <div style="font-size:0.75rem; font-weight:700; color:{C['muted']}; text-transform:uppercase; margin-bottom:0.2rem;">Requisitos para este estado</div>
+                <p style="font-size:0.78rem; color:{C['text']}; margin:0 0 1rem 0; line-height:1.5; background:#f8fafc; padding:0.6rem; border-radius:6px;">{datos['requisitos']}</p>
+                
+                <div style="background:#f1f5f9; padding:0.8rem; border-radius:6px; font-size:0.72rem; color:{C['azul_oscuro']}; line-height:1.6;">
+                    <div><b style="color:{C['muted']}">Estado anterior:</b> {datos['anterior']}</div>
+                    <div><b style="color:{C['muted']}">Se activa con:</b> {datos['actual']}</div>
+                    <div><b style="color:{C['muted']}">Pasa al siguiente con:</b> <span style="color:#b91c1c; font-weight:600;">{datos['proximo']}</span></div>
+                </div>
+            </div>
+            ''' for estado, datos in INFO_ESTADOS.items()])}
+        </div>
+        """, unsafe_allow_html=True)
+
     # ── CSS de contratos (inyectado una sola vez en el tab) ───────────────────
     st.markdown(f"""
     <style>
@@ -3122,7 +3216,7 @@ with tab_proyectos:
                 <td class="proy-ent">{entidad}</td>
                 <td><span class="bpin-tag">{bpin}</span></td>
                 <td class="proy-nombre">{nombre}</td>
-                <td>{_pill(est_proy, ESTADO_PROY_COLORS)}</td>
+                <td>{_pill_estado_proyecto(est_proy, ESTADO_PROY_COLORS)}</td>
                 <td>{_pill(est_cont, ESTADO_CONT_COLORS)}</td>
                 <td style="white-space:nowrap">
                     <span class="ctto-toggle" data-target="{row_id}">
