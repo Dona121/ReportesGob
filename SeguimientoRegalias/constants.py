@@ -921,8 +921,8 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
 </style>
 """, unsafe_allow_html=True)
 
-# JS para tooltip dinámico — inyectado con components.v1.html para que se ejecute
-components.html("""
+# JS para tooltip dinámico — inyectado con st.iframe para que se ejecute
+st.iframe("""
 <script>
 (function() {
   var doc = window.parent.document;
