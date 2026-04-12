@@ -5,10 +5,13 @@ Importa todos los módulos, gestiona sidebar, filtros, KPIs y renderiza los tabs
 from constants import (
     C, INTERVALOS, SEMAFOROS, COLS_EVAL, COLS_EVAL_LABELS,
     TABLA_ESPERADA, TABLA_DESCENTRALIZADAS, COLUMNAS_ESPERADAS,
+    TIPO_LABEL, TIPO_EJEMPLO,
 )
 from data import (
     procesar, procesar_contratos, procesar_eval_sucre, procesar_descentralizadas,
     _cargar_desde_github, validar_archivo, th, error_card,
+    _render_eval_errors,
+    GITHUB_RAW_URL, GITHUB_CONTRATOS_URL,
 )
 from export import generar_excel
 from render import (
@@ -25,7 +28,6 @@ import html
 import json
 import logging
 import urllib.parse
-import streamlit.components.v1 as components
 import datetime as _dt
 from datetime import date
 
@@ -1344,7 +1346,7 @@ with tab_comunicaciones:
 
             # Botón copiar cuerpo via JS
             _cuerpo_js = json.dumps(com_cuerpo)
-            components.html(f"""
+            st.iframe(f"""
             <style>
             .copy-btn {{
                 display:inline-flex; align-items:center; gap:8px;
