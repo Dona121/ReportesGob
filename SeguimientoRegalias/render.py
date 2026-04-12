@@ -57,11 +57,6 @@ def _calcular_clasi_modal(df: pl.DataFrame, cols: list) -> dict:
             result[ent][col] = row[col]
     return result
 
-# Ajuste 2: usar df (sin filtros) para que el semáforo sea consistente
-# independientemente de los filtros del sidebar. df_f puede excluir proyectos
-# y cambiar la moda de clasificación por entidad.
-clasi_por_entidad = _calcular_clasi_modal(df, _CLASI_COLS)
-
 ESTADO_PROY_COLORS = {
     "SIN CONTRATAR":                 (C["cian"],        "#e0f7fa"),
     "CONTRATADO EN EJECUCIÓN":       (C["verde_medio"], "#d1fae5"),
