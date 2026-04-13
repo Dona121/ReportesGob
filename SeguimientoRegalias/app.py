@@ -19,6 +19,7 @@ from render import (
     _clasificar_promedio, _contratos_panel, _calcular_clasi_modal,
     HITO_KEY_MAP, CLASI_TO_HITO, HITO_CALC_META,
     ESTADO_PROY_COLORS, ESTADO_CONT_COLORS, CTTO_ESTADO_COLORS,
+    _estado_tooltip_html,
 )
 import streamlit as st
 import polars as pl
@@ -716,7 +717,10 @@ with tab_proyectos:
     # ── Filtrar ───────────────────────────────────────────────────────────────
     df_proy = df_f.select(
         "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO",
-        "ESTADO PROYECTO", "ESTADO CONTRATO",
+        "ESTADO PROYECTO", "ESTADO CONTRATO", "CPI", "SPI",
+        "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
+        "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
+        "HORIZONTE DEL PROYECTO", "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
     )
     if busqueda:
         term = busqueda.strip().lower()
@@ -823,7 +827,7 @@ with tab_proyectos:
                 <td class="proy-ent">{entidad}</td>
                 <td><span class="bpin-tag">{bpin}</span></td>
                 <td class="proy-nombre">{nombre}</td>
-                <td>{_pill(est_proy, ESTADO_PROY_COLORS)}</td>
+                <td>{_estado_tooltip_html(est_proy, r)}</td>
                 <td>{_pill(est_cont, ESTADO_CONT_COLORS)}</td>
                 <td style="white-space:nowrap">
                     <span class="ctto-toggle" data-target="{row_id}">
