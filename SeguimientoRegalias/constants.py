@@ -921,8 +921,8 @@ span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !im
 </style>
 """, unsafe_allow_html=True)
 
-# JS para tooltip dinámico — inyectado con st.iframe para que se ejecute
-st.iframe("""
+# JS para tooltip dinámico — inyectado con components.v1.html (acepta HTML inline)
+components.html("""
 <script>
 (function() {
   var doc = window.parent.document;
@@ -997,7 +997,7 @@ st.iframe("""
   initAll();
 })();
 </script>
-""", height=0, scrolling=False)
+""", height=0)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTES DE VALIDACIÓN — deben ir ANTES de procesar()
