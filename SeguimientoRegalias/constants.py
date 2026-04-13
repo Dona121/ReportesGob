@@ -921,6 +921,134 @@ def inject_css():
         border-top: 1px solid rgba(255,255,255,0.08);
         padding-top: 0.35rem;
     }}
+
+    /* ── Tooltip contextual de estado de proyecto ── */
+    .etip-trigger {{
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }}
+    .etip-i {{
+        font-size: 0.68rem;
+        opacity: 0.65;
+        font-style: normal;
+        vertical-align: middle;
+    }}
+    .etip-popup {{
+        display: none;
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        z-index: 9999;
+        width: 340px;
+        background: #1a2332;
+        color: #e2e8f0;
+        border-radius: 10px;
+        padding: 0.95rem 1.1rem 0.85rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+        font-size: 0.73rem;
+        line-height: 1.55;
+        text-align: left;
+        pointer-events: none;
+    }}
+    .etip-trigger:hover .etip-popup,
+    .etip-trigger:focus .etip-popup {{
+        display: block;
+    }}
+    .etip-header {{
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.45rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }}
+    .etip-icono {{ font-size: 1rem; }}
+    .etip-estado {{
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #ffffff;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }}
+    .etip-desc {{
+        margin: 0 0 0.6rem;
+        color: rgba(255,255,255,0.75);
+        font-size: 0.72rem;
+        line-height: 1.5;
+    }}
+    .etip-section-title {{
+        font-size: 0.63rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: {C['cian']};
+        margin: 0.55rem 0 0.25rem;
+    }}
+    .etip-row {{
+        color: rgba(255,255,255,0.78);
+        margin-bottom: 0.15rem;
+        font-size: 0.71rem;
+    }}
+    .etip-small {{
+        font-size: 0.66rem;
+        color: rgba(255,255,255,0.5);
+        font-style: italic;
+    }}
+    .etip-label {{
+        font-weight: 700;
+        color: rgba(255,255,255,0.6);
+        font-size: 0.63rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-right: 4px;
+    }}
+    .etip-dates {{
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.3rem 0 0.1rem;
+        font-size: 0.69rem;
+    }}
+    .etip-dates tr {{ border-bottom: 1px solid rgba(255,255,255,0.06); }}
+    .etip-dates tr:last-child {{ border-bottom: none; }}
+    .etip-flabel {{
+        color: rgba(255,255,255,0.5);
+        padding: 0.18rem 0.6rem 0.18rem 0;
+        white-space: nowrap;
+        font-size: 0.66rem;
+    }}
+    .etip-fval {{
+        color: rgba(255,255,255,0.88);
+        font-family: 'DM Mono', monospace;
+        font-size: 0.68rem;
+        text-align: right;
+    }}
+    .etip-inds {{
+        display: flex;
+        gap: 1rem;
+        margin: 0.25rem 0 0.1rem;
+    }}
+    .etip-ind {{
+        font-size: 0.72rem;
+    }}
+    .etip-accion {{
+        margin-top: 0.6rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        font-size: 0.71rem;
+        color: rgba(255,255,255,0.75);
+        line-height: 1.5;
+    }}
+    .etip-accion-label {{
+        display: block;
+        font-size: 0.63rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: {C['naranja']};
+        margin-bottom: 0.2rem;
+    }}
     </style>
     """, unsafe_allow_html=True)
     
