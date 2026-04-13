@@ -5,7 +5,7 @@ Importa todos los módulos, gestiona sidebar, filtros, KPIs y renderiza los tabs
 from constants import (
     C, INTERVALOS, SEMAFOROS, COLS_EVAL, COLS_EVAL_LABELS,
     TABLA_ESPERADA, TABLA_DESCENTRALIZADAS, COLUMNAS_ESPERADAS,
-    TIPO_LABEL, TIPO_EJEMPLO,
+    TIPO_LABEL, TIPO_EJEMPLO, inject_css,
 )
 from data import (
     procesar, procesar_contratos, procesar_eval_sucre, procesar_descentralizadas,
@@ -33,6 +33,9 @@ import streamlit.components.v1 as components
 from datetime import date
 
 _log = logging.getLogger(__name__)
+
+# Inyectar CSS global y JS de tooltips
+inject_css()
 
 HITOS = {
     "H1 · Sin contratar sin apertura":    ("hito_1_val", "clasi_1"),
