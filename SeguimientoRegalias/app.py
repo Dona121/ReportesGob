@@ -29,6 +29,7 @@ import json
 import logging
 import urllib.parse
 import datetime as _dt
+import streamlit.components.v1 as components
 from datetime import date
 
 _log = logging.getLogger(__name__)
@@ -1346,7 +1347,7 @@ with tab_comunicaciones:
 
             # Botón copiar cuerpo via JS
             _cuerpo_js = json.dumps(com_cuerpo)
-            st.iframe(f"""
+            components.html(f"""
             <style>
             .copy-btn {{
                 display:inline-flex; align-items:center; gap:8px;
@@ -1395,6 +1396,6 @@ with tab_comunicaciones:
                 document.body.removeChild(ta);
             }}
             </script>
-            """, height=55, scrolling=False)
+            """, height=55)
 
             st.markdown("</div>", unsafe_allow_html=True)
