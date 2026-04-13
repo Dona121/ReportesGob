@@ -37,14 +37,6 @@ _log = logging.getLogger(__name__)
 # Inyectar CSS global y JS de tooltips
 inject_css()
 
-HITOS = {
-    "H1 · Sin contratar sin apertura":    ("hito_1_val", "clasi_1"),
-    "H2 · Sin contratar con apertura":    ("hito_2_val", "clasi_2"),
-    "H3 · Contratado sin acta de inicio": ("hito_3_val", "clasi_3"),
-    "H4 · En ejecución rezagado":         ("hito_4_val", "clasi_4"),
-    "H5 · Proyectos terminados":          ("hito_5_val", "clasi_5"),
-}
-
 with st.sidebar:
     st.markdown("<div class='sidebar-section'>📁 Datos</div>", unsafe_allow_html=True)
     uploaded = st.file_uploader("Subir otro archivo Excel", type=["xlsx"], label_visibility="collapsed")
@@ -993,13 +985,12 @@ with tab_evaluacion:
                         sin_cal   = n_total - n_con_cal
 
                         def _nombre_proy(val_filtro):
+                            """Retorna el BPIN del proyecto con ese valor de calificación."""
                             f = sub.filter(pl.col(col_cal) == val_filtro)
                             if f.height == 0: return None
                             r  = f.to_dicts()[0]
-                            nm = (r.get("NOMBRE PROYECTO") or "").strip()
                             bp = (r.get("BPIN") or "").strip()
-                            txt = nm or bp
-                            return f"{txt[:50]}{'…' if len(txt)>50 else ''}" if txt else None
+                            return bp if bp else None
 
                         proy_bajo = _nombre_proy(v_min)  if v_min is not None and v_min  < 60 else None
                         proy_alto = _nombre_proy(v_max_v) if v_max_v is not None and v_max_v >= 80 else None
@@ -1043,7 +1034,7 @@ with tab_evaluacion:
 
                         # Proyectos que jalaron el promedio hacia abajo
                         if n_cero == 1:
-                            extra = f" («{html.escape(proy_bajo)}»)" if proy_bajo and v_min == 0 else ""
+                            extra = f" (BPIN {html.escape(proy_bajo)})" if proy_bajo and v_min == 0 else ""
                             partes.append(
                                 f"Un proyecto{extra} obtuvo cero puntos, lo que reduce el promedio general de la entidad."
                             )
@@ -1054,13 +1045,13 @@ with tab_evaluacion:
                             )
                         elif proy_bajo:
                             partes.append(
-                                f"El proyecto con menor resultado es «{html.escape(proy_bajo)}» "
+                                f"El proyecto con menor resultado es el BPIN {html.escape(proy_bajo)} "
                                 f"con {v_min:.0f} puntos, que es el que más arrastra el promedio hacia abajo."
                             )
 
                         # Proyectos que jalaron el promedio hacia arriba
                         if n_max == 1 and n_con_cal > 1:
-                            extra = f" («{html.escape(proy_alto)}»)" if proy_alto else ""
+                            extra = f" (BPIN {html.escape(proy_alto)})" if proy_alto else ""
                             partes.append(
                                 f"Por otro lado, un proyecto{extra} alcanzó la calificación perfecta de 100 puntos."
                             )
@@ -1070,7 +1061,7 @@ with tab_evaluacion:
                             )
                         elif proy_alto and n_max == 0 and n_con_cal > 1:
                             partes.append(
-                                f"El proyecto con mejor desempeño es «{html.escape(proy_alto)}» con {v_max_v:.0f} puntos."
+                                f"El proyecto con mejor desempeño es el BPIN {html.escape(proy_alto)} con {v_max_v:.0f} puntos."
                             )
 
                         comentario_html = " ".join(partes) if partes else "—"
