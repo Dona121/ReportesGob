@@ -553,7 +553,7 @@ def _estado_tooltip_html(est_proy, row_data=None):
     # ── Situación actual con datos reales (basada en sugerencias del Excel) ───
     situacion_html = _comentario_contextual(eu, row_data)
 
-    # ── Fechas con inline styles (garantizan visibilidad independiente del CSS global)
+# ── Fechas con inline styles (garantizan visibilidad independiente del CSS global)
     fechas_html = ""
     if row_data:
         campos = [
@@ -569,22 +569,20 @@ def _estado_tooltip_html(est_proy, row_data=None):
         for col, lbl in campos:
             v = row_data.get(col)
             if v is not None:
+                # Usamos Flexbox en lugar de <tr> y <td> para evitar el fondo blanco forzado de Streamlit
                 filas.append(
-                    f'<tr style="border-bottom:1px solid rgba(255,255,255,0.08)">'
-                    f'<td style="color:rgba(255,255,255,0.55);font-size:0.65rem;'
-                    f'padding:0.15rem 0.6rem 0.15rem 0;white-space:nowrap;'
-                    f'background:transparent;border:none">{lbl}</td>'
-                    f'<td style="color:rgba(255,255,255,0.95);font-family:\'DM Mono\',monospace;'
-                    f'font-size:0.66rem;text-align:right;white-space:nowrap;'
-                    f'background:transparent;border:none">{_fmt_date_short(v)}</td>'
-                    f'</tr>'
+                    f'<div style="display:flex; justify-content:space-between; align-items:center; '
+                    f'border-bottom:1px solid rgba(255,255,255,0.08); padding:0.25rem 0;">'
+                    f'<span style="color:rgba(255,255,255,0.65);font-size:0.65rem;white-space:nowrap;padding-right:1rem;">{lbl}</span>'
+                    f'<span style="color:rgba(255,255,255,0.95);font-family:\'DM Mono\',monospace;font-size:0.66rem;white-space:nowrap;">{_fmt_date_short(v)}</span>'
+                    f'</div>'
                 )
         if filas:
             fechas_html = (
                 f'<div class="etip-section-title">Fechas registradas en GESPROY</div>'
-                f'<table style="width:100%;border-collapse:collapse;margin:0.2rem 0">'
+                f'<div style="width:100%; margin:0.2rem 0;">'
                 f'{"".join(filas)}'
-                f'</table>'
+                f'</div>'
             )
 
     # ── Construir tooltip ─────────────────────────────────────────────────────
