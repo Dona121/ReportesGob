@@ -928,12 +928,14 @@ def inject_css():
         display: inline-flex;
         align-items: center;
         gap: 4px;
+        white-space: nowrap;
     }}
     .etip-i {{
         font-size: 0.68rem;
         opacity: 0.65;
         font-style: normal;
         vertical-align: middle;
+        flex-shrink: 0;
     }}
     .etip-popup {{
         display: none;
@@ -941,111 +943,147 @@ def inject_css():
         top: calc(100% + 8px);
         left: 0;
         z-index: 9999;
-        width: 340px;
+        width: 360px;
+        max-width: 90vw;
         background: #1a2332;
         color: #e2e8f0;
         border-radius: 10px;
-        padding: 0.95rem 1.1rem 0.85rem;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
-        font-size: 0.73rem;
+        padding: 0.9rem 1rem 0.85rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.25);
+        font-size: 0.72rem;
         line-height: 1.55;
         text-align: left;
         pointer-events: none;
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
     }}
     .etip-trigger:hover .etip-popup,
     .etip-trigger:focus .etip-popup {{
         display: block;
     }}
-    .etip-header {{
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.45rem;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-    }}
-    .etip-icono {{ font-size: 1rem; }}
     .etip-estado {{
         font-size: 0.78rem;
         font-weight: 700;
         color: #ffffff;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        display: block;
+        margin-bottom: 0.45rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid rgba(255,255,255,0.12);
     }}
     .etip-desc {{
-        margin: 0 0 0.6rem;
-        color: rgba(255,255,255,0.75);
-        font-size: 0.72rem;
-        line-height: 1.5;
+        margin: 0 0 0.55rem;
+        color: rgba(255,255,255,0.82);
+        font-size: 0.71rem;
+        line-height: 1.55;
+        white-space: normal;
+        word-wrap: break-word;
     }}
     .etip-section-title {{
-        font-size: 0.63rem;
+        font-size: 0.60rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
+        letter-spacing: 0.9px;
         color: {C['cian']};
-        margin: 0.55rem 0 0.25rem;
+        margin: 0.5rem 0 0.2rem;
+        white-space: normal;
     }}
     .etip-row {{
         color: rgba(255,255,255,0.78);
-        margin-bottom: 0.15rem;
-        font-size: 0.71rem;
+        margin-bottom: 0.18rem;
+        font-size: 0.70rem;
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }}
     .etip-small {{
-        font-size: 0.66rem;
+        font-size: 0.65rem;
         color: rgba(255,255,255,0.5);
         font-style: italic;
+        white-space: normal;
+        word-wrap: break-word;
     }}
     .etip-label {{
         font-weight: 700;
-        color: rgba(255,255,255,0.6);
-        font-size: 0.63rem;
+        color: rgba(255,255,255,0.55);
+        font-size: 0.62rem;
         text-transform: uppercase;
         letter-spacing: 0.3px;
         margin-right: 4px;
     }}
-    .etip-dates {{
-        width: 100%;
-        border-collapse: collapse;
-        margin: 0.3rem 0 0.1rem;
-        font-size: 0.69rem;
+    /* Tabla de fechas — aislada del CSS global de tablas */
+    .etip-popup .etip-dates {{
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin: 0.25rem 0 0.1rem !important;
+        font-size: 0.68rem !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        overflow: visible !important;
     }}
-    .etip-dates tr {{ border-bottom: 1px solid rgba(255,255,255,0.06); }}
-    .etip-dates tr:last-child {{ border-bottom: none; }}
+    .etip-popup .etip-dates thead {{ display: none; }}
+    .etip-popup .etip-dates tr {{
+        border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        background: transparent !important;
+    }}
+    .etip-popup .etip-dates tr:last-child {{
+        border-bottom: none !important;
+    }}
+    .etip-popup .etip-dates tr:hover td {{
+        background: transparent !important;
+    }}
+    .etip-popup .etip-dates td {{
+        padding: 0.17rem 0 !important;
+        border: none !important;
+        background: transparent !important;
+        color: inherit !important;
+        font-size: 0.68rem !important;
+        vertical-align: middle !important;
+    }}
     .etip-flabel {{
-        color: rgba(255,255,255,0.5);
-        padding: 0.18rem 0.6rem 0.18rem 0;
-        white-space: nowrap;
-        font-size: 0.66rem;
+        color: rgba(255,255,255,0.52) !important;
+        padding-right: 0.7rem !important;
+        white-space: nowrap !important;
+        width: 50% !important;
     }}
     .etip-fval {{
-        color: rgba(255,255,255,0.88);
-        font-family: 'DM Mono', monospace;
-        font-size: 0.68rem;
-        text-align: right;
+        color: rgba(255,255,255,0.92) !important;
+        font-family: 'DM Mono', monospace !important;
+        font-size: 0.67rem !important;
+        text-align: right !important;
+        white-space: nowrap !important;
     }}
     .etip-inds {{
         display: flex;
-        gap: 1rem;
-        margin: 0.25rem 0 0.1rem;
+        gap: 1.2rem;
+        margin: 0.2rem 0 0.1rem;
+        flex-wrap: wrap;
     }}
     .etip-ind {{
-        font-size: 0.72rem;
+        font-size: 0.71rem;
+        white-space: nowrap;
     }}
     .etip-accion {{
-        margin-top: 0.6rem;
-        padding-top: 0.5rem;
+        margin-top: 0.55rem;
+        padding-top: 0.45rem;
         border-top: 1px solid rgba(255,255,255,0.1);
-        font-size: 0.71rem;
-        color: rgba(255,255,255,0.75);
+        font-size: 0.70rem;
+        color: rgba(255,255,255,0.78);
         line-height: 1.5;
+        white-space: normal;
+        word-wrap: break-word;
     }}
     .etip-accion-label {{
         display: block;
-        font-size: 0.63rem;
+        font-size: 0.60rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
+        letter-spacing: 0.9px;
         color: {C['naranja']};
         margin-bottom: 0.2rem;
     }}
