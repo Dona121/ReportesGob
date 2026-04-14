@@ -295,52 +295,200 @@ def _clasificar_promedio(dias_val, clasi_key):
 
 ESTADO_INFO = {
     "SIN CONTRATAR": {
-        "descripcion": "El proyecto fue aprobado y migrado a GESPROY, pero aún no cuenta con contrato suscrito ni proceso precontractual activo.",
-        "vino_de":     "Aprobación del proyecto (ingreso a GESPROY)",
-        "fecha_entrada": "Fecha de aprobación del proyecto",
-        "para_avanzar": "Suscribir el primer contrato del proyecto.",
-        "fecha_avance": "Fecha de suscripción del contrato → pasa a <em>Contratado sin acta de inicio</em>",
-        "accion":      "Iniciar y registrar el proceso precontractual en GESPROY.",
+        "descripcion": (
+            "El proyecto fue aprobado y registrado en GESPROY, pero todavía no tiene "
+            "contratos suscritos ni procesos precontractuales abiertos. "
+            "Mientras permanezca aquí, no hay ejecución de recursos."
+        ),
+        "vino_de": "Aprobación del proyecto y migración a GESPROY.",
+        "fecha_entrada": (
+            "Fecha de aprobación del proyecto. "
+            "Desde ese día se mide cuánto tiempo lleva sin contratar (Hito 1)."
+        ),
+        "para_avanzar": "Se debe suscribir el primer contrato del proyecto.",
+        "fecha_avance": (
+            "Una vez registrada la fecha de suscripción del contrato en GESPROY, "
+            "el sistema cambia automáticamente el estado a Contratado sin acta de inicio."
+        ),
+        "accion": (
+            "Verifique si el proceso precontractual ya fue publicado en SECOP. "
+            "Si no, coordine con la entidad ejecutora para abrirlo y registrarlo en GESPROY "
+            "a la mayor brevedad, pues cada día adicional suma al indicador de alerta."
+        ),
+        "porque_fechas": (
+            "La fecha de aprobación es el punto de partida del cronograma del proyecto. "
+            "La fecha de apertura de proceso (si existe) indica que ya se inició la "
+            "contratación. La fecha de corte es el momento hasta el cual se calcula el indicador."
+        ),
     },
     "CONTRATADO SIN ACTA DE INICIO": {
-        "descripcion": "El proyecto tiene al menos un contrato suscrito, pero aún no se ha firmado el acta de inicio que da comienzo formal a la ejecución.",
-        "vino_de":     "Suscripción del primer contrato",
-        "fecha_entrada": "Fecha de suscripción del primer contrato",
-        "para_avanzar": "Firmar el acta de inicio y registrar la programación inicial.",
-        "fecha_avance": "Fecha de acta de inicio → pasa a <em>Contratado en ejecución</em>",
-        "accion":      "Registrar el acta de inicio y la programación inicial en GESPROY.",
+        "descripcion": (
+            "El proyecto tiene al menos un contrato suscrito, pero aún no se ha firmado "
+            "el acta de inicio. Sin ese documento, la ejecución física y financiera "
+            "del contrato no ha comenzado formalmente."
+        ),
+        "vino_de": (
+            "Suscripción del primer contrato. "
+            "El sistema actualizó el estado automáticamente al registrar esa fecha en GESPROY."
+        ),
+        "fecha_entrada": (
+            "Fecha de suscripción del primer contrato. "
+            "Desde ese día se mide el tiempo sin acta de inicio (Hito 3)."
+        ),
+        "para_avanzar": (
+            "Se debe firmar el acta de inicio del contrato y contar con la programación "
+            "inicial registrada en GESPROY."
+        ),
+        "fecha_avance": (
+            "Al registrar la fecha del acta de inicio, el sistema cambia automáticamente "
+            "el estado a Contratado en ejecución."
+        ),
+        "accion": (
+            "Confirme con el contratista y la interventoría la fecha de inicio de actividades "
+            "y formalice el acta. Registre también la programación inicial del proyecto en "
+            "GESPROY, ya que ambos son requisitos para avanzar al estado de ejecución."
+        ),
+        "porque_fechas": (
+            "La fecha de suscripción marca el inicio del contrato legal. "
+            "La fecha de acta de inicio marca el comienzo real de la obra o servicio. "
+            "El tiempo entre ambas es el indicador de alerta de este estado (Hito 3)."
+        ),
     },
     "CONTRATADO EN EJECUCIÓN": {
-        "descripcion": "El proyecto se encuentra en ejecución activa. Se miden indicadores de avance (CPI/SPI) y el horizonte de ejecución puede estar vigente o vencido.",
-        "vino_de":     "Firma del acta de inicio",
-        "fecha_entrada": "Fecha de acta de inicio",
-        "para_avanzar": "Cumplir metas e indicadores y contar con las actas finales de los contratos.",
-        "fecha_avance": "Cambio manual en GESPROY tras finalizar las metas → <em>Terminado</em>",
-        "accion":      "Reportar avances en GESPROY. Revisar CPI y SPI. Si el horizonte está vencido, gestionar su actualización.",
+        "descripcion": (
+            "El proyecto está en ejecución activa. Se están desarrollando las actividades "
+            "del contrato y se reportan indicadores de avance. "
+            "El horizonte de ejecución puede estar vigente o vencido."
+        ),
+        "vino_de": (
+            "Firma del acta de inicio, que confirma el inicio formal de la ejecución "
+            "del contrato en GESPROY."
+        ),
+        "fecha_entrada": (
+            "Fecha de acta de inicio. "
+            "A partir de aquí se mide el avance mediante los indicadores CPI y SPI, "
+            "y se controla el horizonte de ejecución (Hito 4)."
+        ),
+        "para_avanzar": (
+            "El proyecto debe haber cumplido sus metas e indicadores. Las entidades "
+            "sectoriales deben remitir las actas finales como soporte. "
+            "El cambio se realiza manualmente en GESPROY."
+        ),
+        "fecha_avance": (
+            "No hay una fecha automática. El estado cambia a Terminado cuando la "
+            "Secretaría Técnica registra el cierre de metas en GESPROY."
+        ),
+        "accion": (
+            "Reporte los avances mensualmente en GESPROY. Revise que el CPI y el SPI "
+            "estén por encima de 0. Si el horizonte del proyecto ya venció, solicite su "
+            "actualización antes de que se active la alerta de rezago (Hito 4)."
+        ),
+        "porque_fechas": (
+            "La fecha de acta de inicio es el punto de partida de la ejecución. "
+            "El horizonte indica hasta cuándo debería estar ejecutado. "
+            "Si la fecha de corte supera el horizonte con CPI=0 y SPI=0, "
+            "el proyecto entra en alerta de rezago."
+        ),
     },
     "TERMINADO": {
-        "descripcion": "El proyecto ha cumplido sus metas e indicadores y fue declarado finalizado. Pueden quedar contratos pendientes de liquidación.",
-        "vino_de":     "Finalización de metas e indicadores (actas finales remitidas)",
-        "fecha_entrada": "Registro manual en GESPROY",
-        "para_avanzar": "Liquidar todos los contratos, completar los pagos y expedir el acto administrativo de cierre.",
-        "fecha_avance": "Sin fecha automática → <em>Para cierre</em> (gestión manual)",
-        "accion":      "Remitir a la Secretaría Técnica las actas finales y avanzar en la liquidación de contratos.",
+        "descripcion": (
+            "El proyecto ha cumplido sus metas e indicadores y fue declarado finalizado. "
+            "Es posible que aún queden contratos pendientes de liquidación o trámites "
+            "administrativos por completar."
+        ),
+        "vino_de": (
+            "Cumplimiento de las metas del proyecto. Las entidades sectoriales remitieron "
+            "las actas finales y la Secretaría Técnica registró el cierre en GESPROY."
+        ),
+        "fecha_entrada": (
+            "El cambio es manual; no hay una fecha de sistema que lo active automáticamente. "
+            "El Hito 5 mide los días desde la finalización hasta la fecha de corte."
+        ),
+        "para_avanzar": (
+            "Se deben liquidar todos los contratos, completar el pago total del proyecto "
+            "y expedir el acto administrativo de cierre."
+        ),
+        "fecha_avance": (
+            "No hay fecha automática. El paso a Para cierre requiere gestión manual "
+            "por parte de la entidad ejecutora y la Secretaría Técnica."
+        ),
+        "accion": (
+            "Verifique que todos los contratos estén liquidados y los pagos completados. "
+            "Coordine con la entidad la elaboración y expedición del acto administrativo "
+            "de cierre para avanzar al estado final."
+        ),
+        "porque_fechas": (
+            "La fecha de finalización registrada en GESPROY determina desde cuándo "
+            "el proyecto acumula días en el Hito 5. "
+            "Cuanto más tiempo pase sin llegar a Para cierre, mayor será la alerta."
+        ),
     },
     "PARA CIERRE": {
-        "descripcion": "El proyecto está liquidado y finalizado. Solo falta el acto administrativo que formaliza su cierre oficial.",
-        "vino_de":     "Liquidación total de contratos y pagos",
-        "fecha_entrada": "Sin fecha automática",
-        "para_avanzar": "Expedir el acto administrativo de cierre.",
-        "fecha_avance": "Sin estado siguiente — este es el estado final.",
-        "accion":      "Gestionar la expedición del acto administrativo de cierre ante la entidad competente.",
+        "descripcion": (
+            "El proyecto está totalmente liquidado y finalizado. Solo falta el acto "
+            "administrativo que formaliza oficialmente su cierre ante las entidades "
+            "competentes. Este es el último estado antes de cerrar el expediente."
+        ),
+        "vino_de": (
+            "Liquidación total de contratos y pagos. La entidad ejecutora confirmó "
+            "que no quedan obligaciones pendientes."
+        ),
+        "fecha_entrada": (
+            "No hay una fecha automática de sistema para este cambio de estado. "
+            "Es un registro manual en GESPROY."
+        ),
+        "para_avanzar": (
+            "Solo se requiere expedir el acto administrativo de cierre. "
+            "Este es el estado final del ciclo del proyecto."
+        ),
+        "fecha_avance": (
+            "No hay un estado siguiente. Una vez expedido el acto de cierre, "
+            "el expediente del proyecto queda formalmente cerrado."
+        ),
+        "accion": (
+            "Gestione con la secretaría o entidad competente la elaboración y expedición "
+            "del acto administrativo de cierre. Este trámite es el último paso para "
+            "formalizar el cierre del proyecto ante el DNP y el SGR."
+        ),
+        "porque_fechas": (
+            "Las fechas registradas sirven como soporte del historial completo del proyecto. "
+            "Confirme que todas estén correctamente registradas en GESPROY antes de expedir "
+            "el acto de cierre."
+        ),
     },
     "SUSPENDIDO": {
-        "descripcion": "El proyecto o alguno de sus contratos fue suspendido temporalmente. La ejecución está detenida.",
-        "vino_de":     "Decisión administrativa o técnica de suspensión",
-        "fecha_entrada": "Fecha del acto de suspensión",
-        "para_avanzar": "Levantar la causal de suspensión y reactivar mediante acto administrativo.",
-        "fecha_avance": "Acto de reactivación → retoma el estado previo",
-        "accion":      "Identificar y resolver la causal de suspensión. Coordinar con la interventoría y la entidad para la reactivación.",
+        "descripcion": (
+            "El proyecto o alguno de sus contratos fue suspendido temporalmente. "
+            "La ejecución de actividades y el desembolso de recursos están detenidos "
+            "mientras dure la suspensión."
+        ),
+        "vino_de": (
+            "Decisión administrativa, técnica o judicial que ordenó la suspensión. "
+            "Debe estar soportada en un acto administrativo."
+        ),
+        "fecha_entrada": (
+            "Fecha del acto administrativo de suspensión. "
+            "Desde ese momento el proyecto no debe reportar avances de ejecución."
+        ),
+        "para_avanzar": (
+            "Se debe resolver la causal que originó la suspensión y expedir un acto "
+            "administrativo de reactivación firmado por la entidad competente."
+        ),
+        "fecha_avance": (
+            "Al levantar la suspensión, el proyecto retoma el estado que tenía antes "
+            "de ser suspendido. El cambio se hace manualmente en GESPROY."
+        ),
+        "accion": (
+            "Identifique y documente la causal de suspensión. Coordine con la interventoría, "
+            "el contratista y la entidad ejecutora las acciones necesarias para levantarla. "
+            "Una vez resuelta, gestione el acto administrativo de reactivación y actualice "
+            "el estado en GESPROY."
+        ),
+        "porque_fechas": (
+            "Las fechas ayudan a calcular cuánto tiempo lleva suspendido el proyecto "
+            "y si los plazos contractuales deben ser ajustados como consecuencia "
+            "de la suspensión."
+        ),
     },
 }
 
@@ -352,6 +500,17 @@ def _fmt_date_short(d):
         return d.strftime("%d/%m/%Y")
     except Exception:
         return str(d)
+
+# Etiquetas y justificación de cada fecha para el tooltip
+_FECHA_INFO = [
+    ("FECHA APROBACIÓN PROYECTO",           "Aprobación",        "Inicio del ciclo del proyecto en GESPROY"),
+    ("FECHA DE APERTURA DEL PRIMER PROCESO","Apertura proceso",   "Inicio del proceso precontractual"),
+    ("FECHA SUSCRIPCION",                   "Suscripción",        "Firma del primer contrato"),
+    ("FECHA ACTA INICIO",                   "Acta de inicio",     "Inicio formal de la ejecución"),
+    ("HORIZONTE DEL PROYECTO",              "Horizonte",          "Fecha límite de ejecución prevista"),
+    ("FECHA DE FINALIZACIÓN",               "Finalización",       "Cierre de metas del proyecto"),
+    ("FECHA DE CORTE GESPROY",              "Corte GESPROY",      "Fecha hasta la que se calculan los indicadores"),
+]
 
 def _estado_tooltip_html(est_proy, row_data=None):
     """
@@ -375,66 +534,70 @@ def _estado_tooltip_html(est_proy, row_data=None):
     fechas_html = ""
     indicadores_html = ""
     if row_data:
-        campos_fecha = [
-            ("Aprobación",       row_data.get("FECHA APROBACIÓN PROYECTO")),
-            ("Apertura proceso", row_data.get("FECHA DE APERTURA DEL PRIMER PROCESO")),
-            ("Suscripción",      row_data.get("FECHA SUSCRIPCION")),
-            ("Acta de inicio",   row_data.get("FECHA ACTA INICIO")),
-            ("Horizonte",        row_data.get("HORIZONTE DEL PROYECTO")),
-            ("Finalización",     row_data.get("FECHA DE FINALIZACIÓN")),
-            ("Corte GESPROY",    row_data.get("FECHA DE CORTE GESPROY")),
-        ]
-        filas = [
-            f'<tr><td class="etip-flabel">{lbl}</td>'
-            f'<td class="etip-fval">{_fmt_date_short(v)}</td></tr>'
-            for lbl, v in campos_fecha if v is not None
-        ]
+        filas = []
+        for col_key, lbl, razon in _FECHA_INFO:
+            v = row_data.get(col_key)
+            if v is not None:
+                filas.append(
+                    f'<tr>'
+                    f'<td class="etip-flabel">{lbl}</td>'
+                    f'<td class="etip-fval">{_fmt_date_short(v)}</td>'
+                    f'</tr>'
+                )
         if filas:
             fechas_html = (
-                f'<div class="etip-section-title">Fechas del proyecto</div>'
+                f'<div class="etip-section-title">Fechas registradas</div>'
                 f'<table class="etip-dates">{"".join(filas)}</table>'
+                f'<div class="etip-small" style="margin-top:0.2rem">'
+                f'{html.escape(info["porque_fechas"])}</div>'
             )
 
         # ── Indicadores CPI/SPI ───────────────────────────────────────────────
         cpi = row_data.get("CPI")
         spi = row_data.get("SPI")
         if cpi is not None or spi is not None:
-            def _ind(v, lbl):
+            def _ind(v, lbl, desc):
                 if v is None: return ""
                 try:
                     fv = float(v)
                     color = "#17743d" if fv >= 0.8 else ("#d88c16" if fv >= 0.5 else "#e68878")
                     return (f'<span class="etip-ind" style="color:{color}">'
-                            f'<strong>{lbl}:</strong> {fv:.2f}</span>')
+                            f'<strong>{lbl}:</strong> {fv:.2f} <span style="opacity:0.6;font-size:0.62rem">({desc})</span></span>')
                 except Exception:
                     return ""
             indicadores_html = (
                 f'<div class="etip-section-title">Indicadores de ejecución</div>'
-                f'<div class="etip-inds">{_ind(cpi, "CPI")} {_ind(spi, "SPI")}</div>'
+                f'<div class="etip-inds">'
+                f'{_ind(cpi, "CPI", "costo")}'
+                f'{_ind(spi, "SPI", "tiempo")}'
+                f'</div>'
+                f'<div class="etip-small" style="margin-top:0.15rem">'
+                f'Valores &#8805; 0.8 son satisfactorios. Por debajo de 0.5 indican rezago crítico.</div>'
             )
 
-    tooltip_body = (
-        f'<div class="etip-header">'
-        f'<span class="etip-estado">{html.escape(est_proy)}</span>'
-        f'</div>'
-        f'<p class="etip-desc">{info["descripcion"]}</p>'
+    parts = [
+        f'<span class="etip-estado">{html.escape(est_proy)}</span>',
+        f'<p class="etip-desc">{html.escape(info["descripcion"])}</p>',
 
-        f'<div class="etip-section-title">Origen del estado</div>'
-        f'<div class="etip-row"><span class="etip-label">Vino de:</span> {info["vino_de"]}</div>'
-        f'<div class="etip-row"><span class="etip-label">Fecha de entrada:</span> {info["fecha_entrada"]}</div>'
+        f'<div class="etip-section-title">¿Cómo llegó a este estado?</div>',
+        f'<div class="etip-row">{html.escape(info["vino_de"])}</div>',
+        f'<div class="etip-row etip-small">'
+        f'<span class="etip-label">Fecha de entrada:</span>'
+        f'{html.escape(info["fecha_entrada"])}</div>',
 
-        f'<div class="etip-section-title">Para avanzar al siguiente estado</div>'
-        f'<div class="etip-row">{info["para_avanzar"]}</div>'
-        f'<div class="etip-row etip-small">{info["fecha_avance"]}</div>'
+        f'<div class="etip-section-title">¿Qué se necesita para avanzar?</div>',
+        f'<div class="etip-row">{html.escape(info["para_avanzar"])}</div>',
+        f'<div class="etip-row etip-small">{html.escape(info["fecha_avance"])}</div>',
 
-        f'{fechas_html}'
-        f'{indicadores_html}'
+        fechas_html,
+        indicadores_html,
 
         f'<div class="etip-accion">'
-        f'<span class="etip-accion-label">Accion sugerida</span>'
-        f'{info["accion"]}'
-        f'</div>'
-    )
+        f'<span class="etip-accion-label">Acción sugerida</span>'
+        f'{html.escape(info["accion"])}'
+        f'</div>',
+    ]
+    tooltip_body = "".join(parts)
 
     extra_style = "font-weight:700;" if eu == "SUSPENDIDO" else ""
     return (
