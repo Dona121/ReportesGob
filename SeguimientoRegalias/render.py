@@ -295,55 +295,49 @@ def _clasificar_promedio(dias_val, clasi_key):
 
 ESTADO_INFO = {
     "SIN CONTRATAR": {
-        "icono":       "📋",
         "descripcion": "El proyecto fue aprobado y migrado a GESPROY, pero aún no cuenta con contrato suscrito ni proceso precontractual activo.",
         "vino_de":     "Aprobación del proyecto (ingreso a GESPROY)",
         "fecha_entrada": "Fecha de aprobación del proyecto",
         "para_avanzar": "Suscribir el primer contrato del proyecto.",
-        "fecha_avance": "Fecha de suscripción del contrato → cambia a <em>Contratado sin acta de inicio</em>",
-        "accion":      "Iniciar y registrar el proceso precontractual en GESPROY a la mayor brevedad.",
+        "fecha_avance": "Fecha de suscripción del contrato → pasa a <em>Contratado sin acta de inicio</em>",
+        "accion":      "Iniciar y registrar el proceso precontractual en GESPROY.",
     },
     "CONTRATADO SIN ACTA DE INICIO": {
-        "icono":       "📝",
         "descripcion": "El proyecto tiene al menos un contrato suscrito, pero aún no se ha firmado el acta de inicio que da comienzo formal a la ejecución.",
         "vino_de":     "Suscripción del primer contrato",
         "fecha_entrada": "Fecha de suscripción del primer contrato",
-        "para_avanzar": "Firmar el acta de inicio del proyecto y contar con programación inicial.",
-        "fecha_avance": "Fecha de acta de inicio → cambia a <em>Contratado en ejecución</em>",
+        "para_avanzar": "Firmar el acta de inicio y registrar la programación inicial.",
+        "fecha_avance": "Fecha de acta de inicio → pasa a <em>Contratado en ejecución</em>",
         "accion":      "Registrar el acta de inicio y la programación inicial en GESPROY.",
     },
     "CONTRATADO EN EJECUCIÓN": {
-        "icono":       "⚙️",
-        "descripcion": "El proyecto se encuentra en ejecución activa. Se cuentan indicadores de avance (CPI/SPI) y el horizonte de ejecución está vigente o puede estar vencido.",
+        "descripcion": "El proyecto se encuentra en ejecución activa. Se miden indicadores de avance (CPI/SPI) y el horizonte de ejecución puede estar vigente o vencido.",
         "vino_de":     "Firma del acta de inicio",
         "fecha_entrada": "Fecha de acta de inicio",
-        "para_avanzar": "Cumplir las metas e indicadores del proyecto y contar con las actas finales de los contratos.",
-        "fecha_avance": "Cambio manual en GESPROY una vez finalizadas las metas → <em>Terminado</em>",
-        "accion":      "Reportar avances periódicamente en GESPROY. Verificar CPI y SPI. Si el horizonte está vencido, gestionar su actualización.",
+        "para_avanzar": "Cumplir metas e indicadores y contar con las actas finales de los contratos.",
+        "fecha_avance": "Cambio manual en GESPROY tras finalizar las metas → <em>Terminado</em>",
+        "accion":      "Reportar avances en GESPROY. Revisar CPI y SPI. Si el horizonte está vencido, gestionar su actualización.",
     },
     "TERMINADO": {
-        "icono":       "✅",
-        "descripcion": "El proyecto ha cumplido sus metas e indicadores y se declaró finalizado. Aún pueden quedar contratos pendientes de liquidación.",
-        "vino_de":     "Finalización de metas e indicadores (actas finales enviadas)",
+        "descripcion": "El proyecto ha cumplido sus metas e indicadores y fue declarado finalizado. Pueden quedar contratos pendientes de liquidación.",
+        "vino_de":     "Finalización de metas e indicadores (actas finales remitidas)",
         "fecha_entrada": "Registro manual en GESPROY",
         "para_avanzar": "Liquidar todos los contratos, completar los pagos y expedir el acto administrativo de cierre.",
-        "fecha_avance": "No hay fecha automática → <em>Para cierre</em> (gestión manual)",
-        "accion":      "Remitir a la Secretaría Técnica las actas finales de todos los contratos y avanzar en la liquidación.",
+        "fecha_avance": "Sin fecha automática → <em>Para cierre</em> (gestión manual)",
+        "accion":      "Remitir a la Secretaría Técnica las actas finales y avanzar en la liquidación de contratos.",
     },
     "PARA CIERRE": {
-        "icono":       "🔒",
-        "descripcion": "El proyecto está liquidado y finalizado. Solo falta el acto administrativo que formaliza oficialmente su cierre.",
+        "descripcion": "El proyecto está liquidado y finalizado. Solo falta el acto administrativo que formaliza su cierre oficial.",
         "vino_de":     "Liquidación total de contratos y pagos",
-        "fecha_entrada": "No hay fecha automática",
+        "fecha_entrada": "Sin fecha automática",
         "para_avanzar": "Expedir el acto administrativo de cierre.",
         "fecha_avance": "Sin estado siguiente — este es el estado final.",
         "accion":      "Gestionar la expedición del acto administrativo de cierre ante la entidad competente.",
     },
     "SUSPENDIDO": {
-        "icono":       "⏸️",
         "descripcion": "El proyecto o alguno de sus contratos fue suspendido temporalmente. La ejecución está detenida.",
         "vino_de":     "Decisión administrativa o técnica de suspensión",
-        "fecha_entrada": "Fecha de acto de suspensión",
+        "fecha_entrada": "Fecha del acto de suspensión",
         "para_avanzar": "Levantar la causal de suspensión y reactivar mediante acto administrativo.",
         "fecha_avance": "Acto de reactivación → retoma el estado previo",
         "accion":      "Identificar y resolver la causal de suspensión. Coordinar con la interventoría y la entidad para la reactivación.",
@@ -372,24 +366,23 @@ def _estado_tooltip_html(est_proy, row_data=None):
     info   = ESTADO_INFO.get(eu)
 
     if not info:
-        # Estado sin tooltip definido → pill simple
         extra = "font-weight:700;" if eu == "SUSPENDIDO" else ""
         return (f'<span class="proy-pill" '
                 f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
                 f'{html.escape(est_proy)}</span>')
 
-    # ── Construir cuerpo del tooltip ──────────────────────────────────────────
-    # 1. Fechas clave del proyecto (si están disponibles)
+    # ── Fechas clave del proyecto ─────────────────────────────────────────────
     fechas_html = ""
+    indicadores_html = ""
     if row_data:
         campos_fecha = [
-            ("Aprobación",      row_data.get("FECHA APROBACIÓN PROYECTO")),
-            ("Apertura proceso",row_data.get("FECHA DE APERTURA DEL PRIMER PROCESO")),
-            ("Suscripción",     row_data.get("FECHA SUSCRIPCION")),
-            ("Acta de inicio",  row_data.get("FECHA ACTA INICIO")),
-            ("Horizonte",       row_data.get("HORIZONTE DEL PROYECTO")),
-            ("Finalización",    row_data.get("FECHA DE FINALIZACIÓN")),
-            ("Corte GESPROY",   row_data.get("FECHA DE CORTE GESPROY")),
+            ("Aprobación",       row_data.get("FECHA APROBACIÓN PROYECTO")),
+            ("Apertura proceso", row_data.get("FECHA DE APERTURA DEL PRIMER PROCESO")),
+            ("Suscripción",      row_data.get("FECHA SUSCRIPCION")),
+            ("Acta de inicio",   row_data.get("FECHA ACTA INICIO")),
+            ("Horizonte",        row_data.get("HORIZONTE DEL PROYECTO")),
+            ("Finalización",     row_data.get("FECHA DE FINALIZACIÓN")),
+            ("Corte GESPROY",    row_data.get("FECHA DE CORTE GESPROY")),
         ]
         filas = [
             f'<tr><td class="etip-flabel">{lbl}</td>'
@@ -397,12 +390,12 @@ def _estado_tooltip_html(est_proy, row_data=None):
             for lbl, v in campos_fecha if v is not None
         ]
         if filas:
-            fechas_html = f'''
-            <div class="etip-section-title">📅 Fechas del proyecto</div>
-            <table class="etip-dates">{"".join(filas)}</table>'''
+            fechas_html = (
+                f'<div class="etip-section-title">Fechas del proyecto</div>'
+                f'<table class="etip-dates">{"".join(filas)}</table>'
+            )
 
-        # 2. Indicadores CPI/SPI si aplica
-        indicadores_html = ""
+        # ── Indicadores CPI/SPI ───────────────────────────────────────────────
         cpi = row_data.get("CPI")
         spi = row_data.get("SPI")
         if cpi is not None or spi is not None:
@@ -411,42 +404,43 @@ def _estado_tooltip_html(est_proy, row_data=None):
                 try:
                     fv = float(v)
                     color = "#17743d" if fv >= 0.8 else ("#d88c16" if fv >= 0.5 else "#e68878")
-                    return f'<span class="etip-ind" style="color:{color}"><strong>{lbl}:</strong> {fv:.2f}</span>'
+                    return (f'<span class="etip-ind" style="color:{color}">'
+                            f'<strong>{lbl}:</strong> {fv:.2f}</span>')
                 except Exception:
                     return ""
             indicadores_html = (
-                f'<div class="etip-section-title">📊 Indicadores de ejecución</div>'
-                f'<div class="etip-inds">{_ind(cpi,"CPI")} {_ind(spi,"SPI")}</div>'
+                f'<div class="etip-section-title">Indicadores de ejecución</div>'
+                f'<div class="etip-inds">{_ind(cpi, "CPI")} {_ind(spi, "SPI")}</div>'
             )
-    else:
-        indicadores_html = ""
 
-    tooltip_body = f'''
-    <div class="etip-header">
-        <span class="etip-icono">{info["icono"]}</span>
-        <span class="etip-estado">{html.escape(est_proy)}</span>
-    </div>
-    <p class="etip-desc">{info["descripcion"]}</p>
+    tooltip_body = (
+        f'<div class="etip-header">'
+        f'<span class="etip-estado">{html.escape(est_proy)}</span>'
+        f'</div>'
+        f'<p class="etip-desc">{info["descripcion"]}</p>'
 
-    <div class="etip-section-title">🔄 ¿Cómo llegó aquí?</div>
-    <div class="etip-row"><span class="etip-label">Vino de:</span> {info["vino_de"]}</div>
-    <div class="etip-row"><span class="etip-label">Fecha clave:</span> {info["fecha_entrada"]}</div>
+        f'<div class="etip-section-title">Origen del estado</div>'
+        f'<div class="etip-row"><span class="etip-label">Vino de:</span> {info["vino_de"]}</div>'
+        f'<div class="etip-row"><span class="etip-label">Fecha de entrada:</span> {info["fecha_entrada"]}</div>'
 
-    <div class="etip-section-title">➡️ ¿Qué se necesita para avanzar?</div>
-    <div class="etip-row">{info["para_avanzar"]}</div>
-    <div class="etip-row etip-small">{info["fecha_avance"]}</div>
+        f'<div class="etip-section-title">Para avanzar al siguiente estado</div>'
+        f'<div class="etip-row">{info["para_avanzar"]}</div>'
+        f'<div class="etip-row etip-small">{info["fecha_avance"]}</div>'
 
-    {fechas_html}
-    {indicadores_html}
+        f'{fechas_html}'
+        f'{indicadores_html}'
 
-    <div class="etip-accion">
-        <span class="etip-accion-label">💡 Acción sugerida</span>
-        {info["accion"]}
-    </div>'''
+        f'<div class="etip-accion">'
+        f'<span class="etip-accion-label">Accion sugerida</span>'
+        f'{info["accion"]}'
+        f'</div>'
+    )
 
     extra_style = "font-weight:700;" if eu == "SUSPENDIDO" else ""
-    return f'''<span class="proy-pill etip-trigger"
-        style="background:{bg};color:{fg};border:1px solid {fg}40;{extra_style}cursor:pointer">
-        {html.escape(est_proy)}&thinsp;<span class="etip-i">ⓘ</span>
-        <span class="etip-popup">{tooltip_body}</span>
-    </span>'''
+    return (
+        f'<span class="proy-pill etip-trigger" '
+        f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra_style}cursor:pointer">'
+        f'{html.escape(est_proy)}&thinsp;<span class="etip-i">&#9432;</span>'
+        f'<span class="etip-popup">{tooltip_body}</span>'
+        f'</span>'
+    )
