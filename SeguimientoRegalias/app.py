@@ -721,6 +721,8 @@ with tab_proyectos:
         "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
         "FECHA SUSCRIPCION", "FECHA ACTA INICIO",
         "HORIZONTE DEL PROYECTO", "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
+        "hito_1_val", "hito_2_val", "hito_3_val", "hito_4_val", "hito_5_val",
+        "clasi_1", "clasi_2", "clasi_3", "clasi_4", "clasi_5",
     )
     if busqueda:
         term = busqueda.strip().lower()
