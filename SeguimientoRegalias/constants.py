@@ -1208,7 +1208,7 @@ TIPO_EJEMPLO = {
 INTERVALOS = {
     "hito_1_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
     "hito_2_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
-    "hito_3_val": [("0-30",  0,  30), ("31-45",   31,  45), ("46-60",   46,  60),  (">60",  61, None)],
+    "hito_3_val": [("0-15",  0,   15),("16-30", 16,  30),("31-45", 31,  45),(">45",   46,  None)],
     "hito_5_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
 }
 
@@ -1227,10 +1227,10 @@ SEMAFOROS = {
         ">180":    ("black",  "Negro",   "Proyecto en alerta negra: más de 180 días sin firma del primer contrato."),
     },
     "hito_3_val": {
-        "0-30":  ("green",  "Verde",   "Proyecto dentro de los tiempos para la firma del acta de inicio."),
-        "31-45": ("yellow", "Naranja", "Proyecto en alerta: más de 30 días sin firma del acta de inicio."),
-        "46-60": ("orange", "Rojo",    "Proyecto en alerta roja: más de 45 días sin firma del acta de inicio."),
-        ">60":   ("black",  "Negro",   "Proyecto en alerta negra: más de 60 días sin firma del acta de inicio."),
+        "0-15":   ("verde",   "Verde",   "El proyecto fue contratado y registró su acta de inicio en menos de 15 días. Gestión oportuna."),
+        "16-30":  ("naranja", "Naranja", "Han transcurrido entre 16 y 30 días desde la suscripción sin acta de inicio. Se recomienda acelerar el proceso."),
+        "31-45":  ("rojo",    "Rojo",    "Han transcurrido entre 31 y 45 días desde la suscripción sin acta de inicio. Situación crítica."),
+        ">45":    ("negro",   "Negro",   "Más de 45 días sin acta de inicio desde la suscripción. Requiere intervención inmediata."),
     },
     "hito_4_val": {
         "0-1":   ("green",  "Verde",   "Proyecto presenta horizonte vigente."),
