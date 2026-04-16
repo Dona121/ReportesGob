@@ -52,12 +52,12 @@ def inject_css():
     st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
-    
+
     html, body, [class*="css"] {{
         font-family: 'Montserrat', sans-serif;
         color: {C['text']};
     }}
-    
+
     /* ── Fondo del área principal con gradiente institucional ── */
     .stApp {{
         background:
@@ -66,7 +66,7 @@ def inject_css():
             linear-gradient(160deg, #dde5f0 0%, #e8edf5 40%, #eaf0f0 100%);
         min-height: 100vh;
     }}
-    
+
     /* Controlar padding del contenedor principal de Streamlit */
     .block-container {{
         padding-top: 3.5rem !important;
@@ -75,7 +75,7 @@ def inject_css():
         padding-bottom: 3rem !important;
         max-width: 1400px !important;
     }}
-    
+
     /* ── Sidebar oscuro ── */
     section[data-testid="stSidebar"] > div {{
         background: #001f3f;
@@ -87,7 +87,6 @@ def inject_css():
     section[data-testid="stSidebar"] div {{
         color: rgba(255,255,255,0.95) !important;
     }}
-    /* File uploader — caja blanca con texto oscuro */
     section[data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
         background: rgba(255,255,255,0.08) !important;
         border: 1.5px dashed rgba(255,255,255,0.25) !important;
@@ -102,7 +101,6 @@ def inject_css():
         border: 1px solid rgba(255,255,255,0.3) !important;
         border-radius: 6px !important;
     }}
-    /* Tags del multiselect */
     span[data-baseweb="tag"] {{
         background: {C['azul_medio']} !important;
         color: white !important;
@@ -119,7 +117,6 @@ def inject_css():
         max-width: 130px !important;
         display: block !important;
     }}
-    /* Contenedor multiselect en sidebar */
     section[data-testid="stSidebar"] [data-baseweb="select"] > div:first-child {{
         flex-wrap: wrap !important;
         gap: 4px !important;
@@ -128,13 +125,11 @@ def inject_css():
         border-color: rgba(255,255,255,0.18) !important;
         border-radius: 6px !important;
     }}
-    /* Selectbox valor visible */
     section[data-testid="stSidebar"] [data-baseweb="select"] [class*="singleValue"],
     section[data-testid="stSidebar"] [data-baseweb="select"] [class*="placeholder"] {{
         color: white !important;
         font-weight: 500 !important;
     }}
-    /* Labels de filtros */
     section[data-testid="stSidebar"] .stMultiSelect label,
     section[data-testid="stSidebar"] .stSelectbox label {{
         color: rgba(255,255,255,0.6) !important;
@@ -144,7 +139,6 @@ def inject_css():
         letter-spacing: 0.8px !important;
         margin-bottom: 0.2rem !important;
     }}
-    /* Sección título sidebar */
     .sidebar-section {{
         font-family: 'Montserrat', sans-serif;
         font-size: 0.68rem;
@@ -156,7 +150,7 @@ def inject_css():
         padding-bottom: 0.4rem;
         border-bottom: 1px solid rgba(71,177,213,0.3);
     }}
-    
+
     /* ── Header ── */
     .page-header {{
         background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
@@ -183,7 +177,7 @@ def inject_css():
         font-size: 0.82rem;
         font-weight: 400;
     }}
-    
+
     /* ── Filtros horizontales ── */
     .filter-bar {{
         background: {C['white']};
@@ -204,7 +198,7 @@ def inject_css():
         color: {C['muted']};
         white-space: nowrap;
     }}
-    
+
     /* ── KPI principal ── */
     .kpi-main {{
         background: {C['azul_oscuro']};
@@ -234,7 +228,7 @@ def inject_css():
         color: rgba(255,255,255,0.5);
         margin-top: 0.2rem;
     }}
-    
+
     /* ── KPI secundario ── */
     .kpi-sec {{
         background: #ffffff;
@@ -263,7 +257,6 @@ def inject_css():
         color: {C['muted']};
         margin-top: 0.15rem;
     }}
-    /* Columna con dos kpi-sec apiladas */
     .kpi-stack {{
         display: flex;
         flex-direction: column;
@@ -275,7 +268,6 @@ def inject_css():
         height: auto;
         padding: 0.7rem 1.2rem;
     }}
-    /* Tarjeta de conteo por estado */
     .kpi-estados {{
         background: #ffffff;
         border-radius: 10px;
@@ -328,7 +320,7 @@ def inject_css():
         text-align: right;
         line-height: 1;
     }}
-    
+
     /* ── Section heading ── */
     .section-heading {{
         font-family: 'Montserrat', sans-serif;
@@ -341,7 +333,7 @@ def inject_css():
         padding-bottom: 0.45rem;
         margin: 0 0 1rem 0;
     }}
-    
+
     /* ── Tabs ── */
     div[data-testid="stTabs"] [role="tablist"] {{
         background: rgba(255,255,255,0.70);
@@ -371,7 +363,7 @@ def inject_css():
         padding: 1.4rem;
         box-shadow: 0 4px 24px rgba(0,40,90,0.10), 0 1px 4px rgba(0,0,0,0.06);
     }}
-    
+
     /* ── Summary table ── */
     .summary-table {{
         width: 100%;
@@ -405,7 +397,6 @@ def inject_css():
     .summary-table tbody tr:nth-child(even) td {{ background: #f7fafd; }}
     .summary-table tbody tr:last-child td {{ border-bottom: none; }}
     .summary-table tbody tr:hover td {{ background: #e8f3ff !important; transition: background 0.15s; }}
-    /* Columna Total destacada */
     .summary-table .col-total {{
         background: {C['azul_oscuro']} !important;
         font-family: 'DM Mono', monospace;
@@ -436,7 +427,7 @@ def inject_css():
         font-weight: 500;
     }}
     .null-cell {{ color: {C['border']}; }}
-    
+
     /* ── Badges ── */
     .badge {{
         display: inline-flex;
@@ -456,7 +447,6 @@ def inject_css():
     .badge-orange {{ background: #ffedd5; color: #9a3412; }}
     .badge-red    {{ background: #fee2e2; color: #991b1b; }}
     .badge-black  {{ background: #1e293b; color: #f1f5f9; }}
-    /* Punto de color semáforo */
     .badge-dot {{
         width: 8px; height: 8px;
         border-radius: 50%;
@@ -468,7 +458,6 @@ def inject_css():
     .badge-orange .badge-dot {{ background: #ea580c; }}
     .badge-red    .badge-dot {{ background: #dc2626; }}
     .badge-black  .badge-dot {{ background: #94a3b8; }}
-    /* Tooltip del semáforo */
     .badge-tooltip {{
         display: none;
         position: fixed;
@@ -504,7 +493,7 @@ def inject_css():
         bottom: 100%;
         border-bottom-color: {C['text']};
     }}
-    
+
     /* ── Evaluación — calificación card ── */
     .eval-card {{
         background: #ffffff;
@@ -516,9 +505,7 @@ def inject_css():
         align-items: center;
         gap: 1rem;
     }}
-    .eval-bar-wrap {{
-        flex: 1;
-    }}
+    .eval-bar-wrap {{ flex: 1; }}
     .eval-label {{
         font-size: 0.72rem;
         font-weight: 700;
@@ -547,7 +534,7 @@ def inject_css():
         text-align: right;
         color: {C['azul_oscuro']};
     }}
-    
+
     /* ── Detail table ── */
     .detail-table {{
         width: 100%;
@@ -573,12 +560,10 @@ def inject_css():
         vertical-align: middle;
     }}
     .detail-table tbody tr:last-child td {{ border-bottom: none; }}
-    /* Relleno de fila según semáforo — tonos suaves para mantener legibilidad */
     .detail-table tbody tr.row-green  td {{ background: #f0fdf4; }}
     .detail-table tbody tr.row-yellow td {{ background: #fffbeb; }}
     .detail-table tbody tr.row-orange td {{ background: #fff7ed; }}
     .detail-table tbody tr.row-black  td {{ background: #f1f5f9; }}
-    /* Hover — tono ligeramente más intenso manteniendo el color del semáforo */
     .detail-table tbody tr.row-green:hover  td {{ background: #dcfce7 !important; }}
     .detail-table tbody tr.row-yellow:hover td {{ background: #fef3c7 !important; }}
     .detail-table tbody tr.row-orange:hover td {{ background: #ffedd5 !important; }}
@@ -601,7 +586,7 @@ def inject_css():
         font-weight: 500;
         white-space: nowrap;
     }}
-    
+
     /* ── Expander ── */
     div[data-testid="stExpander"] > details {{
         border-radius: 10px !important;
@@ -638,8 +623,8 @@ def inject_css():
         background: #ffffff !important;
         padding: 0.2rem 1rem 0.8rem 1rem !important;
     }}
-    
-    /* ── Tooltip ── */
+
+    /* ── Tooltip encabezado tabla ── */
     .th-wrap {{
         display: inline-flex;
         align-items: center;
@@ -704,7 +689,7 @@ def inject_css():
         border-bottom-color: {C['text']};
     }}
     .th-wrap:hover .th-tooltip {{ visibility: visible; opacity: 1; }}
-    
+
     /* ── Download button ── */
     .stDownloadButton > button {{
         background: {C['verde_oscuro']} !important;
@@ -717,7 +702,7 @@ def inject_css():
         padding: 0.5rem 1.4rem !important;
     }}
     .stDownloadButton > button:hover {{ background: {C['verde_medio']} !important; }}
-    
+
     /* ── Multiselect / selectbox ── */
     span[data-baseweb="tag"] {{
         background: {C['azul_medio']} !important;
@@ -725,6 +710,7 @@ def inject_css():
         border-radius: 4px !important;
     }}
     span[data-baseweb="tag"] span {{ color: white !important; font-size: 0.75rem !important; }}
+
     /* ── Tarjeta de error ── */
     .error-card {{
         background: #fff5f5;
@@ -792,7 +778,6 @@ def inject_css():
         border-radius: 4px;
         border: 1px solid #fed7aa;
     }}
-    /* Tabla de referencia de columnas */
     .ref-table {{
         width: 100%;
         border-collapse: collapse;
@@ -825,6 +810,7 @@ def inject_css():
         font-size: 0.72rem;
         color: {C['azul_medio']};
     }}
+
     /* ── Tooltip de cálculo de días ── */
     .dias-tip-wrap {{
         position: relative;
@@ -852,7 +838,6 @@ def inject_css():
         font-size: 0.74rem;
         line-height: 1.5;
     }}
-    /* Flecha — clase aplicada por JS */
     .dias-tip-box::after {{
         content: '';
         position: absolute;
@@ -922,142 +907,116 @@ def inject_css():
         padding-top: 0.35rem;
     }}
 
-    /* ── Tooltip contextual de estado de proyecto ── */
+    /* ══════════════════════════════════════════════════════════════
+       TOOLTIP ESTADO PROYECTO — layout horizontal, dinámico
+       ══════════════════════════════════════════════════════════════ */
     .etip-trigger {{
         position: relative;
         cursor: pointer;
     }}
-    
-    /* El popup ahora es horizontal: 2 columnas lado a lado */
+    /* El popup usa position:fixed — el JS calcula left/top dinámicamente */
     .etip-popup {{
         display: none;
-        position: fixed;          /* fixed = sale del flujo de la tabla */
-        z-index: 9999;
-        width: 680px;             /* ancho total del tooltip horizontal */
+        position: fixed;
+        z-index: 99999;
+        width: 700px;
         background: #1a2332;
         border-radius: 12px;
-        padding: 1rem 1.2rem;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        padding: 1rem 1.2rem 1.1rem;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.40);
         color: rgba(255,255,255,0.88);
         font-size: 0.72rem;
         line-height: 1.6;
         pointer-events: none;
-        /* posición la pone el JS */
-        top: 0; left: 0;
+        top: 0;
+        left: 0;
     }}
-    
-    /* Layout de 2 columnas dentro del tooltip */
+    /* Grid de 2 columnas dentro del tooltip */
     .etip-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0.6rem 1.2rem;
-        margin-top: 0.5rem;
+        gap: 0.4rem 1.4rem;
+        margin-top: 0.45rem;
     }}
-    .etip-col {{} }
-    
+    .etip-col {{ }}
     .etip-trigger:hover .etip-popup {{ display: block; }}
-    
     .etip-estado {{
         display: inline-block;
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.68rem; font-weight: 800;
-        text-transform: uppercase; letter-spacing: 1px;
-        color: #47b1d5; margin-bottom: 0.4rem;
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #47b1d5;
+        margin-bottom: 0.35rem;
     }}
     .etip-desc {{
-        font-size: 0.72rem; color: rgba(255,255,255,0.7);
-        margin: 0 0 0.5rem; line-height: 1.6;
-        grid-column: 1 / -1;          /* ocupa todo el ancho */
+        font-size: 0.71rem;
+        color: rgba(255,255,255,0.65);
+        margin: 0 0 0.4rem;
+        line-height: 1.55;
     }}
     .etip-section-title {{
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.58rem; font-weight: 800;
-        text-transform: uppercase; letter-spacing: 1px;
-        color: #47b1d5; margin: 0.5rem 0 0.25rem;
+        font-size: 0.58rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #47b1d5;
+        margin: 0.55rem 0 0.2rem;
     }}
     .etip-row {{
-        font-size: 0.71rem; color: rgba(255,255,255,0.82);
-        margin-bottom: 0.2rem;
+        font-size: 0.70rem;
+        color: rgba(255,255,255,0.80);
+        margin-bottom: 0.18rem;
+        line-height: 1.5;
     }}
-    .etip-small {{ font-size: 0.67rem; color: rgba(255,255,255,0.55); }}
-    .etip-label {{ color: rgba(255,255,255,0.5); font-weight: 600; }}
+    .etip-small {{
+        font-size: 0.66rem;
+        color: rgba(255,255,255,0.50);
+        line-height: 1.4;
+    }}
+    .etip-label {{
+        color: rgba(255,255,255,0.48);
+        font-weight: 600;
+    }}
     .etip-i {{
-        font-size: 0.65rem; opacity: 0.6;
-        font-style: normal; margin-left: 2px;
+        font-size: 0.65rem;
+        opacity: 0.6;
+        font-style: normal;
+        margin-left: 2px;
     }}
     .etip-accion {{
         grid-column: 1 / -1;
-        margin-top: 0.6rem;
-        background: rgba(71,177,213,0.12);
+        margin-top: 0.55rem;
+        background: rgba(71,177,213,0.10);
         border-left: 3px solid #47b1d5;
         border-radius: 4px;
-        padding: 0.4rem 0.7rem;
-        font-size: 0.7rem;
-        color: rgba(255,255,255,0.8);
+        padding: 0.45rem 0.8rem;
+        font-size: 0.70rem;
+        color: rgba(255,255,255,0.78);
+        line-height: 1.5;
     }}
     .etip-accion-label {{
         display: block;
-        font-size: 0.58rem; font-weight: 800;
-        text-transform: uppercase; letter-spacing: 1px;
-        color: #47b1d5; margin-bottom: 0.2rem;
+        font-size: 0.57rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #47b1d5;
+        margin-bottom: 0.18rem;
     }}
-    <script>
-    (function() {
-      // Posicionamiento dinámico de tooltips etip
-      function posicionarTooltips() {
-        document.querySelectorAll('.etip-trigger').forEach(function(trigger) {
-          trigger.addEventListener('mouseenter', function(e) {
-            var popup = trigger.querySelector('.etip-popup');
-            if (!popup) return;
-    
-            // Mostrar temporalmente para medir
-            popup.style.display = 'block';
-            popup.style.visibility = 'hidden';
-    
-            var rect   = trigger.getBoundingClientRect();
-            var pw     = popup.offsetWidth  || 680;
-            var ph     = popup.offsetHeight || 300;
-            var vw     = window.innerWidth;
-            var vh     = window.innerHeight;
-    
-            // Horizontal: mostrar a la derecha si cabe, si no a la izquierda
-            var left;
-            if (rect.right + pw + 12 < vw) {
-              left = rect.right + 8;
-            } else {
-              left = Math.max(8, rect.left - pw - 8);
-            }
-    
-            // Vertical: alinear con la fila, subir si se sale de pantalla
-            var top = rect.top;
-            if (top + ph > vh - 16) {
-              top = Math.max(8, vh - ph - 16);
-            }
-    
-            popup.style.left       = left + 'px';
-            popup.style.top        = top  + 'px';
-            popup.style.visibility = 'visible';
-          });
-        });
-      }
-    
-      // Re-ejecutar cuando Streamlit re-renderiza el DOM
-      var obs = new MutationObserver(function() { posicionarTooltips(); });
-      obs.observe(document.body, { childList: true, subtree: true });
-      posicionarTooltips();
-    })();
-    </script>
     </style>
     """, unsafe_allow_html=True)
-    
-    # JS para tooltip dinámico — inyectado con components.v1.html (acepta HTML inline)
+
+    # ── JS unificado: tooltips dinámicos (etip + dias + badge) + toggle contratos ──
     components.html("""
     <script>
     (function() {
       var doc = window.parent.document;
       var win = window.parent;
-    
-      // ── Toggle contratos — via event delegation, no función global ────────────
+
+      // ── Toggle contratos ─────────────────────────────────────────────────
       function initToggleCtto() {
         doc.querySelectorAll('.ctto-toggle').forEach(function(btn) {
           if (btn._cttoInit) return;
@@ -1071,16 +1030,17 @@ def inject_css():
           });
         });
       }
-    
-      function positionTip(trigger, tip, tipH, tipW) {
+
+      // ── Posicionador genérico para dias-tip-box y badge-tooltip ──────────
+      function positionTipSmall(trigger, tip, tipH, tipW) {
         var rect = trigger.getBoundingClientRect();
         var margin = 10;
         var spaceBelow = win.innerHeight - rect.bottom;
         var spaceAbove = rect.top;
-    
+
         tip.style.display = 'block';
         tip.classList.remove('tip-abajo', 'tip-arriba');
-    
+
         if (spaceBelow >= tipH + margin || spaceBelow >= spaceAbove) {
           tip.style.top    = (rect.bottom + 8) + 'px';
           tip.style.bottom = 'auto';
@@ -1090,37 +1050,87 @@ def inject_css():
           tip.style.bottom = 'auto';
           tip.classList.add('tip-arriba');
         }
-    
         var left = rect.left + rect.width / 2 - tipW / 2;
         left = Math.max(8, Math.min(left, win.innerWidth - tipW - 8));
         tip.style.left = left + 'px';
       }
-    
+
+      // ── Posicionador dinámico para etip-popup (horizontal grande) ────────
+      function posicionarEtip() {
+        doc.querySelectorAll('.etip-trigger').forEach(function(trigger) {
+          if (trigger._etipInit) return;
+          trigger._etipInit = true;
+
+          trigger.addEventListener('mouseenter', function() {
+            var popup = trigger.querySelector('.etip-popup');
+            if (!popup) return;
+
+            // Medir antes de mostrar
+            popup.style.visibility = 'hidden';
+            popup.style.display    = 'block';
+
+            var rect = trigger.getBoundingClientRect();
+            var pw   = popup.offsetWidth  || 700;
+            var ph   = popup.offsetHeight || 320;
+            var vw   = win.innerWidth;
+            var vh   = win.innerHeight;
+
+            // Horizontal: preferir mostrar a la derecha del elemento;
+            // si no cabe, mostrar a la izquierda; si tampoco, anclar al margen derecho
+            var left;
+            if (rect.right + pw + 14 <= vw) {
+              left = rect.right + 10;
+            } else if (rect.left - pw - 14 >= 0) {
+              left = rect.left - pw - 10;
+            } else {
+              left = Math.max(8, vw - pw - 12);
+            }
+
+            // Vertical: alinear con la fila; subir si se sale por abajo
+            var top = rect.top;
+            if (top + ph > vh - 12) {
+              top = Math.max(8, vh - ph - 12);
+            }
+
+            popup.style.left       = left + 'px';
+            popup.style.top        = top  + 'px';
+            popup.style.visibility = 'visible';
+          });
+
+          trigger.addEventListener('mouseleave', function() {
+            var popup = trigger.querySelector('.etip-popup');
+            if (popup) popup.style.display = 'none';
+          });
+        });
+      }
+
+      // ── dias-tip-box y badge-tooltip ─────────────────────────────────────
       function initTooltips() {
         doc.querySelectorAll('.dias-tip-wrap').forEach(function(wrap) {
           if (wrap._tipInit) return;
           wrap._tipInit = true;
           var tip = wrap.querySelector('.dias-tip-box');
           if (!tip) return;
-          wrap.addEventListener('mouseenter', function() { positionTip(wrap, tip, 220, 255); });
+          wrap.addEventListener('mouseenter', function() { positionTipSmall(wrap, tip, 220, 255); });
           wrap.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
         });
-    
+
         doc.querySelectorAll('.badge').forEach(function(badge) {
           if (badge._tipInit) return;
           badge._tipInit = true;
           var tip = badge.querySelector('.badge-tooltip');
           if (!tip) return;
-          badge.addEventListener('mouseenter', function() { positionTip(badge, tip, 110, 240); });
+          badge.addEventListener('mouseenter', function() { positionTipSmall(badge, tip, 110, 240); });
           badge.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
         });
       }
-    
+
       function initAll() {
         initToggleCtto();
         initTooltips();
+        posicionarEtip();
       }
-    
+
       var observer = new MutationObserver(function() { initAll(); });
       observer.observe(doc.body, { childList: true, subtree: true });
       initAll();
@@ -1128,8 +1138,9 @@ def inject_css():
     </script>
     """, height=0)
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# CONSTANTES DE VALIDACIÓN — deben ir ANTES de procesar()
+# CONSTANTES DE VALIDACIÓN
 # ─────────────────────────────────────────────────────────────────────────────
 TABLA_ESPERADA = "MatrizSeguimientoEvaluacion"
 
@@ -1163,16 +1174,37 @@ TIPO_EJEMPLO = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LÓGICA
+# INTERVALOS Y SEMÁFOROS
 # ─────────────────────────────────────────────────────────────────────────────
 INTERVALOS = {
-    "hito_1_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
-    "hito_2_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
-    "hito_3_val": [("0-15",  0,   15),("16-30", 16,  30),("31-45", 31,  45),(">45",   46,  None)],
-    "hito_5_val": [("0-100", 0, 100), ("101-150", 101, 150), ("151-180", 151, 180), (">180", 181, None)],
+    "hito_1_val": [
+        ("0-100",   0,   100),
+        ("101-150", 101, 150),
+        ("151-180", 151, 180),
+        (">180",    181, None),
+    ],
+    "hito_2_val": [
+        ("0-100",   0,   100),
+        ("101-150", 101, 150),
+        ("151-180", 151, 180),
+        (">180",    181, None),
+    ],
+    # ── Hito 3 actualizado por la entidad ──
+    "hito_3_val": [
+        ("0-15",  0,  15),
+        ("16-30", 16, 30),
+        ("31-45", 31, 45),
+        (">45",   46, None),
+    ],
+    # hito_4_val no usa INTERVALOS — se clasifica en meses en data.py
+    "hito_5_val": [
+        ("0-100",   0,   100),
+        ("101-150", 101, 150),
+        ("151-180", 151, 180),
+        (">180",    181, None),
+    ],
 }
 
-# Semáforos: colores y mensajes por hito e intervalo
 SEMAFOROS = {
     "hito_1_val": {
         "0-100":   ("green",  "Verde",   "Proyecto dentro de los tiempos para su primera apertura del proceso de contratación."),
@@ -1186,11 +1218,12 @@ SEMAFOROS = {
         "151-180": ("orange", "Rojo",    "Proyecto en alerta roja: más de 150 días sin firma del primer contrato."),
         ">180":    ("black",  "Negro",   "Proyecto en alerta negra: más de 180 días sin firma del primer contrato."),
     },
+    # ── Hito 3 actualizado por la entidad ──
     "hito_3_val": {
-        "0-15":   ("verde",   "Verde",   "El proyecto fue contratado y registró su acta de inicio en menos de 15 días. Gestión oportuna."),
-        "16-30":  ("naranja", "Naranja", "Han transcurrido entre 16 y 30 días desde la suscripción sin acta de inicio. Se recomienda acelerar el proceso."),
-        "31-45":  ("rojo",    "Rojo",    "Han transcurrido entre 31 y 45 días desde la suscripción sin acta de inicio. Situación crítica."),
-        ">45":    ("negro",   "Negro",   "Más de 45 días sin acta de inicio desde la suscripción. Requiere intervención inmediata."),
+        "0-15":  ("green",  "Verde",   "El proyecto registró su acta de inicio dentro de los primeros 15 días desde la suscripción. Gestión oportuna."),
+        "16-30": ("yellow", "Naranja", "Han transcurrido entre 16 y 30 días desde la suscripción del contrato sin acta de inicio. Se recomienda acelerar el proceso."),
+        "31-45": ("orange", "Rojo",    "Han transcurrido entre 31 y 45 días desde la suscripción sin acta de inicio. Situación crítica que requiere atención inmediata."),
+        ">45":   ("black",  "Negro",   "Más de 45 días sin acta de inicio desde la suscripción del contrato. Requiere intervención urgente."),
     },
     "hito_4_val": {
         "0-1":   ("green",  "Verde",   "Proyecto presenta horizonte vigente."),
