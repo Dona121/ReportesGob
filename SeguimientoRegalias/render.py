@@ -13,22 +13,79 @@ import logging
 
 _log = logging.getLogger(__name__)
 
+
+# ── Mapa color → clase CSS por hito (evita colisiones entre hitos con mismas claves) ──
+_BADGE_BY_HITO = {
+    "hito_1_val": {
+        "0-100":   "badge-green",
+        "101-150": "badge-yellow",
+        "151-180": "badge-orange",
+        ">180":    "badge-black",
+    },
+    "hito_2_val": {
+        "0-100":   "badge-green",
+        "101-150": "badge-yellow",
+        "151-180": "badge-orange",
+        ">180":    "badge-black",
+    },
+    # ── Hito 3 actualizado ──
+    "hito_3_val": {
+        "0-15":  "badge-green",
+        "16-30": "badge-yellow",
+        "31-45": "badge-orange",
+        ">45":   "badge-black",
+    },
+    "hito_4_val": {
+        "0-1":   "badge-green",
+        "1.1-3": "badge-yellow",
+        "3.1-6": "badge-orange",
+        ">6":    "badge-black",
+    },
+    "hito_5_val": {
+        "0-100":   "badge-green",
+        "101-150": "badge-yellow",
+        "151-180": "badge-orange",
+        ">180":    "badge-black",
+    },
+}
+
+# Mapa plano de clasi → clase badge (usado donde no se conoce el hito)
+_BADGE_PLANO = {
+    "0-100":   "badge-green",  "0-30":  "badge-green",  "0-1":   "badge-green",  "0-15":  "badge-green",
+    "101-150": "badge-yellow", "31-45": "badge-yellow", "1.1-3": "badge-yellow", "16-30": "badge-yellow",
+    "151-180": "badge-orange", "46-60": "badge-orange", "3.1-6": "badge-orange",
+    ">180":    "badge-black",  ">60":   "badge-black",  ">6":    "badge-black",  ">45":   "badge-black",
+}
+
+# Mapa plano de badge-class → row-class
+_ROW_CLS_MAP = {
+    "badge-green":  "row-green",
+    "badge-yellow": "row-yellow",
+    "badge-orange": "row-orange",
+    "badge-black":  "row-black",
+}
+
+
 def badge_html(val, hito_key=None):
     """Genera badge con punto de color semáforo y tooltip con mensaje."""
-    if val is None: return ""
+    if val is None:
+        return ""
     val_str = str(val)
-    cls_map = {
-        "0-100":   "badge-green",  "0-15":  "badge-green",  "0-1":   "badge-green",
-        "101-150": "badge-yellow", "16-30": "badge-yellow", "1.1-3": "badge-yellow",
-        "151-180": "badge-orange", "31-45": "badge-orange", "3.1-6": "badge-orange",
-        ">180":    "badge-black",  ">45":   "badge-black",  ">6":    "badge-black",
-    }
-    cls = cls_map.get(val_str, "badge-yellow")
+    # Buscar clase por hito primero, caer al mapa plano si no hay hito
+    if hito_key and hito_key in _BADGE_BY_HITO:
+        cls = _BADGE_BY_HITO[hito_key].get(val_str, "badge-yellow")
+    else:
+        cls = _BADGE_PLANO.get(val_str, "badge-yellow")
 
     tooltip_html = ""
     if hito_key and hito_key in SEMAFOROS and val_str in SEMAFOROS[hito_key]:
         _, color_nombre, mensaje = SEMAFOROS[hito_key][val_str]
-        tooltip_html = f'<span class="badge-tooltip"><strong style="color:#47b1d5;display:block;margin-bottom:3px">● {color_nombre}</strong>{mensaje}</span>'
+        tooltip_html = (
+            f'<span class="badge-tooltip">'
+            f'<strong style="color:#47b1d5;display:block;margin-bottom:3px">● {color_nombre}</strong>'
+            f'{mensaje}'
+            f'</span>'
+        )
 
     return (
         f'<span class="badge {cls}">'
@@ -37,6 +94,19 @@ def badge_html(val, hito_key=None):
         f'{tooltip_html}'
         f'</span>'
     )
+
+
+def badge_cls_from_hito(clasi_val, hito_col):
+    """Devuelve la clase CSS del badge dado un valor de clasificación y la columna de hito."""
+    if not clasi_val:
+        return ""
+    return _BADGE_BY_HITO.get(hito_col, _BADGE_PLANO).get(str(clasi_val), "badge-yellow")
+
+
+def row_cls_from_badge(badge_cls_str):
+    """Devuelve la clase CSS de fila a partir de la clase del badge."""
+    return _ROW_CLS_MAP.get(badge_cls_str, "")
+
 
 def _calcular_clasi_modal(df: pl.DataFrame, cols: list) -> dict:
     result: dict = {}
@@ -56,6 +126,7 @@ def _calcular_clasi_modal(df: pl.DataFrame, cols: list) -> dict:
                 result[ent] = {c: None for c in cols}
             result[ent][col] = row[col]
     return result
+
 
 ESTADO_PROY_COLORS = {
     "SIN CONTRATAR":                 (C["cian"],        "#e0f7fa"),
@@ -81,18 +152,21 @@ CTTO_ESTADO_COLORS = {
     "SUSCRITO":      (C["cian"],         "#e0f7fa"),
 }
 
+
 def _pill(texto, color_map, default_fg=None, default_bg=None):
     if not texto:
         return '<span class="proy-pill proy-pill--empty">—</span>'
     eu = texto.strip().upper()
     fg, bg = color_map.get(eu, (default_fg or C["muted"], default_bg or "#f1f5f9"))
     extra = "font-weight:700;" if eu == "SUSPENDIDO" else ""
-    return (f'<span class="proy-pill" '
-            f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
-            f'{html.escape(texto)}</span>')
+    return (
+        f'<span class="proy-pill" '
+        f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
+        f'{html.escape(texto)}</span>'
+    )
+
 
 def _fmt_valor(v):
-    """Formatea un valor float como moneda COP."""
     if v is None or (isinstance(v, float) and v != v):
         return "—"
     try:
@@ -100,8 +174,8 @@ def _fmt_valor(v):
     except Exception:
         return str(v)
 
+
 def _valor_a_gradiente(valor, v_min, v_max):
-    """Devuelve un color de fondo suave proporcional al valor del contrato."""
     if valor is None or v_max == v_min:
         return "#ffffff"
     ratio = max(0.0, min(1.0, (valor - v_min) / (v_max - v_min)))
@@ -110,8 +184,8 @@ def _valor_a_gradiente(valor, v_min, v_max):
     b = int(255 - ratio * (255 - 254))
     return f"rgb({r},{g},{b})"
 
+
 def _contratos_panel(bpin_str, df_cttos):
-    """Genera el HTML del panel de contratos para un BPIN dado."""
     if df_cttos is None:
         return '<div class="ctto-panel"><div class="ctto-panel-empty">Archivo de contratos no disponible.</div></div>'
 
@@ -167,7 +241,7 @@ def _contratos_panel(bpin_str, df_cttos):
             <td><div class="ctto-objeto">{objeto}</div></td>
         </tr>""")
 
-    rows = "".join(rows_list)
+    rows  = "".join(rows_list)
     tabla = f"""
     <div style="border-radius:10px;overflow:hidden;box-shadow:0 1px 10px rgba(0,40,90,0.10);">
     <table class="ctto-table">
@@ -181,14 +255,15 @@ def _contratos_panel(bpin_str, df_cttos):
     </table></div>"""
     return f'<div class="ctto-panel">{header}{tabla}</div>'
 
+
 def _fmt_date(val):
-    """Formatea una fecha como DD/MM/YYYY o devuelve '—'."""
     if val is None:
         return "—"
     try:
         return val.strftime("%d/%m/%Y")
     except Exception:
         return str(val)
+
 
 HITO_CALC_META = {
     "hito_1_val": (
@@ -218,8 +293,8 @@ HITO_CALC_META = {
     ),
 }
 
+
 def _dias_tooltip(r, hito_col):
-    """Genera el HTML del tooltip con las fechas y fórmula del cálculo."""
     meta = HITO_CALC_META.get(hito_col)
     if not meta:
         return ""
@@ -244,13 +319,14 @@ def _dias_tooltip(r, hito_col):
         f'</div>'
     )
 
+
 def eval_color(score, max_score=100.0):
-    """Devuelve (color_hex, etiqueta) según el score en escala 0-100."""
     ratio = score / max_score if max_score > 0 else 0
     if ratio >= 0.8:   return C["verde_medio"],  "Sobresaliente"
     elif ratio >= 0.6: return C["cian"],         "Satisfactorio"
     elif ratio >= 0.4: return C["naranja"],      "Aceptable"
     else:              return C["salmon"],        "Por mejorar"
+
 
 HITO_KEY_MAP = {
     "clasi_1": "hito_1_val",
@@ -259,7 +335,6 @@ HITO_KEY_MAP = {
     "clasi_4": "hito_4_val",
     "clasi_5": "hito_5_val",
 }
-# Mapa inverso: clasi_key → hito_val_col (para clasificar el promedio)
 CLASI_TO_HITO = {
     "clasi_1": "hito_1_val",
     "clasi_2": "hito_2_val",
@@ -268,14 +343,13 @@ CLASI_TO_HITO = {
     "clasi_5": "hito_5_val",
 }
 
+
 def _clasificar_promedio(dias_val, clasi_key):
-    """Clasifica el promedio de días según los intervalos del hito.
-    Siempre coherente con el número mostrado, independiente de filtros."""
+    """Clasifica el promedio de días según los intervalos del hito."""
     if dias_val is None or (isinstance(dias_val, float) and dias_val != dias_val):
         return None
     hito_col = CLASI_TO_HITO.get(clasi_key)
     if hito_col == "hito_4_val":
-        # H4 se mide en meses
         meses = dias_val / 30.0
         if   meses <= 1: return "0-1"
         elif meses <= 3: return "1.1-3"
@@ -284,17 +358,16 @@ def _clasificar_promedio(dias_val, clasi_key):
     else:
         intervalos = INTERVALOS.get(hito_col, [])
         for label, lo, hi in intervalos:
-            if hi is None and dias_val >= lo:            return label
-            if hi is not None and lo <= dias_val <= hi:  return label
+            if hi is None and dias_val >= lo:           return label
+            if hi is not None and lo <= dias_val <= hi: return label
         return None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Tooltip contextual de estado de proyecto
-# Datos del Excel ToolTipEstadoProyectos
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _fmt_date_short(d):
-    """Formatea una fecha Python date como DD/MM/AAAA, o retorna '—'."""
     if d is None:
         return "—"
     try:
@@ -302,18 +375,18 @@ def _fmt_date_short(d):
     except Exception:
         return str(d)
 
+
 def _alerta_nombre(clasi):
-    """Convierte la clave de clasificación en nombre de alerta legible."""
     mapa = {
-        "0-100": "Verde", "0-15": "Verde", "0-1": "Verde",
-        "101-150": "Naranja", "16-30": "Naranja", "1.1-3": "Naranja",
-        "151-180": "Rojo", "31-45": "Rojo", "3.1-6": "Rojo",
-        ">180": "Negra", ">45": "Negra", ">6": "Negra",
+        "0-100": "Verde", "0-30": "Verde", "0-1": "Verde", "0-15": "Verde",
+        "101-150": "Naranja", "31-45": "Naranja", "1.1-3": "Naranja", "16-30": "Naranja",
+        "151-180": "Rojo", "46-60": "Rojo", "3.1-6": "Rojo",
+        ">180": "Negra", ">60": "Negra", ">6": "Negra", ">45": "Negra",
     }
     return mapa.get(str(clasi), str(clasi)) if clasi else "Sin alerta"
 
+
 def _horizonte_str(row_data):
-    """Retorna si el horizonte está vigente o vencido con la fecha."""
     h = row_data.get("HORIZONTE DEL PROYECTO")
     c = row_data.get("FECHA DE CORTE GESPROY")
     if h is None:
@@ -323,74 +396,65 @@ def _horizonte_str(row_data):
         return f"vencido desde {lbl}"
     return f"vigente hasta {lbl}"
 
+
 def _comentario_contextual(eu, row_data):
-    """
-    Genera el párrafo de situación actual del proyecto basado en datos reales,
-    siguiendo las sugerencias del Excel ToolTipEstadoProyectos.
-    Devuelve HTML listo para insertar en el tooltip.
-    """
     if row_data is None:
         return ""
 
     if eu == "SIN CONTRATAR":
-        # Sugerencia Excel:
-        # Sin proceso precontractual: "con xx días desde su aprobación, sin registro de
-        #   proceso precontractual. Se encuentra en alerta xxx."
-        # Con proceso precontractual: "con xx días desde el inicio del primer proceso
-        #   precontractual, en espera de su contratación. Se encuentra en alerta xxx."
         tiene_apertura = row_data.get("FECHA DE APERTURA DEL PRIMER PROCESO") is not None
         if tiene_apertura:
-            dias = row_data.get("hito_2_val")
+            dias   = row_data.get("hito_2_val")
             alerta = _alerta_nombre(row_data.get("clasi_2"))
             if dias is not None:
-                txt = (f"Lleva <strong>{int(dias)} días</strong> desde el inicio del primer "
-                       f"proceso precontractual, en espera de la suscripción del contrato. "
-                       f"Se encuentra en alerta <strong>{alerta}</strong>.")
+                txt = (
+                    f"Lleva <strong>{int(dias)} días</strong> desde el inicio del primer "
+                    f"proceso precontractual, en espera de la suscripción del contrato. "
+                    f"Se encuentra en alerta <strong>{alerta}</strong>."
+                )
             else:
                 txt = "Tiene proceso precontractual abierto, pero aún no cuenta con contrato suscrito."
         else:
-            dias = row_data.get("hito_1_val")
+            dias   = row_data.get("hito_1_val")
             alerta = _alerta_nombre(row_data.get("clasi_1"))
             if dias is not None:
-                txt = (f"Lleva <strong>{int(dias)} días</strong> desde su aprobación "
-                       f"sin registro de proceso precontractual. "
-                       f"Se encuentra en alerta <strong>{alerta}</strong>.")
+                txt = (
+                    f"Lleva <strong>{int(dias)} días</strong> desde su aprobación "
+                    f"sin registro de proceso precontractual. "
+                    f"Se encuentra en alerta <strong>{alerta}</strong>."
+                )
             else:
                 txt = "No registra proceso precontractual ni contrato. Requiere seguimiento inmediato."
         return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
 
     elif eu == "CONTRATADO SIN ACTA DE INICIO":
-        # Sugerencia Excel: "Presenta xx días desde la suscripción del contrato sin que
-        # se haya formalizado el acta de inicio."
-        dias = row_data.get("hito_3_val")
+        dias   = row_data.get("hito_3_val")
         alerta = _alerta_nombre(row_data.get("clasi_3"))
         if dias is not None:
-            txt = (f"Presenta <strong>{int(dias)} días</strong> desde la suscripción "
-                   f"del contrato sin que se haya formalizado el acta de inicio. "
-                   f"Se encuentra en alerta <strong>{alerta}</strong>. "
-                   f"Requiere contar con la programación inicial registrada en GESPROY.")
+            txt = (
+                f"Presenta <strong>{int(dias)} días</strong> desde la suscripción "
+                f"del contrato sin que se haya formalizado el acta de inicio. "
+                f"Se encuentra en alerta <strong>{alerta}</strong>. "
+                f"Requiere contar con la programación inicial registrada en GESPROY."
+            )
         else:
             txt = "El contrato está suscrito, pero no se ha registrado el acta de inicio ni la programación inicial."
         return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
 
     elif eu == "CONTRATADO EN EJECUCIÓN":
-        # Sugerencia Excel: "con xx contratos... puntaje de ejecución fue de xx,
-        # alerta xx. Horizonte hasta fecha xx, (vigente o vencido)."
-        cpi = row_data.get("CPI")
-        spi = row_data.get("SPI")
-        h_str = _horizonte_str(row_data)
-        dias_h4 = row_data.get("hito_4_val")
+        cpi      = row_data.get("CPI")
+        spi      = row_data.get("SPI")
+        h_str    = _horizonte_str(row_data)
+        dias_h4  = row_data.get("hito_4_val")
         alerta_h4 = _alerta_nombre(row_data.get("clasi_4"))
-        partes = []
+        partes   = []
         if cpi is not None or spi is not None:
             try:
                 cpi_v = float(cpi) if cpi is not None else None
                 spi_v = float(spi) if spi is not None else None
                 ind_txt = []
-                if cpi_v is not None:
-                    ind_txt.append(f"CPI: <strong>{cpi_v:.2f}</strong>")
-                if spi_v is not None:
-                    ind_txt.append(f"SPI: <strong>{spi_v:.2f}</strong>")
+                if cpi_v is not None: ind_txt.append(f"CPI: <strong>{cpi_v:.2f}</strong>")
+                if spi_v is not None: ind_txt.append(f"SPI: <strong>{spi_v:.2f}</strong>")
                 partes.append(f"Indicadores de ejecución — {', '.join(ind_txt)}.")
             except Exception:
                 pass
@@ -404,33 +468,34 @@ def _comentario_contextual(eu, row_data):
         return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
 
     elif eu == "TERMINADO":
-        # Sugerencia Excel: "en espera de la liquidación... finalizado desde la fecha xx,
-        # lo cual genera una alerta xx."
-        dias = row_data.get("hito_5_val")
-        alerta = _alerta_nombre(row_data.get("clasi_5"))
+        dias      = row_data.get("hito_5_val")
+        alerta    = _alerta_nombre(row_data.get("clasi_5"))
         fecha_fin = _fmt_date_short(row_data.get("FECHA DE FINALIZACIÓN"))
         if dias is not None:
-            txt = (f"El proyecto se encuentra finalizado desde el <strong>{fecha_fin}</strong>, "
-                   f"con <strong>{int(dias)} días</strong> transcurridos sin pasar a estado "
-                   f"'Para cierre'. Esto genera una alerta <strong>{alerta}</strong>. "
-                   f"Se encuentra en espera de la liquidación de contratos.")
+            txt = (
+                f"El proyecto se encuentra finalizado desde el <strong>{fecha_fin}</strong>, "
+                f"con <strong>{int(dias)} días</strong> transcurridos sin pasar a estado "
+                f"'Para cierre'. Esto genera una alerta <strong>{alerta}</strong>. "
+                f"Se encuentra en espera de la liquidación de contratos."
+            )
         else:
             txt = "Proyecto finalizado. En espera de la liquidación de contratos para proceder con el cierre."
         return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
 
     elif eu == "PARA CIERRE":
-        # Sugerencia Excel: "en proceso de elaboración del acto administrativo
-        # requerido para formalizar su cierre."
-        txt = ("El proyecto está liquidado y finalizado. Se encuentra en proceso de elaboración "
-               "del acto administrativo requerido para formalizar su cierre ante el DNP y el SGR.")
+        txt = (
+            "El proyecto está liquidado y finalizado. Se encuentra en proceso de elaboración "
+            "del acto administrativo requerido para formalizar su cierre ante el DNP y el SGR."
+        )
         return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
 
     return ""
 
+
 def _estado_tooltip_html(est_proy, row_data=None):
     """
-    Genera un pill de estado con tooltip contextual enriquecido.
-    row_data: dict con los campos del proyecto (fechas, hito_vals, clasi, CPI, SPI).
+    Genera un pill de estado con tooltip contextual en layout horizontal de 2 columnas.
+    El posicionamiento dinámico (izq/der, arriba/abajo) lo hace el JS en constants.py.
     """
     if not est_proy:
         return '<span class="proy-pill proy-pill--empty">—</span>'
@@ -438,7 +503,6 @@ def _estado_tooltip_html(est_proy, row_data=None):
     eu = est_proy.strip().upper()
     fg, bg = ESTADO_PROY_COLORS.get(eu, (C["muted"], "#f1f5f9"))
 
-    # Descripciones y flujo de estados — basadas fielmente en el Excel
     INFO = {
         "SIN CONTRATAR": {
             "descripcion": (
@@ -546,22 +610,24 @@ def _estado_tooltip_html(est_proy, row_data=None):
     info = INFO.get(eu)
     if not info:
         extra = "font-weight:700;" if eu == "SUSPENDIDO" else ""
-        return (f'<span class="proy-pill" '
-                f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
-                f'{html.escape(est_proy)}</span>')
+        return (
+            f'<span class="proy-pill" '
+            f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra}">'
+            f'{html.escape(est_proy)}</span>'
+        )
 
-    # ── Situación actual con datos reales (basada en sugerencias del Excel) ───
+    # ── Situación actual con datos reales ────────────────────────────────────
     situacion_html = _comentario_contextual(eu, row_data)
 
-# ── Fechas con inline styles (garantizan visibilidad independiente del CSS global)
+    # ── Fechas registradas — layout flex para evitar tablas con fondo blanco ─
     fechas_html = ""
     if row_data:
         campos = [
-            ("FECHA APROBACIÓN PROYECTO",            "Aprobación del proyecto"),
-            ("FECHA DE APERTURA DEL PRIMER PROCESO", "Apertura del proceso precontractual"),
-            ("FECHA SUSCRIPCION",                    "Suscripción del contrato"),
+            ("FECHA APROBACIÓN PROYECTO",            "Aprobación"),
+            ("FECHA DE APERTURA DEL PRIMER PROCESO", "Apertura proceso"),
+            ("FECHA SUSCRIPCION",                    "Suscripción"),
             ("FECHA ACTA INICIO",                    "Acta de inicio"),
-            ("HORIZONTE DEL PROYECTO",               "Horizonte de ejecución"),
+            ("HORIZONTE DEL PROYECTO",               "Horizonte"),
             ("FECHA DE FINALIZACIÓN",                "Finalización"),
             ("FECHA DE CORTE GESPROY",               "Corte GESPROY"),
         ]
@@ -569,46 +635,43 @@ def _estado_tooltip_html(est_proy, row_data=None):
         for col, lbl in campos:
             v = row_data.get(col)
             if v is not None:
-                # Usamos Flexbox en lugar de <tr> y <td> para evitar el fondo blanco forzado de Streamlit
                 filas.append(
-                    f'<div style="display:flex; justify-content:space-between; align-items:center; '
-                    f'border-bottom:1px solid rgba(255,255,255,0.08); padding:0.25rem 0;">'
-                    f'<span style="color:rgba(255,255,255,0.65);font-size:0.65rem;white-space:nowrap;padding-right:1rem;">{lbl}</span>'
-                    f'<span style="color:rgba(255,255,255,0.95);font-family:\'DM Mono\',monospace;font-size:0.66rem;white-space:nowrap;">{_fmt_date_short(v)}</span>'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                    f'border-bottom:1px solid rgba(255,255,255,0.07);padding:0.22rem 0;">'
+                    f'<span style="color:rgba(255,255,255,0.55);font-size:0.64rem;white-space:nowrap;padding-right:0.8rem">{lbl}</span>'
+                    f'<span style="color:rgba(255,255,255,0.92);font-family:\'DM Mono\',monospace;font-size:0.65rem;white-space:nowrap">{_fmt_date_short(v)}</span>'
                     f'</div>'
                 )
         if filas:
             fechas_html = (
-                f'<div class="etip-section-title">Fechas registradas en GESPROY</div>'
-                f'<div style="width:100%; margin:0.2rem 0;">'
-                f'{"".join(filas)}'
-                f'</div>'
+                f'<div class="etip-section-title">Fechas en GESPROY</div>'
+                f'<div style="width:100%;margin:0.15rem 0">{"".join(filas)}</div>'
             )
 
-         tooltip_body = f"""
-         <span class="etip-estado">{html.escape(est_proy)}</span>
-         <p class="etip-desc">{html.escape(info["descripcion"])}</p>
-         <div class="etip-grid">
-           <div class="etip-col">
-             <div class="etip-section-title">Origen del estado</div>
-             <div class="etip-row"><span class="etip-label">Estado anterior:</span> {html.escape(info["estado_anterior"])}</div>
-             <div class="etip-row"><span class="etip-label">Fecha de entrada:</span> {html.escape(info["fecha_entrada"])}</div>
-         
-             <div class="etip-section-title">Para avanzar</div>
-             <div class="etip-row">{html.escape(info["para_avanzar"])}</div>
-             <div class="etip-row etip-small">{html.escape(info["fecha_avance"])}</div>
-             <div class="etip-row etip-small"><span class="etip-label">Requisitos:</span> {html.escape(info["requisitos"])}</div>
-           </div>
-           <div class="etip-col">
-             {situacion_html}
-             {fechas_html}
-           </div>
-           <div class="etip-accion">
-             <span class="etip-accion-label">Acción sugerida</span>
-             {html.escape(info["requisitos"])}
-           </div>
-         </div>
-         """
+    # ── Tooltip en 2 columnas ─────────────────────────────────────────────────
+    tooltip_body = f"""
+<span class="etip-estado">{html.escape(est_proy)}</span>
+<p class="etip-desc">{html.escape(info["descripcion"])}</p>
+<div class="etip-grid">
+  <div class="etip-col">
+    <div class="etip-section-title">Origen del estado</div>
+    <div class="etip-row"><span class="etip-label">Estado anterior:</span> {html.escape(info["estado_anterior"])}</div>
+    <div class="etip-row"><span class="etip-label">Fecha de entrada:</span> {html.escape(info["fecha_entrada"])}</div>
+    <div class="etip-section-title">Para avanzar</div>
+    <div class="etip-row">{html.escape(info["para_avanzar"])}</div>
+    <div class="etip-row etip-small">{html.escape(info["fecha_avance"])}</div>
+    <div class="etip-row etip-small"><span class="etip-label">Requisitos:</span> {html.escape(info["requisitos"])}</div>
+  </div>
+  <div class="etip-col">
+    {situacion_html}
+    {fechas_html}
+  </div>
+  <div class="etip-accion">
+    <span class="etip-accion-label">Acción sugerida</span>
+    {html.escape(info["requisitos"])}
+  </div>
+</div>
+"""
 
     extra_style = "font-weight:700;" if eu == "SUSPENDIDO" else ""
     return (
