@@ -474,8 +474,8 @@ with tab_resumen:
                             intervalos = INTERVALOS.get(sel_hito_col_r, [])
                             clasi_v = None
                             for label, lo, hi in intervalos:
-                                if hi is None and dias_v >= lo:   clasi_v = label; break
-                                elif hi is not None and lo <= dias_v <= hi: clasi_v = label; break
+                                if hi is None and dias_v >= lo:                  clasi_v = label; break
+                                elif hi is not None and lo <= dias_v <= hi:      clasi_v = label; break
                     else:
                         clasi_v = None
 
@@ -486,12 +486,37 @@ with tab_resumen:
                         "badge-black":  "row-black",
                     }
                     _cls_badge_map = {
-                        "0-100": "badge-green",  "0-30":  "badge-green",  "0-1":   "badge-green",
-                        "101-150": "badge-yellow","31-45": "badge-yellow", "1.1-3": "badge-yellow",
-                        "151-180": "badge-orange","46-60": "badge-orange", "3.1-6": "badge-orange",
-                        ">180":    "badge-black", ">60":   "badge-black",  ">6":    "badge-black",
+                        # Hito 1
+                        "0-100": "badge-green",
+                        # Hito 2
+                        "0-30":  "badge-green",
+                        # Hito 3 — ACTUALIZADO
+                        "0-15":  "badge-green",
+                        "16-30": "badge-yellow",
+                        "31-45": "badge-orange",
+                        ">45":   "badge-black",
+                        # Hito 4
+                        "0-1":   "badge-green",
+                        "1.1-3": "badge-yellow",
+                        "3.1-6": "badge-orange",
+                        ">6":    "badge-black",
+                        # Hito 1 continuación
+                        "101-150": "badge-yellow",
+                        "151-180": "badge-orange",
+                        ">180":    "badge-black",
+                        # Hito 2 continuación
+                        "31-45": "badge-yellow",   # ← este es de hito 2, no hito 3
+                        "46-60": "badge-orange",
+                        ">60":   "badge-black",
                     }
-                    badge_cls = _cls_badge_map.get(str(clasi_v), "badge-yellow") if clasi_v else ""
+                    _BADGE_BY_HITO = {
+                        "hito_1_val": {"0-100":"badge-green","101-150":"badge-yellow","151-180":"badge-orange",">180":"badge-black"},
+                        "hito_2_val": {"0-30":"badge-green","31-45":"badge-yellow","46-60":"badge-orange",">60":"badge-black"},
+                        "hito_3_val": {"0-15":"badge-green","16-30":"badge-yellow","31-45":"badge-orange",">45":"badge-black"},
+                        "hito_4_val": {"0-1":"badge-green","1.1-3":"badge-yellow","3.1-6":"badge-orange",">6":"badge-black"},
+                        "hito_5_val": {"0-100":"badge-green","101-150":"badge-yellow","151-180":"badge-orange",">180":"badge-black"},
+                    }
+                    badge_cls = _BADGE_BY_HITO.get(sel_hito_col_r, {}).get(str(clasi_v), "badge-yellow") if clasi_v else ""
                     row_cls   = _row_cls_map.get(badge_cls, "")
                     tooltip   = _dias_tooltip(r, sel_hito_col_r)
                     _bpin_h   = html.escape(str(r['BPIN'] or '—'))
@@ -966,7 +991,8 @@ with tab_evaluacion:
                         filas.append(f"""<tr>
                             <td class="entidad-name">{html.escape(nombre)}</td>
                             <td style="color:{C['muted']}">—</td>
-                            <td class="eval-comment" style="color:{C['muted']}">Sin datos registrados para este criterio.</td>
+                            f'<td class="eval-comment" style="color:{C[\"muted\"]}">No aplicable: ninguno de los proyectos '
+                            f'de esta entidad cumple las condiciones requeridas para calcular este criterio.</td>'
                         </tr>""")
                         continue
 
@@ -980,96 +1006,98 @@ with tab_evaluacion:
                     # ── Construir comentario en redacción natural ────────────
                     comentario_html = "—"
                     if df_eval_raw is not None and col_cal in df_eval_raw.columns:
-                        sub       = df_eval_raw.filter(pl.col(col_entidad) == nombre)
-                        n_total   = sub.height
-                        n_con_cal = int(sub[col_cal].drop_nulls().len())
-                        n_cero    = int((sub[col_cal] == 0).sum()) if n_con_cal > 0 else 0
-                        n_max     = int((sub[col_cal] == 100).sum()) if n_con_cal > 0 else 0
-                        vals_ok   = sub[col_cal].drop_nulls()
-                        v_min     = float(vals_ok.min()) if n_con_cal > 0 else None
-                        v_max_v   = float(vals_ok.max()) if n_con_cal > 0 else None
-                        sin_cal   = n_total - n_con_cal
-
+                        sub         = df_eval_raw.filter(pl.col(col_entidad) == nombre)
+                        n_total     = sub.height
+                        n_con_cal   = int(sub[col_cal].drop_nulls().len())
+                        n_no_aplica = n_total - n_con_cal          # antes llamado sin_cal
+                        n_cero      = int((sub[col_cal] == 0).sum())  if n_con_cal > 0 else 0
+                        n_max       = int((sub[col_cal] == 100).sum()) if n_con_cal > 0 else 0
+                        vals_ok     = sub[col_cal].drop_nulls()
+                        v_min       = float(vals_ok.min()) if n_con_cal > 0 else None
+                        v_max_v     = float(vals_ok.max()) if n_con_cal > 0 else None
+                    
                         def _nombre_proy(val_filtro):
-                            """Retorna el BPIN del proyecto con ese valor de calificación."""
-                            f = sub.filter(pl.col(col_cal) == val_filtro)
+                            f  = sub.filter(pl.col(col_cal) == val_filtro)
                             if f.height == 0: return None
                             r  = f.to_dicts()[0]
                             bp = (r.get("BPIN") or "").strip()
                             return bp if bp else None
-
-                        proy_bajo = _nombre_proy(v_min)  if v_min is not None and v_min  < 60 else None
+                    
+                        proy_bajo = _nombre_proy(v_min)   if v_min  is not None and v_min  < 60  else None
                         proy_alto = _nombre_proy(v_max_v) if v_max_v is not None and v_max_v >= 80 else None
-
-                        # ── Redacción en un párrafo único, lenguaje accesible ──
+                    
                         partes = []
-
-                        # Apertura: cuántos proyectos y si hay faltantes
-                        if sin_cal == 0:
+                    
+                        # ── Apertura: siempre mencionar cuántos proyectos se usaron en el cálculo ──
+                        if n_no_aplica == 0:
                             partes.append(
-                                f"Esta calificación refleja el resultado de los "
-                                f"{n_con_cal} {'proyecto' if n_con_cal == 1 else 'proyectos'} de la entidad."
+                                f"Calificación calculada sobre los "
+                                f"<strong>{n_con_cal} {'proyecto' if n_con_cal == 1 else 'proyectos'}</strong> "
+                                f"de la entidad que aplican para este criterio."
                             )
                         else:
                             partes.append(
-                                f"De los {n_total} proyectos de la entidad, "
-                                f"{n_con_cal} {'contaba' if n_con_cal == 1 else 'contaban'} con información "
-                                f"registrada al momento del corte, y sobre ellos se calculó esta calificación; "
-                                f"los {sin_cal} restantes no se incluyeron por no tener dato."
+                                f"Calificación calculada sobre "
+                                f"<strong>{n_con_cal} de {n_total} proyectos</strong>. "
+                                f"Los {n_no_aplica} restantes son <em>no aplicables</em>: "
+                                f"no cumplen las condiciones requeridas para que este criterio se calcule "
+                                f"(por ejemplo, estado del proyecto, tipo de contrato o etapa de ejecución)."
                             )
-
-                        # Qué tan parejos o dispares son los proyectos
+                    
+                        # ── Dispersión entre proyectos ──
                         if v_min is not None and v_max_v is not None and n_con_cal > 1:
                             diferencia = v_max_v - v_min
                             if diferencia < 10:
                                 partes.append(
-                                    f"Todos los proyectos obtuvieron resultados muy parecidos "
-                                    f"(entre {v_min:.0f} y {v_max_v:.0f} puntos), lo que muestra un nivel de desempeño homogéneo."
+                                    f"Los resultados son homogéneos "
+                                    f"(entre {v_min:.0f} y {v_max_v:.0f} puntos)."
                                 )
                             elif diferencia >= 50:
                                 partes.append(
-                                    f"Existe una brecha importante entre los proyectos: "
-                                    f"el resultado más bajo fue {v_min:.0f} puntos y el más alto {v_max_v:.0f}, "
-                                    f"lo que indica que la entidad tiene proyectos en situaciones muy distintas."
+                                    f"Existe una brecha importante: el resultado más bajo fue "
+                                    f"{v_min:.0f} puntos y el más alto {v_max_v:.0f}, "
+                                    f"lo que refleja situaciones muy distintas entre proyectos."
                                 )
                             else:
                                 partes.append(
                                     f"Los proyectos obtuvieron resultados entre "
                                     f"{v_min:.0f} y {v_max_v:.0f} puntos."
                                 )
-
-                        # Proyectos que jalaron el promedio hacia abajo
+                    
+                        # ── Proyectos que bajan el promedio ──
                         if n_cero == 1:
                             extra = f" (BPIN {html.escape(proy_bajo)})" if proy_bajo and v_min == 0 else ""
                             partes.append(
-                                f"Un proyecto{extra} obtuvo cero puntos, lo que reduce el promedio general de la entidad."
+                                f"Un proyecto{extra} obtuvo cero puntos, "
+                                f"lo que reduce el promedio general de la entidad."
                             )
                         elif n_cero > 1:
                             partes.append(
                                 f"{n_cero} proyectos obtuvieron cero puntos, "
-                                f"lo que tiene un peso importante en que el promedio sea bajo."
+                                f"lo que arrastra el promedio hacia abajo."
                             )
                         elif proy_bajo:
                             partes.append(
                                 f"El proyecto con menor resultado es el BPIN {html.escape(proy_bajo)} "
-                                f"con {v_min:.0f} puntos, que es el que más arrastra el promedio hacia abajo."
+                                f"con {v_min:.0f} puntos."
                             )
-
-                        # Proyectos que jalaron el promedio hacia arriba
+                    
+                        # ── Proyectos que suben el promedio ──
                         if n_max == 1 and n_con_cal > 1:
                             extra = f" (BPIN {html.escape(proy_alto)})" if proy_alto else ""
                             partes.append(
-                                f"Por otro lado, un proyecto{extra} alcanzó la calificación perfecta de 100 puntos."
+                                f"Por otro lado, un proyecto{extra} alcanzó 100 puntos."
                             )
                         elif n_max > 1:
                             partes.append(
-                                f"Por otro lado, {n_max} proyectos alcanzaron la calificación perfecta de 100 puntos."
+                                f"Por otro lado, {n_max} proyectos alcanzaron 100 puntos."
                             )
                         elif proy_alto and n_max == 0 and n_con_cal > 1:
                             partes.append(
-                                f"El proyecto con mejor desempeño es el BPIN {html.escape(proy_alto)} con {v_max_v:.0f} puntos."
+                                f"El proyecto con mejor desempeño es el BPIN "
+                                f"{html.escape(proy_alto)} con {v_max_v:.0f} puntos."
                             )
-
+                    
                         comentario_html = " ".join(partes) if partes else "—"
 
                     filas.append(f"""<tr>
