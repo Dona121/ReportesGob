@@ -986,14 +986,16 @@ with tab_evaluacion:
                 for row in df_eval.sort(col_cal, descending=True, nulls_last=True).to_dicts():
                     nombre = row.get(col_entidad) or "Sin nombre"
                     score  = row.get(col_cal)
-
-                    if score is None:
-                        filas.append(f"""<tr>
-                            <td class="entidad-name">{html.escape(nombre)}</td>
-                            <td style="color:{C['muted']}">—</td>
-                            <td class="eval-comment" style="color:{C[\"muted\"]}">No aplicable: ninguno de los proyectos de esta entidad cumple las condiciones requeridas para calcular este criterio.</td>
-                        </tr>""")
-                        continue
+        
+                        if score is None:
+                            filas.append(f"""<tr>
+                                <td class="entidad-name">{html.escape(nombre)}</td>
+                                <td style="color:{C['muted']}">—</td>
+                                <td class="eval-comment" style="color:{C['muted']}">
+                                    No aplicable: ninguno de los proyectos de esta entidad cumple las condiciones requeridas para calcular este criterio.
+                                </td>
+                            </tr>""")
+                            continue
 
                     color_bar, nivel = eval_color(score, max_score)
                     bg_map = {
