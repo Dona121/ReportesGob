@@ -925,168 +925,128 @@ def inject_css():
     /* ── Tooltip contextual de estado de proyecto ── */
     .etip-trigger {{
         position: relative;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        white-space: nowrap;
+        cursor: pointer;
     }}
-    .etip-i {{
-        font-size: 0.68rem;
-        opacity: 0.65;
-        font-style: normal;
-        vertical-align: middle;
-        flex-shrink: 0;
-    }}
+    
+    /* El popup ahora es horizontal: 2 columnas lado a lado */
     .etip-popup {{
         display: none;
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
+        position: fixed;          /* fixed = sale del flujo de la tabla */
         z-index: 9999;
-        width: 360px;
-        max-width: 90vw;
+        width: 680px;             /* ancho total del tooltip horizontal */
         background: #1a2332;
-        color: #e2e8f0;
-        border-radius: 10px;
-        padding: 0.9rem 1rem 0.85rem;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.25);
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        color: rgba(255,255,255,0.88);
         font-size: 0.72rem;
-        line-height: 1.55;
-        text-align: left;
+        line-height: 1.6;
         pointer-events: none;
-        white-space: normal;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        box-sizing: border-box;
+        /* posición la pone el JS */
+        top: 0; left: 0;
     }}
-    .etip-trigger:hover .etip-popup,
-    .etip-trigger:focus .etip-popup {{
-        display: block;
+    
+    /* Layout de 2 columnas dentro del tooltip */
+    .etip-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem 1.2rem;
+        margin-top: 0.5rem;
     }}
+    .etip-col {{} }
+    
+    .etip-trigger:hover .etip-popup {{ display: block; }}
+    
     .etip-estado {{
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: #ffffff;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: block;
-        margin-bottom: 0.45rem;
-        padding-bottom: 0.4rem;
-        border-bottom: 1px solid rgba(255,255,255,0.12);
+        display: inline-block;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.68rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 1px;
+        color: #47b1d5; margin-bottom: 0.4rem;
     }}
     .etip-desc {{
-        margin: 0 0 0.55rem;
-        color: rgba(255,255,255,0.82);
-        font-size: 0.71rem;
-        line-height: 1.55;
-        white-space: normal;
-        word-wrap: break-word;
+        font-size: 0.72rem; color: rgba(255,255,255,0.7);
+        margin: 0 0 0.5rem; line-height: 1.6;
+        grid-column: 1 / -1;          /* ocupa todo el ancho */
     }}
     .etip-section-title {{
-        font-size: 0.60rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.9px;
-        color: {C['cian']};
-        margin: 0.5rem 0 0.2rem;
-        white-space: normal;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.58rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 1px;
+        color: #47b1d5; margin: 0.5rem 0 0.25rem;
     }}
     .etip-row {{
-        color: rgba(255,255,255,0.78);
-        margin-bottom: 0.18rem;
-        font-size: 0.70rem;
-        white-space: normal;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        font-size: 0.71rem; color: rgba(255,255,255,0.82);
+        margin-bottom: 0.2rem;
     }}
-    .etip-small {{
-        font-size: 0.65rem;
-        color: rgba(255,255,255,0.5);
-        font-style: italic;
-        white-space: normal;
-        word-wrap: break-word;
-    }}
-    .etip-label {{
-        font-weight: 700;
-        color: rgba(255,255,255,0.55);
-        font-size: 0.62rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        margin-right: 4px;
-    }}
-    /* Tabla de fechas — aislada del CSS global de tablas */
-    .etip-popup .etip-dates {{
-        width: 100% !important;
-        border-collapse: collapse !important;
-        margin: 0.25rem 0 0.1rem !important;
-        font-size: 0.68rem !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        border-radius: 0 !important;
-        overflow: visible !important;
-    }}
-    .etip-popup .etip-dates thead {{ display: none; }}
-    .etip-popup .etip-dates tr {{
-        border-bottom: 1px solid rgba(255,255,255,0.07) !important;
-        background: transparent !important;
-    }}
-    .etip-popup .etip-dates tr:last-child {{
-        border-bottom: none !important;
-    }}
-    .etip-popup .etip-dates tr:hover td {{
-        background: transparent !important;
-    }}
-    .etip-popup .etip-dates td {{
-        padding: 0.17rem 0 !important;
-        border: none !important;
-        background: transparent !important;
-        color: inherit !important;
-        font-size: 0.68rem !important;
-        vertical-align: middle !important;
-    }}
-    .etip-flabel {{
-        color: rgba(255,255,255,0.52) !important;
-        padding-right: 0.7rem !important;
-        white-space: nowrap !important;
-        width: 50% !important;
-    }}
-    .etip-fval {{
-        color: rgba(255,255,255,0.92) !important;
-        font-family: 'DM Mono', monospace !important;
-        font-size: 0.67rem !important;
-        text-align: right !important;
-        white-space: nowrap !important;
-    }}
-    .etip-inds {{
-        display: flex;
-        gap: 1.2rem;
-        margin: 0.2rem 0 0.1rem;
-        flex-wrap: wrap;
-    }}
-    .etip-ind {{
-        font-size: 0.71rem;
-        white-space: nowrap;
+    .etip-small {{ font-size: 0.67rem; color: rgba(255,255,255,0.55); }}
+    .etip-label {{ color: rgba(255,255,255,0.5); font-weight: 600; }}
+    .etip-i {{
+        font-size: 0.65rem; opacity: 0.6;
+        font-style: normal; margin-left: 2px;
     }}
     .etip-accion {{
-        margin-top: 0.55rem;
-        padding-top: 0.45rem;
-        border-top: 1px solid rgba(255,255,255,0.1);
-        font-size: 0.70rem;
-        color: rgba(255,255,255,0.78);
-        line-height: 1.5;
-        white-space: normal;
-        word-wrap: break-word;
+        grid-column: 1 / -1;
+        margin-top: 0.6rem;
+        background: rgba(71,177,213,0.12);
+        border-left: 3px solid #47b1d5;
+        border-radius: 4px;
+        padding: 0.4rem 0.7rem;
+        font-size: 0.7rem;
+        color: rgba(255,255,255,0.8);
     }}
     .etip-accion-label {{
         display: block;
-        font-size: 0.60rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.9px;
-        color: {C['naranja']};
-        margin-bottom: 0.2rem;
+        font-size: 0.58rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 1px;
+        color: #47b1d5; margin-bottom: 0.2rem;
     }}
+    <script>
+    (function() {
+      // Posicionamiento dinámico de tooltips etip
+      function posicionarTooltips() {
+        document.querySelectorAll('.etip-trigger').forEach(function(trigger) {
+          trigger.addEventListener('mouseenter', function(e) {
+            var popup = trigger.querySelector('.etip-popup');
+            if (!popup) return;
+    
+            // Mostrar temporalmente para medir
+            popup.style.display = 'block';
+            popup.style.visibility = 'hidden';
+    
+            var rect   = trigger.getBoundingClientRect();
+            var pw     = popup.offsetWidth  || 680;
+            var ph     = popup.offsetHeight || 300;
+            var vw     = window.innerWidth;
+            var vh     = window.innerHeight;
+    
+            // Horizontal: mostrar a la derecha si cabe, si no a la izquierda
+            var left;
+            if (rect.right + pw + 12 < vw) {
+              left = rect.right + 8;
+            } else {
+              left = Math.max(8, rect.left - pw - 8);
+            }
+    
+            // Vertical: alinear con la fila, subir si se sale de pantalla
+            var top = rect.top;
+            if (top + ph > vh - 16) {
+              top = Math.max(8, vh - ph - 16);
+            }
+    
+            popup.style.left       = left + 'px';
+            popup.style.top        = top  + 'px';
+            popup.style.visibility = 'visible';
+          });
+        });
+      }
+    
+      // Re-ejecutar cuando Streamlit re-renderiza el DOM
+      var obs = new MutationObserver(function() { posicionarTooltips(); });
+      obs.observe(document.body, { childList: true, subtree: true });
+      posicionarTooltips();
+    })();
+    </script>
     </style>
     """, unsafe_allow_html=True)
     
