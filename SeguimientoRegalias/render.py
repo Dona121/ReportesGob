@@ -585,33 +585,30 @@ def _estado_tooltip_html(est_proy, row_data=None):
                 f'</div>'
             )
 
-    # ── Construir tooltip ─────────────────────────────────────────────────────
-    parts = [
-        f'<span class="etip-estado">{html.escape(est_proy)}</span>',
-        f'<p class="etip-desc">{html.escape(info["descripcion"])}</p>',
-
-        situacion_html,
-
-        f'<div class="etip-section-title">Origen del estado</div>',
-        f'<div class="etip-row"><span class="etip-label">Estado anterior:</span>'
-        f' {html.escape(info["estado_anterior"])}</div>',
-        f'<div class="etip-row"><span class="etip-label">Fecha de entrada:</span>'
-        f' {html.escape(info["fecha_entrada"])}</div>',
-
-        f'<div class="etip-section-title">Para avanzar al siguiente estado</div>',
-        f'<div class="etip-row">{html.escape(info["para_avanzar"])}</div>',
-        f'<div class="etip-row etip-small">{html.escape(info["fecha_avance"])}</div>',
-        f'<div class="etip-row etip-small"><span class="etip-label">Requisitos:</span>'
-        f' {html.escape(info["requisitos"])}</div>',
-
-        fechas_html,
-
-        f'<div class="etip-accion">'
-        f'<span class="etip-accion-label">Accion sugerida</span>'
-        f'{html.escape(info["requisitos"])}'
-        f'</div>',
-    ]
-    tooltip_body = "".join(parts)
+         tooltip_body = f"""
+         <span class="etip-estado">{html.escape(est_proy)}</span>
+         <p class="etip-desc">{html.escape(info["descripcion"])}</p>
+         <div class="etip-grid">
+           <div class="etip-col">
+             <div class="etip-section-title">Origen del estado</div>
+             <div class="etip-row"><span class="etip-label">Estado anterior:</span> {html.escape(info["estado_anterior"])}</div>
+             <div class="etip-row"><span class="etip-label">Fecha de entrada:</span> {html.escape(info["fecha_entrada"])}</div>
+         
+             <div class="etip-section-title">Para avanzar</div>
+             <div class="etip-row">{html.escape(info["para_avanzar"])}</div>
+             <div class="etip-row etip-small">{html.escape(info["fecha_avance"])}</div>
+             <div class="etip-row etip-small"><span class="etip-label">Requisitos:</span> {html.escape(info["requisitos"])}</div>
+           </div>
+           <div class="etip-col">
+             {situacion_html}
+             {fechas_html}
+           </div>
+           <div class="etip-accion">
+             <span class="etip-accion-label">Acción sugerida</span>
+             {html.escape(info["requisitos"])}
+           </div>
+         </div>
+         """
 
     extra_style = "font-weight:700;" if eu == "SUSPENDIDO" else ""
     return (
