@@ -991,8 +991,7 @@ with tab_evaluacion:
                         filas.append(f"""<tr>
                             <td class="entidad-name">{html.escape(nombre)}</td>
                             <td style="color:{C['muted']}">—</td>
-                            f'<td class="eval-comment" style="color:{C[\"muted\"]}">No aplicable: ninguno de los proyectos '
-                            f'de esta entidad cumple las condiciones requeridas para calcular este criterio.</td>'
+                            f'<td class="eval-comment" style="color:{C[\"muted\"]}">No aplicable: ninguno de los proyectos de esta entidad cumple las condiciones requeridas para calcular este criterio.</td>'
                         </tr>""")
                         continue
 
