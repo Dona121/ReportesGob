@@ -18,10 +18,10 @@ def badge_html(val, hito_key=None):
     if val is None: return ""
     val_str = str(val)
     cls_map = {
-        "0-100":   "badge-green",  "0-30":  "badge-green",  "0-1":   "badge-green",
-        "101-150": "badge-yellow", "31-45": "badge-yellow", "1.1-3": "badge-yellow",
-        "151-180": "badge-orange", "46-60": "badge-orange", "3.1-6": "badge-orange",
-        ">180":    "badge-black",  ">60":   "badge-black",  ">6":    "badge-black",
+        "0-100":   "badge-green",  "0-15":  "badge-green",  "0-1":   "badge-green",
+        "101-150": "badge-yellow", "16-30": "badge-yellow", "1.1-3": "badge-yellow",
+        "151-180": "badge-orange", "31-45": "badge-orange", "3.1-6": "badge-orange",
+        ">180":    "badge-black",  ">45":   "badge-black",  ">6":    "badge-black",
     }
     cls = cls_map.get(val_str, "badge-yellow")
 
@@ -305,10 +305,10 @@ def _fmt_date_short(d):
 def _alerta_nombre(clasi):
     """Convierte la clave de clasificación en nombre de alerta legible."""
     mapa = {
-        "0-100": "Verde", "0-30": "Verde", "0-1": "Verde",
-        "101-150": "Naranja", "31-45": "Naranja", "1.1-3": "Naranja",
-        "151-180": "Rojo", "46-60": "Rojo", "3.1-6": "Rojo",
-        ">180": "Negra", ">60": "Negra", ">6": "Negra",
+        "0-100": "Verde", "0-15": "Verde", "0-1": "Verde",
+        "101-150": "Naranja", "16-30": "Naranja", "1.1-3": "Naranja",
+        "151-180": "Rojo", "31-45": "Rojo", "3.1-6": "Rojo",
+        ">180": "Negra", ">45": "Negra", ">6": "Negra",
     }
     return mapa.get(str(clasi), str(clasi)) if clasi else "Sin alerta"
 
