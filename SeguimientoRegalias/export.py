@@ -44,16 +44,16 @@ def generar_excel(df_f_full, df_agr, clasi_por_entidad_map,
     GRIS_BRD  = "D1D5DB"
 
     SEM_FILL = {
-        "0-100":   ("D1FAE5","065F46"), "0-30":  ("D1FAE5","065F46"), "0-1":   ("D1FAE5","065F46"),
-        "101-150": ("FEF3C7","92400E"), "31-45": ("FEF3C7","92400E"), "1.1-3": ("FEF3C7","92400E"),
-        "151-180": ("FFEDD5","9A3412"), "46-60": ("FFEDD5","9A3412"), "3.1-6": ("FFEDD5","9A3412"),
-        ">180":    ("1E293B","F1F5F9"), ">60":   ("1E293B","F1F5F9"), ">6":    ("1E293B","F1F5F9"),
+        "0-100":   ("D1FAE5","065F46"), "0-15":  ("D1FAE5","065F46"), "0-1":   ("D1FAE5","065F46"),
+        "101-150": ("FEF3C7","92400E"), "16-30": ("FEF3C7","92400E"), "1.1-3": ("FEF3C7","92400E"),
+        "151-180": ("FFEDD5","9A3412"), "31-45": ("FFEDD5","9A3412"), "3.1-6": ("FFEDD5","9A3412"),
+        ">180":    ("1E293B","F1F5F9"), ">45":   ("1E293B","F1F5F9"), ">6":    ("1E293B","F1F5F9"),
     }
     SEM_NOMBRE = {
-        "0-100":"Verde","0-30":"Verde","0-1":"Verde",
-        "101-150":"Naranja","31-45":"Naranja","1.1-3":"Naranja",
-        "151-180":"Rojo","46-60":"Rojo","3.1-6":"Rojo",
-        ">180":"Negro",">60":"Negro",">6":"Negro",
+        "0-100":"Verde","0-15":"Verde","0-1":"Verde",
+        "101-150":"Naranja","16-30":"Naranja","1.1-3":"Naranja",
+        "151-180":"Rojo","31-45":"Rojo","3.1-6":"Rojo",
+        ">180":"Negro",">45":"Negro",">6":"Negro",
     }
     # Mensajes completos desde SEMAFOROS global
     SEM_MSG = {}
