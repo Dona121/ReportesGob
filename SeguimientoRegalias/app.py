@@ -20,6 +20,7 @@ from render import (
     HITO_KEY_MAP, CLASI_TO_HITO, HITO_CALC_META,
     ESTADO_PROY_COLORS, ESTADO_CONT_COLORS, CTTO_ESTADO_COLORS,
     _estado_tooltip_html,
+    _BADGE_BY_HITO, _ROW_CLS_MAP,
 )
 import streamlit as st
 import polars as pl
@@ -78,14 +79,12 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Determinar fuente de datos: manual > GitHub > error
-# IMPORTANTE: UploadedFile.read() es un stream — se consume en el primer rerun.
-# Cacheamos los bytes en session_state indexados por nombre+tamaño del archivo.
+# Caché de bytes del archivo subido para evitar consumir el stream en reruns
 if uploaded is not None:
     _upload_id = f"{uploaded.name}_{uploaded.size}"
     if st.session_state.get("_upload_id") != _upload_id:
-        st.session_state["_upload_id"]    = _upload_id
-        st.session_state["_file_bytes"]   = uploaded.read()
+        st.session_state["_upload_id"]  = _upload_id
+        st.session_state["_file_bytes"] = uploaded.read()
     file_bytes = st.session_state["_file_bytes"]
 else:
     st.session_state.pop("_upload_id",  None)
@@ -100,6 +99,7 @@ if file_bytes is None:
         "o sube el archivo manualmente desde el panel izquierdo."
     )
     st.stop()
+
 df_raw, errores = validar_archivo(file_bytes)
 
 if errores:
@@ -167,7 +167,6 @@ try:
     df = procesar(file_bytes)
 except Exception as e:
     msg = str(e)
-    # Detectar columna faltante en procesar (por si pasó la validación pero falla el select)
     col_hint = ""
     for col in COLUMNAS_ESPERADAS:
         if col.lower() in msg.lower():
@@ -211,7 +210,10 @@ else:
     with st.spinner("Cargando contratos desde el repositorio…"):
         _cttos_bytes = _cargar_desde_github(GITHUB_CONTRATOS_URL)
 
-df_contratos, _cttos_diag = procesar_contratos(_cttos_bytes) if _cttos_bytes else (None, "No se obtuvieron bytes del archivo de contratos")
+df_contratos, _cttos_diag = (
+    procesar_contratos(_cttos_bytes) if _cttos_bytes
+    else (None, "No se obtuvieron bytes del archivo de contratos")
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FILTROS EN SIDEBAR
@@ -224,11 +226,10 @@ HITOS = {
     "H5 · Proyectos terminados":          ("hito_5_val", "clasi_5"),
 }
 
-
 with st.sidebar:
     st.markdown("<div class='sidebar-section'>Filtros</div>", unsafe_allow_html=True)
 
-    entidades   = sorted(df["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
+    entidades     = sorted(df["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
     sel_entidades = st.multiselect("Entidad / Secretaría", entidades, default=entidades)
 
     estados_raw  = sorted(df["ESTADO PROYECTO"].drop_nulls().unique().to_list())
@@ -241,10 +242,14 @@ with st.sidebar:
 # ─────────────────────────────────────────────────────────────────────────────
 filter_expr = pl.col("ENTIDAD O SECRETARIA").is_in(sel_entidades)
 if sel_estados:
-    incluir_sin   = "(Sin estado)" in sel_estados
+    incluir_sin    = "(Sin estado)" in sel_estados
     estados_reales = [e for e in sel_estados if e != "(Sin estado)"]
     if estados_reales and incluir_sin:
-        estado_expr = pl.col("ESTADO PROYECTO").is_in(estados_reales) | pl.col("ESTADO PROYECTO").is_null() | (pl.col("ESTADO PROYECTO") == "")
+        estado_expr = (
+            pl.col("ESTADO PROYECTO").is_in(estados_reales)
+            | pl.col("ESTADO PROYECTO").is_null()
+            | (pl.col("ESTADO PROYECTO") == "")
+        )
     elif estados_reales:
         estado_expr = pl.col("ESTADO PROYECTO").is_in(estados_reales)
     elif incluir_sin:
@@ -255,14 +260,13 @@ if sel_estados:
 df_f = df.filter(filter_expr)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# KPIs — jerarquía visual
+# KPIs
 # ─────────────────────────────────────────────────────────────────────────────
 total_proy      = df_f.height
 total_entidades = df_f["ENTIDAD O SECRETARIA"].n_unique()
 suspendidos     = int(df_f["Suspendidos"].drop_nulls().sum()) if df_f["Suspendidos"].drop_nulls().len() > 0 else 0
 para_cierre     = int(df_f["Para cierre"].drop_nulls().sum()) if df_f["Para cierre"].drop_nulls().len() > 0 else 0
 
-# Conteo por estado de proyecto
 estados_conteo = (
     df_f.group_by("ESTADO PROYECTO")
     .agg(pl.len().alias("n"))
@@ -272,21 +276,21 @@ estado_items = ""
 for row_e in estados_conteo.to_dicts():
     est = row_e["ESTADO PROYECTO"] or "(Sin estado)"
     n   = row_e["n"]
-    # Color de punto según estado
-    eu = est.strip().upper()
+    eu  = est.strip().upper()
     dot_colors = {
-        "CONTRATADO EN EJECUCIÓN": C["verde_medio"],
-        "TERMINADO":               C["muted"],
-        "SIN CONTRATAR":           C["cian"],
-        "PARA CIERRE":             C["cafe"],
+        "CONTRATADO EN EJECUCIÓN":       C["verde_medio"],
+        "TERMINADO":                     C["muted"],
+        "SIN CONTRATAR":                 C["cian"],
+        "PARA CIERRE":                   C["cafe"],
         "CONTRATADO SIN ACTA DE INICIO": C["azul_medio"],
-        "SUSPENDIDO":              C["naranja_osc"],
+        "SUSPENDIDO":                    C["naranja_osc"],
     }
     dot = dot_colors.get(eu, C["muted"])
     estado_items += (
         f'<div class="estado-kpi-row">'
-        f'<span class="estado-kpi-label"><span style="display:inline-block;width:7px;height:7px;'
-        f'border-radius:50%;background:{dot};margin-right:5px;flex-shrink:0"></span>{est}</span>'
+        f'<span class="estado-kpi-label">'
+        f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
+        f'background:{dot};margin-right:5px;flex-shrink:0"></span>{est}</span>'
         f'<span class="estado-kpi-n">{n}</span></div>'
     )
 
@@ -319,10 +323,8 @@ with kd:
 st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# AGRUPACIÓN — usa df completo (sin filtros) para que la tabla resumen
-# sea siempre consistente. Los filtros del sidebar aplican solo al detalle.
+# AGRUPACIÓN
 # ─────────────────────────────────────────────────────────────────────────────
-
 agrupacion = (
     df.group_by("ENTIDAD O SECRETARIA")
     .agg(
@@ -338,15 +340,11 @@ agrupacion = (
     .sort("ENTIDAD O SECRETARIA")
 )
 
-# Clasificación modal por entidad — 100% nativo Polars, sin UDFs
-# Estrategia: doble group_by → contar frecuencias → ordenar → primera por entidad
-_CLASI_COLS = ["clasi_1", "clasi_2", "clasi_3", "clasi_4", "clasi_5"]
-
-# Clasificación modal por entidad — usada para exportar a Excel
+_CLASI_COLS      = ["clasi_1", "clasi_2", "clasi_3", "clasi_4", "clasi_5"]
 clasi_por_entidad = _calcular_clasi_modal(df, _CLASI_COLS)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PRE-CARGA EVALUACIÓN — fuera de los tabs para que tab_exportar pueda usarla
+# PRE-CARGA EVALUACIÓN
 # ─────────────────────────────────────────────────────────────────────────────
 _df_eval_sucre, _cols_eval_sucre, _, _df_eval_sucre_raw = procesar_eval_sucre(file_bytes)
 _df_eval_desc,  _cols_eval_desc,  _, _df_eval_desc_raw  = procesar_descentralizadas(file_bytes)
@@ -364,7 +362,6 @@ with tab_resumen:
     def hito_cell(dias_val, clasi_key):
         if dias_val is None or (isinstance(dias_val, float) and dias_val != dias_val):
             return "<td class='null-cell'>—</td>"
-        # El semáforo se deriva del promedio de días — siempre coherente
         clasi  = _clasificar_promedio(dias_val, clasi_key)
         hito_k = HITO_KEY_MAP.get(clasi_key)
         return f"<td><span class='dias-val'>{dias_val:.1f} d</span>{badge_html(clasi, hito_k)}</td>"
@@ -384,6 +381,7 @@ with tab_resumen:
             <td style="text-align:center;font-weight:500">{pc}</td>
             <td class="col-total">{int(row['Total'])}</td>
         </tr>"""
+
     rows_html = "".join(_build_row(row) for row in agrupacion.to_dicts())
 
     st.markdown(f"""
@@ -395,7 +393,7 @@ with tab_resumen:
         {th("Sin contratar<br>con apertura", "Hito 2 · Sin contratar con apertura",
             "Promedio de días entre la <b>Fecha de apertura del primer proceso</b> y la <b>Fecha de acta de inicio</b>.<br><br>Condición: Estado = SIN CONTRATAR con fecha de apertura registrada.")}
         {th("Contratado<br>sin acta de inicio", "Hito 3 · Contratado sin acta de inicio",
-            "Promedio de días entre la <b>Fecha de suscripción</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO SIN ACTA DE INICIO.")}
+            "Promedio de días entre la <b>Fecha de suscripción</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO SIN ACTA DE INICIO.<br><br>Semáforo: Verde 0–15 d · Naranja 16–30 d · Rojo 31–45 d · Negro &gt;45 d")}
         {th("En ejecución<br>rezagado", "Hito 4 · En ejecución rezagado",
             "Meses entre el <b>Horizonte del proyecto</b> y la <b>Fecha de corte GESPROY</b>.<br><br>Condición: Estado = CONTRATADO EN EJECUCIÓN, CPI = 0, SPI = 0 y horizonte vencido.")}
         {th("Proyectos<br>terminados", "Hito 5 · Proyectos terminados",
@@ -408,7 +406,7 @@ with tab_resumen:
     </table>
     """, unsafe_allow_html=True)
 
-    # ── Sección de detalle por hito (debajo de la tabla resumen) ─────────────
+    # ── Detalle por hito ──────────────────────────────────────────────────────
     st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
     st.markdown("<div class='section-heading'>Detalle por hito</div>", unsafe_allow_html=True)
     st.markdown(
@@ -427,14 +425,11 @@ with tab_resumen:
     sel_hito_col_r, sel_clasi_col_r = HITOS[sel_hito_resumen]
     hito_key_detalle = HITO_KEY_MAP.get(sel_clasi_col_r, None)
 
-    # Incluir fechas para el tooltip de cálculo
     DATE_COLS_DET = [
         "FECHA APROBACIÓN PROYECTO", "FECHA DE APERTURA DEL PRIMER PROCESO",
         "FECHA SUSCRIPCION", "FECHA ACTA INICIO", "HORIZONTE DEL PROYECTO",
         "FECHA DE FINALIZACIÓN", "FECHA DE CORTE GESPROY",
     ]
-    # df_det usa df (sin filtros del sidebar) para que la tabla resumen y el
-    # detalle sean completamente independientes de los filtros laterales
     df_det = (
         df
         .filter(~pl.col(sel_hito_col_r).is_null())
@@ -450,9 +445,9 @@ with tab_resumen:
         st.info("No hay proyectos con valor en este hito para los filtros seleccionados.")
     else:
         for entidad in df_det["ENTIDAD O SECRETARIA"].unique().sort().to_list():
-            sub  = df_det.filter(pl.col("ENTIDAD O SECRETARIA") == entidad)
-            prom = sub[sel_hito_col_r].mean()
-            n    = sub.height
+            sub      = df_det.filter(pl.col("ENTIDAD O SECRETARIA") == entidad)
+            prom     = sub[sel_hito_col_r].mean()
+            n        = sub.height
             prom_str = f"{prom:.1f} días" if prom is not None else "—"
 
             with st.expander(f"{entidad}   ·   {n} proyecto(s)   ·   Promedio: {prom_str}", expanded=False):
@@ -461,8 +456,7 @@ with tab_resumen:
                     dias_v   = r[sel_hito_col_r]
                     dias_str = f"{dias_v:.1f} d" if dias_v is not None else "—"
 
-                    # Reclasificar el valor de días localmente — independiente de
-                    # los filtros del sidebar para que el badge sea siempre consistente
+                    # ── Reclasificación local — usa INTERVALOS directamente ──
                     if dias_v is not None:
                         if sel_hito_col_r == "hito_4_val":
                             meses = dias_v / 30.0
@@ -474,54 +468,22 @@ with tab_resumen:
                             intervalos = INTERVALOS.get(sel_hito_col_r, [])
                             clasi_v = None
                             for label, lo, hi in intervalos:
-                                if hi is None and dias_v >= lo:                  clasi_v = label; break
-                                elif hi is not None and lo <= dias_v <= hi:      clasi_v = label; break
+                                if hi is None and dias_v >= lo:                 clasi_v = label; break
+                                elif hi is not None and lo <= dias_v <= hi:     clasi_v = label; break
                     else:
                         clasi_v = None
 
-                    _row_cls_map = {
-                        "badge-green":  "row-green",
-                        "badge-yellow": "row-yellow",
-                        "badge-orange": "row-orange",
-                        "badge-black":  "row-black",
-                    }
-                    _cls_badge_map = {
-                        # Hito 1
-                        "0-100": "badge-green",
-                        # Hito 2
-                        "0-30":  "badge-green",
-                        # Hito 3 — ACTUALIZADO
-                        "0-15":  "badge-green",
-                        "16-30": "badge-yellow",
-                        "31-45": "badge-orange",
-                        ">45":   "badge-black",
-                        # Hito 4
-                        "0-1":   "badge-green",
-                        "1.1-3": "badge-yellow",
-                        "3.1-6": "badge-orange",
-                        ">6":    "badge-black",
-                        # Hito 1 continuación
-                        "101-150": "badge-yellow",
-                        "151-180": "badge-orange",
-                        ">180":    "badge-black",
-                        # Hito 2 continuación
-                        "31-45": "badge-yellow",   # ← este es de hito 2, no hito 3
-                        "46-60": "badge-orange",
-                        ">60":   "badge-black",
-                    }
-                    _BADGE_BY_HITO = {
-                        "hito_1_val": {"0-100":"badge-green","101-150":"badge-yellow","151-180":"badge-orange",">180":"badge-black"},
-                        "hito_2_val": {"0-30":"badge-green","31-45":"badge-yellow","46-60":"badge-orange",">60":"badge-black"},
-                        "hito_3_val": {"0-15":"badge-green","16-30":"badge-yellow","31-45":"badge-orange",">45":"badge-black"},
-                        "hito_4_val": {"0-1":"badge-green","1.1-3":"badge-yellow","3.1-6":"badge-orange",">6":"badge-black"},
-                        "hito_5_val": {"0-100":"badge-green","101-150":"badge-yellow","151-180":"badge-orange",">180":"badge-black"},
-                    }
-                    badge_cls = _BADGE_BY_HITO.get(sel_hito_col_r, {}).get(str(clasi_v), "badge-yellow") if clasi_v else ""
-                    row_cls   = _row_cls_map.get(badge_cls, "")
-                    tooltip   = _dias_tooltip(r, sel_hito_col_r)
-                    _bpin_h   = html.escape(str(r['BPIN'] or '—'))
-                    _nom_h    = html.escape(r['NOMBRE PROYECTO'] or '—')
-                    _est_h    = html.escape(r['ESTADO PROYECTO'] or '(Sin estado)')
+                    # ── Badge y color de fila por hito (sin colisiones) ──────
+                    badge_cls_str = (
+                        _BADGE_BY_HITO.get(sel_hito_col_r, {}).get(str(clasi_v), "badge-yellow")
+                        if clasi_v else ""
+                    )
+                    row_cls = _ROW_CLS_MAP.get(badge_cls_str, "")
+
+                    tooltip  = _dias_tooltip(r, sel_hito_col_r)
+                    _bpin_h  = html.escape(str(r['BPIN'] or '—'))
+                    _nom_h   = html.escape(r['NOMBRE PROYECTO'] or '—')
+                    _est_h   = html.escape(r['ESTADO PROYECTO'] or '(Sin estado)')
                     det_rows_list.append(f"""<tr class="{row_cls}">
                         <td><span class="bpin-tag">{_bpin_h}</span></td>
                         <td style="font-size:0.81rem">{_nom_h}</td>
@@ -534,6 +496,7 @@ with tab_resumen:
                         </td>
                         <td>{badge_html(clasi_v, hito_key_detalle)}</td>
                     </tr>""")
+
                 st.markdown(f"""
                 <table class="detail-table">
                 <thead><tr>
@@ -548,10 +511,8 @@ with tab_resumen:
 with tab_proyectos:
     st.markdown("<div class='section-heading'>Todos los proyectos</div>", unsafe_allow_html=True)
 
-    # ── CSS de contratos (inyectado una sola vez en el tab) ───────────────────
     st.markdown(f"""
     <style>
-    /* ── Tabla de proyectos ── */
     .proy-table {{
         width: 100%; border-collapse: collapse; font-size: 0.83rem;
         background: #ffffff; border-radius: 12px; overflow: hidden;
@@ -579,118 +540,72 @@ with tab_proyectos:
         font-family:'Montserrat',sans-serif;
     }}
     .proy-pill--empty {{ color:{C['muted']}; font-weight:400; }}
-
-    /* ── Botón expandir contratos ── */
     .ctto-toggle {{
         display: inline-flex; align-items: center; gap: 6px;
-        background: {C['azul_oscuro']}0f;
-        border: 1.5px solid {C['azul_oscuro']}28;
-        color: {C['azul_oscuro']}; border-radius: 8px;
-        padding: 5px 12px; font-size: 0.68rem; font-weight: 700;
-        cursor: pointer; white-space: nowrap; user-select: none;
-        font-family: 'Montserrat', sans-serif;
+        background: {C['azul_oscuro']}0f; border: 1.5px solid {C['azul_oscuro']}28;
+        color: {C['azul_oscuro']}; border-radius: 8px; padding: 5px 12px;
+        font-size: 0.68rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+        user-select: none; font-family: 'Montserrat', sans-serif;
         transition: background 0.15s, border-color 0.15s;
     }}
     .ctto-toggle:hover {{
-        background: {C['azul_medio']}18;
-        border-color: {C['azul_medio']}55;
-        color: {C['azul_medio']};
+        background: {C['azul_medio']}18; border-color: {C['azul_medio']}55; color: {C['azul_medio']};
     }}
     .ctto-toggle.open {{
-        background: {C['azul_oscuro']};
-        border-color: {C['azul_oscuro']};
-        color: white;
+        background: {C['azul_oscuro']}; border-color: {C['azul_oscuro']}; color: white;
     }}
     .ctto-arrow {{ font-size:0.55rem; transition: transform 0.2s; line-height:1; }}
     .ctto-toggle.open .ctto-arrow {{ transform: rotate(90deg); }}
-
-    /* ── Fila contenedor de contratos ── */
     .ctto-detail-row {{ display: none; }}
     .ctto-detail-row.visible {{ display: table-row; }}
     .ctto-detail-row td {{
-        padding: 0 !important;
-        border: none !important;
+        padding: 0 !important; border: none !important;
         border-bottom: 3px solid {C['azul_oscuro']}25 !important;
     }}
-
-    /* ── Panel interior ── */
     .ctto-panel {{
         padding: 1.1rem 1.4rem 1.2rem 1.4rem;
         background: linear-gradient(180deg, #edf3fb 0%, #f4f8fd 100%);
         border-left: 4px solid {C['azul_medio']};
     }}
-    .ctto-panel-header {{
-        display: flex; align-items: center; gap: 0.7rem;
-        margin-bottom: 0.9rem;
-    }}
+    .ctto-panel-header {{ display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.9rem; }}
     .ctto-panel-title {{
-        font-family: 'Montserrat', sans-serif; font-size: 0.7rem;
-        font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px;
-        color: {C['azul_oscuro']};
+        font-family: 'Montserrat', sans-serif; font-size: 0.7rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 1.2px; color: {C['azul_oscuro']};
     }}
     .ctto-panel-count {{
-        background: {C['azul_medio']}; color: white;
-        border-radius: 20px; padding: 1px 9px;
-        font-size: 0.62rem; font-weight: 700;
-        font-family: 'DM Mono', monospace;
+        background: {C['azul_medio']}; color: white; border-radius: 20px; padding: 1px 9px;
+        font-size: 0.62rem; font-weight: 700; font-family: 'DM Mono', monospace;
     }}
-    .ctto-panel-empty {{
-        font-size: 0.8rem; color: {C['muted']}; font-style: italic;
-        padding: 0.5rem 0;
-    }}
-
-    /* ── Tabla de contratos ── */
-    .ctto-table {{
-        width: 100%; border-collapse: collapse; font-size: 0.77rem;
-    }}
-    .ctto-table thead tr {{
-        background: {C['azul_medio']};
-    }}
+    .ctto-panel-empty {{ font-size: 0.8rem; color: {C['muted']}; font-style: italic; padding: 0.5rem 0; }}
+    .ctto-table {{ width: 100%; border-collapse: collapse; font-size: 0.77rem; }}
+    .ctto-table thead tr {{ background: {C['azul_medio']}; }}
     .ctto-table th {{
-        padding: 0.55rem 1rem;
-        font-family: 'Montserrat', sans-serif; font-size: 0.59rem;
+        padding: 0.55rem 1rem; font-family: 'Montserrat', sans-serif; font-size: 0.59rem;
         font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
-        color: rgba(255,255,255,0.95); text-align: left;
-        white-space: nowrap; border: none;
+        color: rgba(255,255,255,0.95); text-align: left; white-space: nowrap; border: none;
     }}
     .ctto-table td {{
-        padding: 0.5rem 1rem;
-        vertical-align: middle; border: none;
+        padding: 0.5rem 1rem; vertical-align: middle; border: none;
         border-bottom: 1px solid rgba(0,0,0,0.06);
     }}
     .ctto-table tbody tr:last-child td {{ border-bottom: none; }}
-    .ctto-table tbody tr:hover td     {{ filter: brightness(0.97); }}
-    /* Primera columna — clase dedicada para máxima especificidad */
-    td.ctto-col1, th.ctto-col1 {{
-        padding-left: 1.4rem !important;
-    }}
-
-    /* ── Celda valor ── */
-    .ctto-valor-wrap {{
-        display: inline-block;
-    }}
+    .ctto-table tbody tr:hover td {{ filter: brightness(0.97); }}
+    td.ctto-col1, th.ctto-col1 {{ padding-left: 1.4rem !important; }}
+    .ctto-valor-wrap {{ display: inline-block; }}
     .ctto-valor {{
-        font-family: 'DM Mono', monospace; font-weight: 800;
-        font-size: 0.82rem; white-space: nowrap;
-        color: {C['azul_oscuro']}; display: block;
+        font-family: 'DM Mono', monospace; font-weight: 800; font-size: 0.82rem;
+        white-space: nowrap; color: {C['azul_oscuro']}; display: block;
     }}
     .ctto-valor-bar {{
         display: block; height: 3px; border-radius: 2px; margin-top: 4px;
         background: {C['azul_medio']}; opacity: 0.4;
     }}
-
-    /* ── Pill estado contrato ── */
     .ctto-estado-pill {{
-        display: inline-block; font-size: 0.63rem; padding: 3px 9px;
-        border-radius: 12px; font-weight: 700; white-space: nowrap;
-        font-family: 'Montserrat', sans-serif; letter-spacing: 0.3px;
+        display: inline-block; font-size: 0.63rem; padding: 3px 9px; border-radius: 12px;
+        font-weight: 700; white-space: nowrap; font-family: 'Montserrat', sans-serif;
+        letter-spacing: 0.3px;
     }}
-
-    /* ── Objeto (texto largo) ── */
-    .ctto-objeto {{
-        font-size: 0.73rem; color: {C['text']}; line-height: 1.5;
-        max-width: 320px;
-    }}
+    .ctto-objeto {{ font-size: 0.73rem; color: {C['text']}; line-height: 1.5; max-width: 320px; }}
     .ctto-proceso {{
         font-family: 'DM Mono', monospace; font-size: 0.72rem;
         color: {C['azul_medio']}; font-weight: 600; white-space: nowrap;
@@ -698,7 +613,6 @@ with tab_proyectos:
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Banner de filtros ─────────────────────────────────────────────────────
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:0.6rem;
         background:{C['azul_oscuro']}0d;border:1px solid {C['azul_oscuro']}22;
@@ -739,7 +653,6 @@ with tab_proyectos:
                                            placeholder="Todos los contratos",
                                            label_visibility="collapsed")
 
-    # ── Filtrar ───────────────────────────────────────────────────────────────
     df_proy = df_f.select(
         "ENTIDAD O SECRETARIA", "BPIN", "NOMBRE PROYECTO",
         "ESTADO PROYECTO", "ESTADO CONTRATO", "CPI", "SPI",
@@ -752,8 +665,8 @@ with tab_proyectos:
     if busqueda:
         term = busqueda.strip().lower()
         df_proy = df_proy.filter(
-            pl.col("NOMBRE PROYECTO").str.to_lowercase().str.contains(term, literal=True) |
-            pl.col("BPIN").cast(pl.Utf8).str.to_lowercase().str.contains(term, literal=True)
+            pl.col("NOMBRE PROYECTO").str.to_lowercase().str.contains(term, literal=True)
+            | pl.col("BPIN").cast(pl.Utf8).str.to_lowercase().str.contains(term, literal=True)
         )
     if sel_ent_proy:
         df_proy = df_proy.filter(pl.col("ENTIDAD O SECRETARIA").is_in(sel_ent_proy))
@@ -762,21 +675,17 @@ with tab_proyectos:
     if sel_cont_proy:
         df_proy = df_proy.filter(pl.col("ESTADO CONTRATO").is_in(sel_cont_proy))
 
-    df_proy = df_proy.sort(["ENTIDAD O SECRETARIA", "NOMBRE PROYECTO"])
-    n_proy  = df_proy.height
-
-    # ── Estado de contratos ───────────────────────────────────────────────────
+    df_proy  = df_proy.sort(["ENTIDAD O SECRETARIA", "NOMBRE PROYECTO"])
+    n_proy   = df_proy.height
     hay_contratos = df_contratos is not None and df_contratos.height > 0
 
-    # ── Diagnóstico de contratos ──────────────────────────────────────────────
     with st.expander("Verificación del archivo de contratos", expanded=not hay_contratos):
         if _cttos_bytes is None:
             st.error("No se pudo descargar el archivo de contratos desde GitHub. Intenta subirlo manualmente desde el panel izquierdo.")
         elif df_contratos is None:
-            st.error("El archivo se descargó pero no pudo leerse correctamente. Verifica que sea el reporte de contratos exportado desde GESPROY.")
+            st.error("El archivo se descargó pero no pudo leerse correctamente.")
             st.caption(_cttos_diag)
         else:
-            # Resumen en lenguaje sencillo
             bpins_matriz = set(
                 str(b).strip().replace(".", "").replace(",", "").replace(" ", "").replace("-", "")
                 for b in df_f["BPIN"].drop_nulls().to_list()
@@ -786,20 +695,14 @@ with tab_proyectos:
             sin_ctto    = bpins_matriz - bpins_cttos
 
             col_a, col_b, col_c = st.columns(3)
-            col_a.metric("Contratos cargados",   df_contratos.height)
+            col_a.metric("Contratos cargados",      df_contratos.height)
             col_b.metric("Proyectos con contratos", len(en_comun))
             col_c.metric("Proyectos sin contratos", len(sin_ctto))
 
             if len(en_comun) == 0:
-                st.warning(
-                    "Ningún proyecto coincide con los contratos del archivo. "
-                    "Verifica que el archivo de contratos corresponda a los mismos proyectos de la matriz."
-                )
+                st.warning("Ningún proyecto coincide con los contratos del archivo.")
             elif len(sin_ctto) > 0:
-                st.info(
-                    f"{len(sin_ctto)} proyecto(s) no tienen contratos registrados en el archivo. "
-                    "Esto puede ser normal si son proyectos que aún no han iniciado contratación."
-                )
+                st.info(f"{len(sin_ctto)} proyecto(s) no tienen contratos registrados en el archivo.")
 
     if not hay_contratos:
         st.warning("No se pudieron cargar los contratos. Puedes subirlos manualmente desde el panel izquierdo.", icon=None)
@@ -816,7 +719,6 @@ with tab_proyectos:
     if n_proy == 0:
         st.info("No hay proyectos que coincidan con los filtros aplicados.")
     else:
-        # Construir tabla con filas de contratos intercaladas
         rows_html_list = []
         for idx, r in enumerate(df_proy.to_dicts()):
             entidad  = html.escape(r.get("ENTIDAD O SECRETARIA") or "—")
@@ -826,26 +728,23 @@ with tab_proyectos:
             est_cont = r.get("ESTADO CONTRATO") or ""
             row_id   = f"proy-{idx}"
 
-            es_susp  = est_cont.strip().upper() == "SUSPENDIDO"
-            bg_susp  = 'style="background:#fff7ed"' if es_susp else ""
+            es_susp = est_cont.strip().upper() == "SUSPENDIDO"
+            bg_susp = 'style="background:#fff7ed"' if es_susp else ""
 
             bpin_norm = (
                 str(bpin).strip()
-                .replace(".", "")
-                .replace("-", "")
-                .replace(",", "")
-                .replace(" ", "")
+                .replace(".", "").replace("-", "").replace(",", "").replace(" ", "")
             )
-            n_cttos   = 0
+            n_cttos = 0
             if hay_contratos:
                 n_cttos = df_contratos.filter(pl.col("BPIN") == bpin_norm).height
-            badge = (f'<span style="background:{C["azul_medio"]};color:white;'
-                     f'border-radius:10px;padding:1px 6px;font-size:0.58rem;'
-                     f'margin-left:4px;font-weight:700">{n_cttos}</span>'
-                     if n_cttos > 0 else
-                     f'<span style="background:#e5e7eb;color:{C["muted"]};'
-                     f'border-radius:10px;padding:1px 6px;font-size:0.58rem;'
-                     f'margin-left:4px">0</span>')
+            badge = (
+                f'<span style="background:{C["azul_medio"]};color:white;border-radius:10px;'
+                f'padding:1px 6px;font-size:0.58rem;margin-left:4px;font-weight:700">{n_cttos}</span>'
+                if n_cttos > 0 else
+                f'<span style="background:#e5e7eb;color:{C["muted"]};border-radius:10px;'
+                f'padding:1px 6px;font-size:0.58rem;margin-left:4px">0</span>'
+            )
 
             panel_html = _contratos_panel(bpin, df_contratos)
 
@@ -865,7 +764,6 @@ with tab_proyectos:
             <tr class="ctto-detail-row" id="{row_id}">
                 <td colspan="6">{panel_html}</td>
             </tr>""")
-        rows_html = "".join(rows_html_list)
 
         st.markdown(f"""
         <table class="proy-table">
@@ -877,11 +775,11 @@ with tab_proyectos:
             <th style="width:165px">Estado contrato</th>
             <th style="width:110px">Contratos</th>
         </tr></thead>
-        <tbody>{rows_html}</tbody>
+        <tbody>{"".join(rows_html_list)}</tbody>
         </table>
         """, unsafe_allow_html=True)
 
-# ── TAB 4: Evaluación del modelo ──────────────────────────────────────────────
+# ── TAB 3: Evaluación del modelo ──────────────────────────────────────────────
 with tab_evaluacion:
     st.markdown("<div class='section-heading'>Evaluación del modelo ejecutor</div>", unsafe_allow_html=True)
 
@@ -912,63 +810,38 @@ with tab_evaluacion:
     else:
         max_score = 100.0
 
-        # ── CSS extra para tabla de evaluación ──
         st.markdown(f"""
         <style>
         .eval-table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.83rem;
-            background: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 0.5rem;
+            width: 100%; border-collapse: collapse; font-size: 0.83rem;
+            background: #ffffff; border-radius: 8px; overflow: hidden; margin-bottom: 0.5rem;
         }}
         .eval-table thead tr {{ background: {C['azul_oscuro']}; color: white; }}
         .eval-table th {{
-            padding: 0.65rem 1rem;
-            font-size: 0.63rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            text-align: left;
+            padding: 0.65rem 1rem; font-size: 0.63rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.8px; text-align: left;
         }}
         .eval-table td {{
-            padding: 0.6rem 1rem;
-            border-bottom: 1px solid {C['border']};
-            vertical-align: top;
-            background: #ffffff;
+            padding: 0.6rem 1rem; border-bottom: 1px solid {C['border']};
+            vertical-align: top; background: #ffffff;
         }}
         .eval-table tbody tr:nth-child(even) td {{ background: #f7fafd; }}
         .eval-table tbody tr:last-child td {{ border-bottom: none; }}
         .eval-table tbody tr:hover td {{ background: #e8f3ff !important; }}
         .eval-score-pill {{
-            font-family: 'DM Mono', monospace;
-            font-weight: 700;
-            font-size: 0.88rem;
-            padding: 3px 12px;
-            border-radius: 20px;
-            display: inline-block;
+            font-family: 'DM Mono', monospace; font-weight: 700; font-size: 0.88rem;
+            padding: 3px 12px; border-radius: 20px; display: inline-block;
         }}
         .eval-comment {{
-            font-size: 0.75rem;
-            color: {C['muted']};
-            line-height: 1.6;
+            font-size: 0.75rem; color: {C['muted']}; line-height: 1.6;
         }}
         .eval-comment strong {{ color: {C['text']}; font-weight: 600; }}
-        .eval-tag {{
-            display: inline-block;
-            font-size: 0.65rem; font-weight: 700;
-            padding: 1px 7px; border-radius: 10px;
-            margin-right: 4px; vertical-align: middle;
+        .eval-no-aplica {{
+            font-size: 0.72rem; color: {C['muted']}; font-style: italic;
         }}
-        .eval-tag-green  {{ background:#d1fae5; color:#065f46; }}
-        .eval-tag-red    {{ background:#fee2e2; color:#991b1b; }}
-        .eval-tag-gray   {{ background:#f1f5f9; color:#475569; }}
         </style>
         """, unsafe_allow_html=True)
 
-        # ── 4 sub-pestañas, una por calificación ──
         tabs_eval = st.tabs([
             "Desempeño en contratación",
             "Información a tiempo",
@@ -986,50 +859,48 @@ with tab_evaluacion:
                 for row in df_eval.sort(col_cal, descending=True, nulls_last=True).to_dicts():
                     nombre = row.get(col_entidad) or "Sin nombre"
                     score  = row.get(col_cal)
-        
-                    if score is None:
-                        filas.append(f"""<tr>
-                            <td class="entidad-name">{html.escape(nombre)}</td>
-                            <td style="color:{C['muted']}">—</td>
-                            <td class="eval-comment" style="color:{C['muted']}">
-                                No aplicable: ninguno de los proyectos de esta entidad cumple las condiciones requeridas para calcular este criterio.
-                            </td>
-                        </tr>""")
-                        continue
 
-                    color_bar, nivel = eval_color(score, max_score)
-                    bg_map = {
-                        C["verde_medio"]: "#d1fae5", C["cian"]: "#e0f7fa",
-                        C["naranja"]:     "#fff7ed", C["salmon"]: "#fee2e2",
-                    }
-                    bg = bg_map.get(color_bar, "#f1f5f9")
-
-                    # ── Construir comentario en redacción natural ────────────
+                    # ── Construir comentario ──────────────────────────────────
                     comentario_html = "—"
                     if df_eval_raw is not None and col_cal in df_eval_raw.columns:
                         sub         = df_eval_raw.filter(pl.col(col_entidad) == nombre)
                         n_total     = sub.height
                         n_con_cal   = int(sub[col_cal].drop_nulls().len())
-                        n_no_aplica = n_total - n_con_cal          # antes llamado sin_cal
+                        n_no_aplica = n_total - n_con_cal
                         n_cero      = int((sub[col_cal] == 0).sum())  if n_con_cal > 0 else 0
                         n_max       = int((sub[col_cal] == 100).sum()) if n_con_cal > 0 else 0
                         vals_ok     = sub[col_cal].drop_nulls()
                         v_min       = float(vals_ok.min()) if n_con_cal > 0 else None
                         v_max_v     = float(vals_ok.max()) if n_con_cal > 0 else None
-                    
-                        def _nombre_proy(val_filtro):
+
+                        def _bpin_proy(val_filtro):
                             f  = sub.filter(pl.col(col_cal) == val_filtro)
                             if f.height == 0: return None
-                            r  = f.to_dicts()[0]
-                            bp = (r.get("BPIN") or "").strip()
+                            bp = (f.to_dicts()[0].get("BPIN") or "").strip()
                             return bp if bp else None
-                    
-                        proy_bajo = _nombre_proy(v_min)   if v_min  is not None and v_min  < 60  else None
-                        proy_alto = _nombre_proy(v_max_v) if v_max_v is not None and v_max_v >= 80 else None
-                    
+
+                        proy_bajo = _bpin_proy(v_min)   if v_min  is not None and v_min  < 60  else None
+                        proy_alto = _bpin_proy(v_max_v) if v_max_v is not None and v_max_v >= 80 else None
+
                         partes = []
-                    
-                        # ── Apertura: siempre mencionar cuántos proyectos se usaron en el cálculo ──
+
+                        if score is None:
+                            # Sin calificación → todos son no aplicables
+                            partes.append(
+                                f"Ninguno de los <strong>{n_total} proyecto(s)</strong> de esta entidad "
+                                f"aplica para este criterio: no cumplen las condiciones requeridas "
+                                f"para que se calcule esta calificación "
+                                f"(por ejemplo, estado del proyecto, tipo de contrato o etapa de ejecución)."
+                            )
+                            comentario_html = " ".join(partes)
+                            filas.append(f"""<tr>
+                                <td class="entidad-name">{html.escape(nombre)}</td>
+                                <td style="color:{C['muted']}">—</td>
+                                <td class="eval-comment eval-no-aplica">{comentario_html}</td>
+                            </tr>""")
+                            continue
+
+                        # ── Apertura: cuántos proyectos se usaron ────────────
                         if n_no_aplica == 0:
                             partes.append(
                                 f"Calificación calculada sobre los "
@@ -1044,8 +915,8 @@ with tab_evaluacion:
                                 f"no cumplen las condiciones requeridas para que este criterio se calcule "
                                 f"(por ejemplo, estado del proyecto, tipo de contrato o etapa de ejecución)."
                             )
-                    
-                        # ── Dispersión entre proyectos ──
+
+                        # ── Dispersión ───────────────────────────────────────
                         if v_min is not None and v_max_v is not None and n_con_cal > 1:
                             diferencia = v_max_v - v_min
                             if diferencia < 10:
@@ -1064,8 +935,8 @@ with tab_evaluacion:
                                     f"Los proyectos obtuvieron resultados entre "
                                     f"{v_min:.0f} y {v_max_v:.0f} puntos."
                                 )
-                    
-                        # ── Proyectos que bajan el promedio ──
+
+                        # ── Proyectos que bajan el promedio ──────────────────
                         if n_cero == 1:
                             extra = f" (BPIN {html.escape(proy_bajo)})" if proy_bajo and v_min == 0 else ""
                             partes.append(
@@ -1082,8 +953,8 @@ with tab_evaluacion:
                                 f"El proyecto con menor resultado es el BPIN {html.escape(proy_bajo)} "
                                 f"con {v_min:.0f} puntos."
                             )
-                    
-                        # ── Proyectos que suben el promedio ──
+
+                        # ── Proyectos que suben el promedio ──────────────────
                         if n_max == 1 and n_con_cal > 1:
                             extra = f" (BPIN {html.escape(proy_alto)})" if proy_alto else ""
                             partes.append(
@@ -1098,8 +969,18 @@ with tab_evaluacion:
                                 f"El proyecto con mejor desempeño es el BPIN "
                                 f"{html.escape(proy_alto)} con {v_max_v:.0f} puntos."
                             )
-                    
+
                         comentario_html = " ".join(partes) if partes else "—"
+
+                    # ── Pill de score ─────────────────────────────────────────
+                    color_bar, nivel = eval_color(score, max_score)
+                    bg_map = {
+                        C["verde_medio"]: "#d1fae5",
+                        C["cian"]:        "#e0f7fa",
+                        C["naranja"]:     "#fff7ed",
+                        C["salmon"]:      "#fee2e2",
+                    }
+                    bg = bg_map.get(color_bar, "#f1f5f9")
 
                     filas.append(f"""<tr>
                         <td class="entidad-name">{html.escape(nombre)}</td>
@@ -1118,15 +999,14 @@ with tab_evaluacion:
                     <table class="eval-table">
                     <thead><tr>
                         <th style="width:22%">{label_entidad}</th>
-                        <th style="width:14%">Calificación promedio &nbsp;(escala 0 – {max_score:.0f})</th>
+                        <th style="width:14%">Calificación promedio &nbsp;(escala 0–{max_score:.0f})</th>
                         <th>Comentario</th>
                     </tr></thead>
                     <tbody>{"".join(filas)}</tbody>
                     </table>
                     """, unsafe_allow_html=True)
 
-
-# ── TAB 5: Exportar ───────────────────────────────────────────────────────────
+# ── TAB 4: Exportar ───────────────────────────────────────────────────────────
 with tab_exportar:
     st.markdown("<div class='section-heading'>Descargar reporte</div>", unsafe_allow_html=True)
     st.markdown(
@@ -1150,12 +1030,10 @@ with tab_exportar:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-
-# ── TAB 6: Comunicaciones ─────────────────────────────────────────────────────
+# ── TAB 5: Comunicaciones ─────────────────────────────────────────────────────
 with tab_comunicaciones:
     st.markdown("<div class='section-heading'>Comunicaciones</div>", unsafe_allow_html=True)
 
-    # ── Banner explicativo en la parte superior ───────────────────────────────
     st.markdown(f"""
     <div style="background:linear-gradient(135deg,{C['azul_oscuro']}08,{C['cian']}12);
         border:1px solid {C['cian']}40; border-left:4px solid {C['cian']};
@@ -1175,29 +1053,17 @@ with tab_comunicaciones:
     st.markdown(f"""
     <style>
     .com-card {{
-        background: {C['white']}; border-radius: 12px;
-        padding: 1.3rem 1.5rem; margin-bottom: 1rem;
-        box-shadow: 0 1px 8px rgba(0,40,90,0.08);
+        background: {C['white']}; border-radius: 12px; padding: 1.3rem 1.5rem;
+        margin-bottom: 1rem; box-shadow: 0 1px 8px rgba(0,40,90,0.08);
         border-left: 4px solid {C['azul_medio']};
     }}
     .com-card-title {{
-        font-family: 'Montserrat', sans-serif; font-size: 0.7rem;
-        font-weight: 800; text-transform: uppercase; letter-spacing: 1.1px;
+        font-family: 'Montserrat', sans-serif; font-size: 0.7rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 1.1px;
         color: {C['azul_oscuro']}; margin-bottom: 0.7rem;
     }}
-    .com-counter {{
-        font-size: 0.72rem; color: {C['muted']}; margin: 0.5rem 0 0.9rem;
-    }}
+    .com-counter {{ font-size: 0.72rem; color: {C['muted']}; margin: 0.5rem 0 0.9rem; }}
     .com-counter strong {{ color: {C['azul_oscuro']}; }}
-    .com-btn-primary {{
-        display: inline-flex; align-items: center; gap: 7px;
-        background: {C['azul_oscuro']}; color: white !important; border: none;
-        border-radius: 8px; padding: 9px 22px; font-size: 0.76rem;
-        font-weight: 700; font-family: 'Montserrat', sans-serif;
-        cursor: pointer; text-decoration: none !important;
-        transition: background 0.15s;
-    }}
-    .com-btn-primary:hover {{ background: {C['azul_medio']}; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1210,10 +1076,10 @@ with tab_comunicaciones:
     }
     CLASI_OPTIONS_COM = {
         "Todos":   None,
-        "Verde":   ["0-100", "0-30", "0-1"],
-        "Naranja": ["101-150", "31-45", "1.1-3"],
-        "Rojo":    ["151-180", "46-60", "3.1-6"],
-        "Negro":   [">180", ">60", ">6"],
+        "Verde":   ["0-100", "0-30", "0-1", "0-15"],
+        "Naranja": ["101-150", "31-45", "1.1-3", "16-30"],
+        "Rojo":    ["151-180", "46-60", "3.1-6", "31-45"],
+        "Negro":   [">180", ">60", ">6", ">45"],
     }
     HITO_DESCRIPCION_COM = {
         "H1 · Sin contratar sin apertura":    "proyectos sin contratar y sin apertura del proceso precontractual",
@@ -1223,16 +1089,15 @@ with tab_comunicaciones:
         "H5 · Proyectos terminados":          "proyectos terminados pendientes de cierre",
     }
 
-    # ── PASO 1: Filtros ───────────────────────────────────────────────────────
     st.markdown('<div class="com-card"><div class="com-card-title">Paso 1 &nbsp;·&nbsp; Seleccionar proyectos</div>', unsafe_allow_html=True)
     ca, cb, cc = st.columns([2, 1.4, 1.8])
     with ca:
-        com_hito_label = st.selectbox("Hito", list(HITO_LABELS_COM.keys()), key="com_hito", label_visibility="collapsed")
+        com_hito_label  = st.selectbox("Hito", list(HITO_LABELS_COM.keys()), key="com_hito", label_visibility="collapsed")
     with cb:
         com_clasi_label = st.selectbox("Clasificación", list(CLASI_OPTIONS_COM.keys()), key="com_clasi", label_visibility="collapsed")
     with cc:
         entidades_com = ["Todas"] + sorted(df_f["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
-        com_entidad = st.selectbox("Entidad", entidades_com, key="com_entidad", label_visibility="collapsed")
+        com_entidad   = st.selectbox("Entidad", entidades_com, key="com_entidad", label_visibility="collapsed")
     st.markdown("</div>", unsafe_allow_html=True)
 
     com_hito_col, com_clasi_col = HITO_LABELS_COM[com_hito_label]
@@ -1257,15 +1122,14 @@ with tab_comunicaciones:
     if n_com == 0:
         st.info("No hay proyectos con este hito y clasificación. Ajusta los filtros.")
     else:
-        # ── PASO 2: Tabla seleccionable ───────────────────────────────────────
         df_com_pd = df_com.to_pandas()
         df_com_pd.insert(0, "Incluir", True)
         df_com_pd = df_com_pd.rename(columns={
-            com_hito_col:             "Días",
-            com_clasi_col:            "Alerta",
-            "ENTIDAD O SECRETARIA":   "Entidad",
-            "NOMBRE PROYECTO":        "Nombre del proyecto",
-            "ESTADO PROYECTO":        "Estado",
+            com_hito_col:           "Días",
+            com_clasi_col:          "Alerta",
+            "ENTIDAD O SECRETARIA": "Entidad",
+            "NOMBRE PROYECTO":      "Nombre del proyecto",
+            "ESTADO PROYECTO":      "Estado",
         })
 
         edited = st.data_editor(
@@ -1292,40 +1156,37 @@ with tab_comunicaciones:
         )
 
         if n_sel > 0:
-            # ── PASO 2: Redactar correo ───────────────────────────────────────
             st.markdown(f'<div class="com-card" style="border-left-color:{C["cian"]}"><div class="com-card-title">Paso 2 &nbsp;·&nbsp; Cuerpo del correo</div>', unsafe_allow_html=True)
 
-            # Generar lista de proyectos para el cuerpo
             HITO_CALC_EXPLICACION = {
                 "H1 · Sin contratar sin apertura": (
                     "hito_1_val",
                     "Este hito mide los días transcurridos desde la aprobación del proyecto "
-                    "hasta la fecha de corte GESPROY, sin que se haya abierto ningún proceso precontractual."
+                    "hasta la fecha de corte GESPROY, sin que se haya abierto ningún proceso precontractual.",
                 ),
                 "H2 · Sin contratar con apertura": (
                     "hito_2_val",
                     "Este hito mide los días entre la apertura del primer proceso precontractual "
-                    "y la firma del acta de inicio del contrato."
+                    "y la firma del acta de inicio del contrato.",
                 ),
                 "H3 · Contratado sin acta de inicio": (
                     "hito_3_val",
                     "Este hito mide los días transcurridos desde la suscripción del contrato "
-                    "hasta la fecha de corte GESPROY, sin que se haya firmado el acta de inicio."
+                    "hasta la fecha de corte GESPROY, sin que se haya firmado el acta de inicio.",
                 ),
                 "H4 · En ejecución rezagado": (
                     "hito_4_val",
                     "Este hito mide los meses de retraso del proyecto respecto a su horizonte "
-                    "de ejecución previsto, bajo condición de CPI=0 y SPI=0."
+                    "de ejecución previsto, bajo condición de CPI=0 y SPI=0.",
                 ),
                 "H5 · Proyectos terminados": (
                     "hito_5_val",
                     "Este hito mide los días transcurridos desde la fecha de finalización "
-                    "registrada del proyecto hasta la fecha de corte GESPROY."
+                    "registrada del proyecto hasta la fecha de corte GESPROY.",
                 ),
             }
 
             def _lista_proyectos(df_sel):
-                """Genera la lista de proyectos con mensaje del semáforo y explicación del cálculo."""
                 hito_key_com, calc_exp = HITO_CALC_EXPLICACION[com_hito_label]
                 lineas = []
                 for _, row in df_sel.iterrows():
@@ -1363,7 +1224,6 @@ with tab_comunicaciones:
                 f"Departamento de Sucre"
             )
 
-            # Key dinámica: se reinicia cuando cambian los filtros o la selección
             _body_key = f"com_cuerpo_{com_hito_label}_{com_clasi_label}_{com_entidad}_{n_sel}"
 
             com_cuerpo = st.text_area(
@@ -1374,7 +1234,6 @@ with tab_comunicaciones:
                 label_visibility="visible",
             )
 
-            # Botón copiar cuerpo via JS
             _cuerpo_js = json.dumps(com_cuerpo)
             components.html(f"""
             <style>
@@ -1419,8 +1278,7 @@ with tab_comunicaciones:
                 ta.style.position = 'fixed';
                 ta.style.opacity  = '0';
                 document.body.appendChild(ta);
-                ta.focus();
-                ta.select();
+                ta.focus(); ta.select();
                 try {{ document.execCommand('copy'); }} catch(e) {{}}
                 document.body.removeChild(ta);
             }}
