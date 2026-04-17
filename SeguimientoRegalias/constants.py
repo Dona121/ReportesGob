@@ -908,38 +908,51 @@ def inject_css():
     }}
 
     /* ══════════════════════════════════════════════════════════════
-       TOOLTIP ESTADO PROYECTO — layout horizontal, dinámico
+       TOOLTIP ESTADO PROYECTO — 2 columnas, dinámico vía JS
        ══════════════════════════════════════════════════════════════ */
     .etip-trigger {{
         position: relative;
         cursor: pointer;
     }}
-    /* El popup usa position:fixed — el JS calcula left/top dinámicamente */
+    /*
+     * El popup NUNCA se muestra por CSS hover — solo el JS lo controla.
+     * Esto evita el flash en posición 0,0 antes de que JS calcule la pos.
+     */
     .etip-popup {{
         display: none;
         position: fixed;
         z-index: 99999;
-        width: 700px;
+        width: 660px;
+        max-height: 88vh;
+        overflow-y: auto;
+        overflow-x: hidden;
         background: #1a2332;
         border-radius: 12px;
-        padding: 1rem 1.2rem 1.1rem;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.40);
+        padding: 1rem 1.15rem 1rem;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.45);
         color: rgba(255,255,255,0.88);
         font-size: 0.72rem;
         line-height: 1.6;
         pointer-events: none;
         top: 0;
         left: 0;
+        box-sizing: border-box;
     }}
-    /* Grid de 2 columnas dentro del tooltip */
+    /* Scrollbar discreta dentro del popup */
+    .etip-popup::-webkit-scrollbar {{ width: 4px; }}
+    .etip-popup::-webkit-scrollbar-track {{ background: transparent; }}
+    .etip-popup::-webkit-scrollbar-thumb {{ background: rgba(255,255,255,0.18); border-radius: 2px; }}
+    /* Grid de 2 columnas — align-items:start evita que las celdas se estiren */
     .etip-grid {{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0.4rem 1.4rem;
-        margin-top: 0.45rem;
+        align-items: start;
+        gap: 0 1.2rem;
+        margin-top: 0.4rem;
     }}
-    .etip-col {{ }}
-    .etip-trigger:hover .etip-popup {{ display: block; }}
+    .etip-col {{
+        min-width: 0;   /* permite que el texto haga wrap dentro de la columna */
+    }}
     .etip-estado {{
         display: inline-block;
         font-family: 'Montserrat', sans-serif;
@@ -948,36 +961,39 @@ def inject_css():
         text-transform: uppercase;
         letter-spacing: 1px;
         color: #47b1d5;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.3rem;
     }}
     .etip-desc {{
-        font-size: 0.71rem;
-        color: rgba(255,255,255,0.65);
-        margin: 0 0 0.4rem;
+        font-size: 0.70rem;
+        color: rgba(255,255,255,0.62);
+        margin: 0 0 0.35rem;
         line-height: 1.55;
+        grid-column: 1 / -1;
     }}
     .etip-section-title {{
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.58rem;
+        font-size: 0.57rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 1px;
         color: #47b1d5;
-        margin: 0.55rem 0 0.2rem;
+        margin: 0.5rem 0 0.18rem;
     }}
     .etip-row {{
-        font-size: 0.70rem;
+        font-size: 0.69rem;
         color: rgba(255,255,255,0.80);
-        margin-bottom: 0.18rem;
+        margin-bottom: 0.16rem;
         line-height: 1.5;
+        word-break: break-word;
     }}
     .etip-small {{
-        font-size: 0.66rem;
-        color: rgba(255,255,255,0.50);
+        font-size: 0.65rem;
+        color: rgba(255,255,255,0.48);
         line-height: 1.4;
+        word-break: break-word;
     }}
     .etip-label {{
-        color: rgba(255,255,255,0.48);
+        color: rgba(255,255,255,0.45);
         font-weight: 600;
     }}
     .etip-i {{
@@ -986,16 +1002,18 @@ def inject_css():
         font-style: normal;
         margin-left: 2px;
     }}
+    /* Bloque acción — ocupa ambas columnas */
     .etip-accion {{
         grid-column: 1 / -1;
-        margin-top: 0.55rem;
-        background: rgba(71,177,213,0.10);
+        margin-top: 0.5rem;
+        background: rgba(71,177,213,0.09);
         border-left: 3px solid #47b1d5;
         border-radius: 4px;
-        padding: 0.45rem 0.8rem;
-        font-size: 0.70rem;
-        color: rgba(255,255,255,0.78);
+        padding: 0.4rem 0.75rem;
+        font-size: 0.69rem;
+        color: rgba(255,255,255,0.76);
         line-height: 1.5;
+        word-break: break-word;
     }}
     .etip-accion-label {{
         display: block;
@@ -1004,7 +1022,30 @@ def inject_css():
         text-transform: uppercase;
         letter-spacing: 1px;
         color: #47b1d5;
-        margin-bottom: 0.18rem;
+        margin-bottom: 0.15rem;
+    }}
+    /* Filas de fechas — clases CSS en lugar de inline styles */
+    .etip-fecha-row {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        padding: 0.2rem 0;
+        gap: 0.6rem;
+    }}
+    .etip-fecha-row:last-child {{ border-bottom: none; }}
+    .etip-fecha-lbl {{
+        color: rgba(255,255,255,0.52);
+        font-size: 0.63rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }}
+    .etip-fecha-val {{
+        color: rgba(255,255,255,0.90);
+        font-family: 'DM Mono', monospace;
+        font-size: 0.64rem;
+        white-space: nowrap;
+        text-align: right;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -1055,7 +1096,7 @@ def inject_css():
         tip.style.left = left + 'px';
       }
 
-      // ── Posicionador dinámico para etip-popup (horizontal grande) ────────
+      // ── Posicionador dinámico para etip-popup (panel grande horizontal) ──
       function posicionarEtip() {
         doc.querySelectorAll('.etip-trigger').forEach(function(trigger) {
           if (trigger._etipInit) return;
@@ -1065,18 +1106,23 @@ def inject_css():
             var popup = trigger.querySelector('.etip-popup');
             if (!popup) return;
 
-            // Medir antes de mostrar
+            var vw = win.innerWidth;
+            var vh = win.innerHeight;
+
+            // 1. Fuera de pantalla y visible para medir altura real con overflow
+            popup.style.left       = '-9999px';
+            popup.style.top        = '-9999px';
             popup.style.visibility = 'hidden';
             popup.style.display    = 'block';
 
-            var rect = trigger.getBoundingClientRect();
-            var pw   = popup.offsetWidth  || 700;
-            var ph   = popup.offsetHeight || 320;
-            var vw   = win.innerWidth;
-            var vh   = win.innerHeight;
+            // 2. getBoundingClientRect es mas fiable que offsetHeight con max-height
+            var pr = popup.getBoundingClientRect();
+            var pw = pr.width  || 660;
+            var ph = Math.min(pr.height || 360, vh * 0.88);
 
-            // Horizontal: preferir mostrar a la derecha del elemento;
-            // si no cabe, mostrar a la izquierda; si tampoco, anclar al margen derecho
+            var rect = trigger.getBoundingClientRect();
+
+            // 3. Horizontal: derecha, luego izquierda, luego anclado al borde
             var left;
             if (rect.right + pw + 14 <= vw) {
               left = rect.right + 10;
@@ -1086,7 +1132,7 @@ def inject_css():
               left = Math.max(8, vw - pw - 12);
             }
 
-            // Vertical: alinear con la fila; subir si se sale por abajo
+            // 4. Vertical: alinear con el trigger, subir si se sale por abajo
             var top = rect.top;
             if (top + ph > vh - 12) {
               top = Math.max(8, vh - ph - 12);
@@ -1099,7 +1145,7 @@ def inject_css():
 
           trigger.addEventListener('mouseleave', function() {
             var popup = trigger.querySelector('.etip-popup');
-            if (popup) popup.style.display = 'none';
+            if (popup) { popup.style.display = 'none'; popup.style.visibility = 'hidden'; }
           });
         });
       }
