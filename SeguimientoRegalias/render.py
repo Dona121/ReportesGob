@@ -398,6 +398,7 @@ def _horizonte_str(row_data):
 
 
 def _comentario_contextual(eu, row_data):
+    """Devuelve solo el texto de situación actual, sin título de sección (lo pone tooltip_body)."""
     if row_data is None:
         return ""
 
@@ -425,7 +426,7 @@ def _comentario_contextual(eu, row_data):
                 )
             else:
                 txt = "No registra proceso precontractual ni contrato. Requiere seguimiento inmediato."
-        return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
+        return f'<div class="etip-row">{txt}</div>'
 
     elif eu == "CONTRATADO SIN ACTA DE INICIO":
         dias   = row_data.get("hito_3_val")
@@ -439,15 +440,15 @@ def _comentario_contextual(eu, row_data):
             )
         else:
             txt = "El contrato está suscrito, pero no se ha registrado el acta de inicio ni la programación inicial."
-        return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
+        return f'<div class="etip-row">{txt}</div>'
 
     elif eu == "CONTRATADO EN EJECUCIÓN":
-        cpi      = row_data.get("CPI")
-        spi      = row_data.get("SPI")
-        h_str    = _horizonte_str(row_data)
-        dias_h4  = row_data.get("hito_4_val")
+        cpi       = row_data.get("CPI")
+        spi       = row_data.get("SPI")
+        h_str     = _horizonte_str(row_data)
+        dias_h4   = row_data.get("hito_4_val")
         alerta_h4 = _alerta_nombre(row_data.get("clasi_4"))
-        partes   = []
+        partes    = []
         if cpi is not None or spi is not None:
             try:
                 cpi_v = float(cpi) if cpi is not None else None
@@ -455,17 +456,17 @@ def _comentario_contextual(eu, row_data):
                 ind_txt = []
                 if cpi_v is not None: ind_txt.append(f"CPI: <strong>{cpi_v:.2f}</strong>")
                 if spi_v is not None: ind_txt.append(f"SPI: <strong>{spi_v:.2f}</strong>")
-                partes.append(f"Indicadores de ejecución — {', '.join(ind_txt)}.")
+                partes.append(f"Indicadores — {', '.join(ind_txt)}.")
             except Exception:
                 pass
-        partes.append(f"El proyecto presenta horizonte <strong>{h_str}</strong>.")
+        partes.append(f"Horizonte <strong>{h_str}</strong>.")
         if dias_h4 is not None and dias_h4 > 0:
             partes.append(
-                f"Lleva <strong>{int(dias_h4)} días</strong> ({int(dias_h4)//30} meses aprox.) "
+                f"<strong>{int(dias_h4)} días</strong> ({int(dias_h4)//30} meses) "
                 f"con horizonte vencido. Alerta: <strong>{alerta_h4}</strong>."
             )
         txt = " ".join(partes) if partes else "Proyecto en ejecución activa."
-        return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
+        return f'<div class="etip-row">{txt}</div>'
 
     elif eu == "TERMINADO":
         dias      = row_data.get("hito_5_val")
@@ -473,28 +474,27 @@ def _comentario_contextual(eu, row_data):
         fecha_fin = _fmt_date_short(row_data.get("FECHA DE FINALIZACIÓN"))
         if dias is not None:
             txt = (
-                f"El proyecto se encuentra finalizado desde el <strong>{fecha_fin}</strong>, "
-                f"con <strong>{int(dias)} días</strong> transcurridos sin pasar a estado "
-                f"'Para cierre'. Esto genera una alerta <strong>{alerta}</strong>. "
-                f"Se encuentra en espera de la liquidación de contratos."
+                f"Finalizado desde el <strong>{fecha_fin}</strong>. "
+                f"<strong>{int(dias)} días</strong> transcurridos sin pasar a 'Para cierre'. "
+                f"Alerta <strong>{alerta}</strong>. En espera de liquidación de contratos."
             )
         else:
             txt = "Proyecto finalizado. En espera de la liquidación de contratos para proceder con el cierre."
-        return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
+        return f'<div class="etip-row">{txt}</div>'
 
     elif eu == "PARA CIERRE":
         txt = (
-            "El proyecto está liquidado y finalizado. Se encuentra en proceso de elaboración "
-            "del acto administrativo requerido para formalizar su cierre ante el DNP y el SGR."
+            "El proyecto está liquidado y finalizado. En proceso de elaboración "
+            "del acto administrativo para formalizar su cierre ante el DNP y el SGR."
         )
-        return f'<div class="etip-section-title">Situación actual</div><div class="etip-row">{txt}</div>'
+        return f'<div class="etip-row">{txt}</div>'
 
     return ""
 
 
 def _estado_tooltip_html(est_proy, row_data=None):
     """
-    Genera un pill de estado con tooltip contextual en layout horizontal de 2 columnas.
+    Genera un pill de estado con tooltip contextual en una sola columna.
     El posicionamiento dinámico (izq/der, arriba/abajo) lo hace el JS en constants.py.
     """
     if not est_proy:
@@ -619,8 +619,8 @@ def _estado_tooltip_html(est_proy, row_data=None):
     # ── Situación actual con datos reales ────────────────────────────────────
     situacion_html = _comentario_contextual(eu, row_data)
 
-    # ── Fechas registradas — clases CSS puras, sin inline font-family ────────
-    fechas_html = ""
+    # ── Fechas registradas ────────────────────────────────────────────────────
+    fechas_html_rows = ""
     if row_data:
         campos = [
             ("FECHA APROBACIÓN PROYECTO",            "Aprobación"),
@@ -641,36 +641,38 @@ def _estado_tooltip_html(est_proy, row_data=None):
                     f'<span class="etip-fecha-val">{_fmt_date_short(v)}</span>'
                     f'</div>'
                 )
-        if filas:
-            fechas_html = (
-                f'<div class="etip-section-title">Fechas en GESPROY</div>'
-                f'<div>{"".join(filas)}</div>'
-            )
+        fechas_html_rows = "".join(filas)
 
-    # ── Tooltip en 2 columnas ─────────────────────────────────────────────────
-    tooltip_body = f"""
-<span class="etip-estado">{html.escape(est_proy)}</span>
-<p class="etip-desc">{html.escape(info["descripcion"])}</p>
-<div class="etip-grid">
-  <div class="etip-col">
-    <div class="etip-section-title">Origen del estado</div>
-    <div class="etip-row"><span class="etip-label">Estado anterior:</span> {html.escape(info["estado_anterior"])}</div>
-    <div class="etip-row"><span class="etip-label">Fecha de entrada:</span> {html.escape(info["fecha_entrada"])}</div>
-    <div class="etip-section-title">Para avanzar</div>
-    <div class="etip-row">{html.escape(info["para_avanzar"])}</div>
-    <div class="etip-row etip-small">{html.escape(info["fecha_avance"])}</div>
-    <div class="etip-row etip-small"><span class="etip-label">Requisitos:</span> {html.escape(info["requisitos"])}</div>
-  </div>
-  <div class="etip-col">
-    {situacion_html}
-    {fechas_html}
-  </div>
-  <div class="etip-accion">
-    <span class="etip-accion-label">Acción sugerida</span>
-    {html.escape(info["requisitos"])}
-  </div>
-</div>
-"""
+    # ── Tooltip: una sola columna, secciones con separadores ─────────────────
+    tooltip_body = (
+        f'<span class="etip-estado">{html.escape(est_proy)}</span>'
+        f'<p class="etip-desc">{html.escape(info["descripcion"])}</p>'
+
+        f'<hr class="etip-sep">'
+        f'<div class="etip-section-title">Situación actual</div>'
+        + (situacion_html if situacion_html else f'<div class="etip-row etip-small">Sin datos disponibles.</div>')
+
+        + f'<hr class="etip-sep">'
+        f'<div class="etip-section-title">Origen del estado</div>'
+        f'<div class="etip-row"><span class="etip-label">Estado anterior: </span>{html.escape(info["estado_anterior"])}</div>'
+        f'<div class="etip-row etip-small"><span class="etip-label">Fecha de entrada: </span>{html.escape(info["fecha_entrada"])}</div>'
+
+        + (f'<hr class="etip-sep">'
+           f'<div class="etip-section-title">Fechas en GESPROY</div>'
+           f'<div class="etip-fechas">{fechas_html_rows}</div>'
+           if fechas_html_rows else '')
+
+        + f'<hr class="etip-sep">'
+        f'<div class="etip-section-title">Para avanzar</div>'
+        f'<div class="etip-row">{html.escape(info["para_avanzar"])}</div>'
+        f'<div class="etip-small">{html.escape(info["fecha_avance"])}</div>'
+
+        + f'<hr class="etip-sep">'
+        f'<div class="etip-accion">'
+        f'<span class="etip-accion-label">Acción sugerida</span>'
+        f'{html.escape(info["requisitos"])}'
+        f'</div>'
+    )
 
     extra_style = "font-weight:700;" if eu == "SUSPENDIDO" else ""
     return (
