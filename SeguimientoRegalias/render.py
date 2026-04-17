@@ -619,7 +619,7 @@ def _estado_tooltip_html(est_proy, row_data=None):
     # ── Situación actual con datos reales ────────────────────────────────────
     situacion_html = _comentario_contextual(eu, row_data)
 
-    # ── Fechas registradas — layout flex para evitar tablas con fondo blanco ─
+    # ── Fechas registradas — clases CSS puras, sin inline font-family ────────
     fechas_html = ""
     if row_data:
         campos = [
@@ -636,16 +636,15 @@ def _estado_tooltip_html(est_proy, row_data=None):
             v = row_data.get(col)
             if v is not None:
                 filas.append(
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
-                    f'border-bottom:1px solid rgba(255,255,255,0.07);padding:0.22rem 0;">'
-                    f'<span style="color:rgba(255,255,255,0.55);font-size:0.64rem;white-space:nowrap;padding-right:0.8rem">{lbl}</span>'
-                    f'<span style="color:rgba(255,255,255,0.92);font-family:\'DM Mono\',monospace;font-size:0.65rem;white-space:nowrap">{_fmt_date_short(v)}</span>'
+                    f'<div class="etip-fecha-row">'
+                    f'<span class="etip-fecha-lbl">{lbl}</span>'
+                    f'<span class="etip-fecha-val">{_fmt_date_short(v)}</span>'
                     f'</div>'
                 )
         if filas:
             fechas_html = (
                 f'<div class="etip-section-title">Fechas en GESPROY</div>'
-                f'<div style="width:100%;margin:0.15rem 0">{"".join(filas)}</div>'
+                f'<div>{"".join(filas)}</div>'
             )
 
     # ── Tooltip en 2 columnas ─────────────────────────────────────────────────
