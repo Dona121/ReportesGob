@@ -908,55 +908,46 @@ def inject_css():
     }}
 
     /* ══════════════════════════════════════════════════════════════
-       TOOLTIP ESTADO PROYECTO — 2 columnas, dinámico vía JS
+       TOOLTIP ESTADO PROYECTO — una columna, dinámico vía JS
        ══════════════════════════════════════════════════════════════ */
     .etip-trigger {{
         position: relative;
         cursor: pointer;
     }}
-    /*
-     * El popup NUNCA se muestra por CSS hover — solo el JS lo controla.
-     * Esto evita el flash en posición 0,0 antes de que JS calcule la pos.
-     */
+    /* El popup NUNCA se muestra por CSS hover — solo JS lo controla */
     .etip-popup {{
         display: none;
         position: fixed;
         z-index: 99999;
-        width: 660px;
-        max-height: 88vh;
+        width: 380px;
+        max-height: 86vh;
         overflow-y: auto;
         overflow-x: hidden;
         background: #1a2332;
         border-radius: 12px;
-        padding: 1rem 1.15rem 1rem;
+        padding: 0.9rem 1.1rem;
         box-shadow: 0 8px 40px rgba(0,0,0,0.45);
-        color: rgba(255,255,255,0.88);
-        font-size: 0.72rem;
-        line-height: 1.6;
+        color: rgba(255,255,255,0.85);
+        font-size: 0.71rem;
+        line-height: 1.55;
         pointer-events: none;
         top: 0;
         left: 0;
         box-sizing: border-box;
     }}
-    /* Scrollbar discreta dentro del popup */
     .etip-popup::-webkit-scrollbar {{ width: 4px; }}
     .etip-popup::-webkit-scrollbar-track {{ background: transparent; }}
     .etip-popup::-webkit-scrollbar-thumb {{ background: rgba(255,255,255,0.18); border-radius: 2px; }}
-    /* Grid de 2 columnas — align-items:start evita que las celdas se estiren */
-    .etip-grid {{
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        align-items: start;
-        gap: 0 1.2rem;
-        margin-top: 0.4rem;
-    }}
-    .etip-col {{
-        min-width: 0;   /* permite que el texto haga wrap dentro de la columna */
+    /* Separador entre secciones */
+    .etip-sep {{
+        border: none;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        margin: 0.5rem 0;
     }}
     .etip-estado {{
-        display: inline-block;
+        display: block;
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.68rem;
+        font-size: 0.66rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -965,35 +956,35 @@ def inject_css():
     }}
     .etip-desc {{
         font-size: 0.70rem;
-        color: rgba(255,255,255,0.62);
-        margin: 0 0 0.35rem;
+        color: rgba(255,255,255,0.58);
+        margin: 0 0 0;
         line-height: 1.55;
-        grid-column: 1 / -1;
     }}
     .etip-section-title {{
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.57rem;
+        font-size: 0.56rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 1px;
         color: #47b1d5;
-        margin: 0.5rem 0 0.18rem;
+        margin: 0 0 0.2rem;
     }}
     .etip-row {{
         font-size: 0.69rem;
         color: rgba(255,255,255,0.80);
-        margin-bottom: 0.16rem;
+        margin-bottom: 0.14rem;
         line-height: 1.5;
         word-break: break-word;
     }}
     .etip-small {{
-        font-size: 0.65rem;
-        color: rgba(255,255,255,0.48);
+        font-size: 0.64rem;
+        color: rgba(255,255,255,0.46);
         line-height: 1.4;
         word-break: break-word;
+        margin-bottom: 0.12rem;
     }}
     .etip-label {{
-        color: rgba(255,255,255,0.45);
+        color: rgba(255,255,255,0.42);
         font-weight: 600;
     }}
     .etip-i {{
@@ -1002,48 +993,51 @@ def inject_css():
         font-style: normal;
         margin-left: 2px;
     }}
-    /* Bloque acción — ocupa ambas columnas */
     .etip-accion {{
-        grid-column: 1 / -1;
-        margin-top: 0.5rem;
+        margin-top: 0;
         background: rgba(71,177,213,0.09);
         border-left: 3px solid #47b1d5;
         border-radius: 4px;
-        padding: 0.4rem 0.75rem;
-        font-size: 0.69rem;
-        color: rgba(255,255,255,0.76);
+        padding: 0.38rem 0.7rem;
+        font-size: 0.68rem;
+        color: rgba(255,255,255,0.75);
         line-height: 1.5;
         word-break: break-word;
     }}
     .etip-accion-label {{
         display: block;
-        font-size: 0.57rem;
+        font-size: 0.56rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 1px;
         color: #47b1d5;
-        margin-bottom: 0.15rem;
+        margin-bottom: 0.12rem;
     }}
-    /* Filas de fechas — clases CSS en lugar de inline styles */
+    /* Filas de fechas en dos columnas con flex */
+    .etip-fechas {{
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+    }}
     .etip-fecha-row {{
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid rgba(255,255,255,0.07);
-        padding: 0.2rem 0;
-        gap: 0.6rem;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        padding: 0.18rem 0;
+        gap: 0.5rem;
     }}
     .etip-fecha-row:last-child {{ border-bottom: none; }}
     .etip-fecha-lbl {{
-        color: rgba(255,255,255,0.52);
-        font-size: 0.63rem;
+        color: rgba(255,255,255,0.48);
+        font-size: 0.62rem;
         white-space: nowrap;
         flex-shrink: 0;
     }}
     .etip-fecha-val {{
-        color: rgba(255,255,255,0.90);
+        color: rgba(255,255,255,0.88);
         font-family: 'DM Mono', monospace;
-        font-size: 0.64rem;
+        font-size: 0.63rem;
         white-space: nowrap;
         text-align: right;
     }}
