@@ -1006,6 +1006,269 @@ with tab_evaluacion:
                     </table>
                     """, unsafe_allow_html=True)
 
+    # ── Reporte semanal ───────────────────────────────────────────────────────
+    st.markdown("<div style='height:1.8rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-heading'>Reporte semanal de alertas</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='font-size:0.78rem;color:{C['muted']};margin-bottom:1rem'>"
+        "Conteo de proyectos con semáforo <strong>naranja, rojo o negro</strong> por dependencia y estado, "
+        "basado en los hitos activos. Incluye solo los filtros activos del panel lateral.</div>",
+        unsafe_allow_html=True,
+    )
+
+    # Claves de alerta que se consideran (naranja / rojo / negro)
+    ALERTAS_NRN = {
+        "hito_1_val": ["101-150", "151-180", ">180"],
+        "hito_2_val": ["101-150", "151-180", ">180"],
+        "hito_3_val": ["16-30", "31-45", ">45"],
+        "hito_4_val": ["1.1-3", "3.1-6", ">6"],
+    }
+
+    # Colores por nivel de alerta para los pills
+    ALERTA_COLOR = {
+        # naranja
+        "101-150": (C["naranja"], "#fff7ed"), "31-45": (C["naranja"], "#fff7ed"),
+        "1.1-3":   (C["naranja"], "#fff7ed"), "16-30": (C["naranja"], "#fff7ed"),
+        # rojo
+        "151-180": (C["naranja_osc"], "#ffedd5"), "46-60": (C["naranja_osc"], "#ffedd5"),
+        "3.1-6":   (C["naranja_osc"], "#ffedd5"),
+        # negro
+        ">180":    (C["text"], "#e2e8f0"), ">60": (C["text"], "#e2e8f0"),
+        ">6":      (C["text"], "#e2e8f0"), ">45": (C["text"], "#e2e8f0"),
+    }
+
+    def _pill_alerta(clasi):
+        fg, bg = ALERTA_COLOR.get(clasi, (C["muted"], "#f1f5f9"))
+        return (
+            f'<span style="display:inline-block;background:{bg};color:{fg};'
+            f'border:1px solid {fg}40;border-radius:12px;padding:1px 7px;'
+            f'font-size:0.63rem;font-weight:700;margin:1px 2px;white-space:nowrap">'
+            f'{clasi}</span>'
+        )
+
+    def _comentario_reporte(estado_up, conteos_hito, n_total_estado):
+        """Genera comentario dinámico basado en los conteos reales de alertas."""
+        partes = []
+        n_alerta = sum(conteos_hito.values())
+
+        if n_alerta == 0:
+            return "Ningún proyecto presenta alertas en este estado."
+
+        pct = round(n_alerta / n_total_estado * 100) if n_total_estado else 0
+        partes.append(
+            f"<strong>{n_alerta} de {n_total_estado} proyecto(s)</strong> ({pct}%) "
+            f"presentan alertas que requieren atención."
+        )
+
+        if estado_up == "SIN CONTRATAR":
+            # H1 sin apertura
+            h1 = {k: v for k, v in conteos_hito.items() if k in ALERTAS_NRN["hito_1_val"]}
+            h2 = {k: v for k, v in conteos_hito.items() if k in ALERTAS_NRN["hito_2_val"]}
+            n_h1 = sum(h1.values())
+            n_h2 = sum(h2.values())
+            if n_h1:
+                partes.append(
+                    f"<strong>{n_h1}</strong> sin apertura del proceso precontractual "
+                    f"(hito 1: días desde aprobación sin contratar)."
+                )
+            if n_h2:
+                partes.append(
+                    f"<strong>{n_h2}</strong> con proceso abierto pero sin contrato suscrito "
+                    f"(hito 2: días desde apertura)."
+                )
+            # Máxima alerta
+            n_negro_h1 = conteos_hito.get(">180", 0)
+            n_negro_h2 = conteos_hito.get(">180", 0)  # comparten clave
+            if n_negro_h1 + n_negro_h2 > 0:
+                partes.append(
+                    f"Se detectaron <strong>{n_negro_h1 + n_negro_h2} proyecto(s) en alerta negra</strong> "
+                    f"(más de 180 días sin avance). Requieren intervención urgente."
+                )
+
+        elif estado_up == "CONTRATADO SIN ACTA DE INICIO":
+            n_rojo  = conteos_hito.get("31-45", 0)
+            n_negro = conteos_hito.get(">45", 0)
+            n_nar   = conteos_hito.get("16-30", 0)
+            if n_nar:
+                partes.append(
+                    f"<strong>{n_nar}</strong> entre 16 y 30 días sin formalizar el acta de inicio."
+                )
+            if n_rojo:
+                partes.append(
+                    f"<strong>{n_rojo}</strong> entre 31 y 45 días — situación crítica sin acta de inicio."
+                )
+            if n_negro:
+                partes.append(
+                    f"<strong>{n_negro}</strong> superan los 45 días — requieren intervención urgente."
+                )
+
+        elif estado_up == "CONTRATADO EN EJECUCIÓN":
+            n_nar   = conteos_hito.get("1.1-3", 0)
+            n_rojo  = conteos_hito.get("3.1-6", 0)
+            n_negro = conteos_hito.get(">6",    0)
+            if n_nar:
+                partes.append(
+                    f"<strong>{n_nar}</strong> con horizonte vencido entre 1 y 3 meses."
+                )
+            if n_rojo:
+                partes.append(
+                    f"<strong>{n_rojo}</strong> con horizonte vencido entre 3 y 6 meses — rezago significativo."
+                )
+            if n_negro:
+                partes.append(
+                    f"<strong>{n_negro}</strong> con más de 6 meses de horizonte vencido — "
+                    f"requieren revisión del plan de ejecución."
+                )
+
+        return " ".join(partes)
+
+    # ── Configuración de estados y sus hitos ──────────────────────────────────
+    REPORTE_CONFIG = [
+        {
+            "estado":      "SIN CONTRATAR",
+            "label":       "Sin contratar",
+            "hitos":       [("clasi_1", "hito_1_val", "H1 · Sin apertura"),
+                            ("clasi_2", "hito_2_val", "H2 · Con apertura")],
+            "color_est":   (C["cian"], "#e0f7fa"),
+        },
+        {
+            "estado":      "CONTRATADO SIN ACTA DE INICIO",
+            "label":       "Contratado sin acta de inicio",
+            "hitos":       [("clasi_3", "hito_3_val", "H3 · Sin acta")],
+            "color_est":   (C["azul_medio"], "#dbeafe"),
+        },
+        {
+            "estado":      "CONTRATADO EN EJECUCIÓN",
+            "label":       "Contratado en ejecución",
+            "hitos":       [("clasi_4", "hito_4_val", "H4 · En ejecución rezagado")],
+            "color_est":   (C["verde_medio"], "#d1fae5"),
+        },
+    ]
+
+    # ── Calcular conteos por entidad y estado ─────────────────────────────────
+    entidades_reporte = sorted(df_f["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
+
+    reporte_rows = []
+    for cfg in REPORTE_CONFIG:
+        estado_up  = cfg["estado"]
+        df_estado  = df_f.filter(pl.col("ESTADO PROYECTO") == estado_up)
+        n_total_est = df_estado.height
+
+        if n_total_est == 0:
+            continue
+
+        # Conteo global de alertas NRN para este estado (todas las entidades)
+        conteos_global: dict = {}
+        for clasi_col, hito_col, _ in cfg["hitos"]:
+            alertas_validas = ALERTAS_NRN.get(hito_col, [])
+            for alerta in alertas_validas:
+                n = int(df_estado.filter(pl.col(clasi_col) == alerta).height)
+                if n > 0:
+                    conteos_global[alerta] = conteos_global.get(alerta, 0) + n
+
+        n_total_alerta = sum(conteos_global.values())
+
+        # Conteo por entidad
+        filas_entidad = []
+        for ent in entidades_reporte:
+            df_ent = df_estado.filter(pl.col("ENTIDAD O SECRETARIA") == ent)
+            if df_ent.height == 0:
+                continue
+
+            conteos_ent: dict = {}
+            for clasi_col, hito_col, _ in cfg["hitos"]:
+                for alerta in ALERTAS_NRN.get(hito_col, []):
+                    n = int(df_ent.filter(pl.col(clasi_col) == alerta).height)
+                    if n > 0:
+                        conteos_ent[alerta] = conteos_ent.get(alerta, 0) + n
+
+            n_ent_alerta = sum(conteos_ent.values())
+            if n_ent_alerta == 0:
+                continue
+
+            pills = "".join(_pill_alerta(k) for k in sorted(conteos_ent, key=lambda x: conteos_ent[x], reverse=True))
+            filas_entidad.append((ent, df_ent.height, n_ent_alerta, pills, conteos_ent))
+
+        if not filas_entidad:
+            continue
+
+        # Comentario global del estado
+        comentario_global = _comentario_reporte(estado_up, conteos_global, n_total_alerta)
+        fg_est, bg_est = cfg["color_est"]
+
+        # Fila de encabezado del estado (agrupa las entidades)
+        reporte_rows.append(
+            f'<tr style="background:{bg_est}20">'
+            f'<td colspan="4" style="padding:0.55rem 0.9rem;border-bottom:2px solid {fg_est}30">'
+            f'<span style="font-family:\'Montserrat\',sans-serif;font-size:0.67rem;font-weight:800;'
+            f'text-transform:uppercase;letter-spacing:0.8px;color:{fg_est}">'
+            f'{cfg["label"]}</span>'
+            f'<span style="font-size:0.7rem;color:{C["muted"]};font-weight:400;margin-left:0.6rem">'
+            f'{n_total_est} proyecto(s) en este estado · {n_total_alerta} con alerta</span>'
+            f'</td></tr>'
+        )
+
+        for ent, n_ent_total, n_ent_alerta, pills_html, conteos_ent in filas_entidad:
+            com_ent = _comentario_reporte(estado_up, conteos_ent, n_ent_alerta)
+            reporte_rows.append(f"""<tr>
+                <td style="font-weight:600;font-size:0.81rem;color:{C['azul_oscuro']};
+                    padding:0.65rem 0.9rem;vertical-align:top">
+                    {html.escape(ent)}
+                </td>
+                <td style="padding:0.65rem 0.9rem;vertical-align:top">
+                    <span style="display:inline-block;background:{bg_est};color:{fg_est};
+                        border:1px solid {fg_est}40;border-radius:12px;padding:2px 9px;
+                        font-size:0.65rem;font-weight:700;white-space:nowrap">
+                        {html.escape(cfg['label'])}
+                    </span>
+                </td>
+                <td style="padding:0.65rem 0.9rem;vertical-align:top;text-align:center">
+                    <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:800;
+                        color:{C['azul_oscuro']};line-height:1">{n_ent_alerta}</div>
+                    <div style="font-size:0.62rem;color:{C['muted']};margin-top:2px">
+                        de {n_ent_total}
+                    </div>
+                    <div style="margin-top:4px">{pills_html}</div>
+                </td>
+                <td style="padding:0.65rem 0.9rem;vertical-align:top;
+                    font-size:0.75rem;color:{C['text']};line-height:1.6">
+                    {com_ent}
+                </td>
+            </tr>""")
+
+    _color_muted = C["muted"]
+    st.markdown(f"""
+    <style>
+    .reporte-table {{
+        width: 100%; border-collapse: collapse; font-size: 0.83rem;
+        background: #ffffff; border-radius: 10px; overflow: hidden;
+        box-shadow: 0 2px 16px rgba(0,40,90,0.09);
+    }}
+    .reporte-table thead tr {{ background: {C['azul_oscuro']}; color: white; }}
+    .reporte-table th {{
+        padding: 0.7rem 0.9rem; font-family: 'Montserrat', sans-serif;
+        font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.8px; text-align: left;
+    }}
+    .reporte-table td {{ border-bottom: 1px solid {C['border']}; }}
+    .reporte-table tbody tr:last-child td {{ border-bottom: none; }}
+    .reporte-table tbody tr:hover td {{ background: #f0f6ff !important; transition: background 0.12s; }}
+    </style>
+    <table class="reporte-table">
+    <thead><tr>
+        <th style="width:20%">Dependencia</th>
+        <th style="width:22%">Estado del proyecto</th>
+        <th style="width:15%">N.° proyectos<br>con alerta</th>
+        <th>Comentario</th>
+    </tr></thead>
+    <tbody>{"".join(reporte_rows) if reporte_rows else
+        f'<tr><td colspan="4" style="padding:1.2rem;color:{_color_muted};font-style:italic;text-align:center">'
+        f'No se encontraron proyectos con alertas naranja, roja o negra en los filtros activos.</td></tr>'
+    }
+    </tbody>
+    </table>
+    """, unsafe_allow_html=True)
+
 # ── TAB 4: Exportar ───────────────────────────────────────────────────────────
 with tab_exportar:
     st.markdown("<div class='section-heading'>Descargar reporte</div>", unsafe_allow_html=True)
