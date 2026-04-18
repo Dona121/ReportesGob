@@ -1215,30 +1215,58 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         progress.progress(60, text="Consolidando datos...")
         fecha_corte = pl.date(datetime.now().year, datetime.now().month, 15)
 
-        # Construir el DataFrame consolidado con priorización:
-        # Para fechas presentes en los reportes de Gesproy, se usa el valor de Gesproy
-        # cuando existe; si no, se conserva el valor ingresado manualmente en la versión anterior.
-        # Polars renombra con sufijo "_right" las columnas del lado derecho cuando hay conflicto.
+        # Construir el DataFrame consolidado.
+        # Las columnas de contratos y cargue no chocan con las de la versión anterior
+        # (H1 no tiene esas columnas), por lo que se agregan directamente sin sufijo.
+        # La priorización Gesproy > versión anterior aplica para las fechas que sí
+        # están en ambos lados: en este caso solo FECHA APROBACIÓN PROYECTO existe
+        # en la versión anterior (del esquema H1) Y en regalias_cargue.
+        # Para todas las demás fechas de Gesproy, simplemente se usan las de Gesproy
+        # porque la versión anterior no las contiene.
+        #
+        # Para detectar qué fechas el usuario ingresó manualmente (no vienen de Gesproy),
+        # se compara la versión anterior con los reportes antes de hacer el join.
+
+        # Fechas que provienen de Gesproy (por archivo fuente)
+        _fechas_gesproy = {
+            "FECHA APROBACIÓN PROYECTO":           regalias_cargue.select("BPIN", "FECHA APROBACIÓN PROYECTO"),
+            "FECHA DE APERTURA DEL PRIMER PROCESO": regalias_contratos.select("BPIN", "FECHA DE APERTURA DEL PRIMER PROCESO"),
+            "FECHA SUSCRIPCION":                    regalias_contratos.select("BPIN", "FECHA SUSCRIPCION"),
+            "FECHA ACTA INICIO":                    regalias_contratos.select("BPIN", "FECHA ACTA INICIO"),
+            "ULTIMA FECHA PAGO":                    regalias_contratos.select("BPIN", "ULTIMA FECHA PAGO"),
+        }
+
+        # Detectar BPINs donde Gesproy no tiene fecha pero la versión anterior sí
+        filas_fechas_manuales = []
+        for nombre_col, df_fuente in _fechas_gesproy.items():
+            if nombre_col not in BPINes_version_anterior.columns:
+                continue
+            comparacion = (
+                BPINes_version_anterior
+                .select("BPIN", "NOMBRE PROYECTO", pl.col(nombre_col).alias("fecha_manual"))
+                .join(
+                    df_fuente.rename({nombre_col: "fecha_gesproy"}),
+                    on="BPIN", how="left",
+                )
+                .filter(
+                    pl.col("fecha_gesproy").is_null() &
+                    pl.col("fecha_manual").is_not_null()
+                )
+            )
+            for row in comparacion.iter_rows(named=True):
+                filas_fechas_manuales.append({
+                    "BPIN":             row["BPIN"],
+                    "Nombre proyecto":  row["NOMBRE PROYECTO"],
+                    "Columna":          nombre_col,
+                    "Fecha conservada": str(row["fecha_manual"]),
+                })
+
         df_consolidado = (
             regalias_proyectos
             .join(BPINes_version_anterior, on="BPIN", how="left")
-            .join(regalias_contratos,      on="BPIN", how="left", suffix="_ctto")
-            .join(regalias_cargue,         on="BPIN", how="left", suffix="_cargue")
+            .join(regalias_contratos,      on="BPIN", how="left")
+            .join(regalias_cargue,         on="BPIN", how="left")
         )
-
-        # Columnas de fecha con doble fuente: Gesproy (sufijo) tiene prioridad
-        # sobre la versión anterior (sin sufijo).
-        # Si Gesproy no tiene valor, se conserva el de la versión anterior.
-        def _coalesce_fecha(col_gesproy_sufijo: str, col_version: str, alias: str):
-            """Prioriza Gesproy; si no hay, usa la versión anterior."""
-            col_g = col_gesproy_sufijo
-            col_v = col_version
-            if col_g in df_consolidado.columns and col_v in df_consolidado.columns:
-                return pl.coalesce([pl.col(col_g), pl.col(col_v)]).alias(alias)
-            elif col_g in df_consolidado.columns:
-                return pl.col(col_g).alias(alias)
-            else:
-                return pl.col(col_v).alias(alias)
 
         BPINes_version_anterior = df_consolidado.select(
                 "BPIN",
@@ -1257,7 +1285,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "VALOR OTRAS FUENTES NO SUIFP",
                 "VALOR TOTAL PROYECTO",
                 "VALOR PAGOS",
-                pl.coalesce([pl.col("ULTIMA FECHA PAGO_ctto"), pl.col("ULTIMA FECHA PAGO")]).alias("ULTIMA FECHA PAGO"),
+                "ULTIMA FECHA PAGO",
                 "FECHA DE MIGRACIÓN A GESPROY",
                 "FECHA DE ASIGNACIÓN DE RECURSOS",
                 "FECHA DE INCORPORACIÓN DE RECURSOS",
@@ -1265,10 +1293,10 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "AVANCE FINANCIERO",
                 "CPI",
                 "SPI",
-                _coalesce_fecha("FECHA APROBACIÓN PROYECTO_cargue", "FECHA APROBACIÓN PROYECTO", "FECHA APROBACIÓN PROYECTO"),
-                _coalesce_fecha("FECHA DE APERTURA DEL PRIMER PROCESO_ctto", "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA DE APERTURA DEL PRIMER PROCESO"),
-                _coalesce_fecha("FECHA SUSCRIPCION_ctto", "FECHA SUSCRIPCION", "FECHA SUSCRIPCION"),
-                _coalesce_fecha("FECHA ACTA INICIO_ctto", "FECHA ACTA INICIO", "FECHA ACTA INICIO"),
+                "FECHA APROBACIÓN PROYECTO",
+                "FECHA DE APERTURA DEL PRIMER PROCESO",
+                "FECHA SUSCRIPCION",
+                "FECHA ACTA INICIO",
                 "HORIZONTE DEL PROYECTO",
                 "FECHA DE FINALIZACIÓN",
                 pl.coalesce([pl.col("FECHA DE CORTE GESPROY"), fecha_corte]).alias("FECHA DE CORTE GESPROY"),
@@ -1286,33 +1314,6 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 pl.lit("").alias("CALIFICACIÓN EJECUCIÓN DEL PROYECTO"),
                 pl.coalesce([pl.col("COMENTARIOS CALIFICACIÓN"), pl.lit("")]).alias("COMENTARIOS CALIFICACIÓN"),
         )
-
-        # ── Reporte de fechas manuales conservadas (no encontradas en Gesproy) ─
-        fechas_doble_fuente = [
-            ("FECHA APROBACIÓN PROYECTO",              "FECHA APROBACIÓN PROYECTO_cargue",                 "FECHA APROBACIÓN PROYECTO"),
-            ("FECHA DE APERTURA DEL PRIMER PROCESO",   "FECHA DE APERTURA DEL PRIMER PROCESO_ctto",         "FECHA DE APERTURA DEL PRIMER PROCESO"),
-            ("FECHA SUSCRIPCION",                      "FECHA SUSCRIPCION_ctto",                             "FECHA SUSCRIPCION"),
-            ("FECHA ACTA INICIO",                      "FECHA ACTA INICIO_ctto",                             "FECHA ACTA INICIO"),
-        ]
-        filas_fechas_manuales = []
-        for col_manual, col_gesproy, nombre_mostrar in fechas_doble_fuente:
-            if col_gesproy not in df_consolidado.columns or col_manual not in df_consolidado.columns:
-                continue
-            # Filas donde Gesproy no tiene fecha pero la versión anterior sí
-            mask = df_consolidado.select(
-                pl.col("BPIN"),
-                pl.col("NOMBRE PROYECTO"),
-                pl.col(col_gesproy).is_null().alias("sin_gesproy"),
-                pl.col(col_manual).is_not_null().alias("con_manual"),
-                pl.col(col_manual).alias("fecha_manual"),
-            ).filter(pl.col("sin_gesproy") & pl.col("con_manual"))
-            for row in mask.iter_rows(named=True):
-                filas_fechas_manuales.append({
-                    "BPIN":            row["BPIN"],
-                    "Nombre proyecto": row["NOMBRE PROYECTO"],
-                    "Columna":         nombre_mostrar,
-                    "Fecha conservada": str(row["fecha_manual"]),
-                })
 
         otros_ejecutores_descentralizadas = otros_ejecutores_descentralizadas.with_columns(
             pl.coalesce([pl.col("FECHA DE CORTE GESPROY"), fecha_corte]).alias("FECHA DE CORTE GESPROY")
