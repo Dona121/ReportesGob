@@ -1236,6 +1236,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         # Si el BPIN no existe en Gesproy, también cuenta como sin fecha.
 
         # Fuentes de fecha por columna (solo las que vienen de Gesproy)
+        # Nombre de la columna en H1 → fuente Gesproy para comparación
         _fechas_gesproy = {
             "FECHA APROBACIÓN PROYECTO":            regalias_cargue.select("BPIN", "FECHA APROBACIÓN PROYECTO"),
             "FECHA DE APERTURA DEL PRIMER PROCESO": regalias_contratos.select("BPIN", "FECHA DE APERTURA DEL PRIMER PROCESO"),
@@ -1282,6 +1283,19 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
             .join(regalias_cargue,         on="BPIN", how="left")
         )
 
+        # En el join, las columnas que existen tanto en H1 (versión anterior) como en
+        # contratos/cargue reciben sufijo "_right" para las de Gesproy.
+        # La lógica es: coalesce(gesproy_right, h1) → Gesproy tiene prioridad;
+        # si Gesproy no tiene el BPIN o la fecha está vacía, se conserva la del usuario.
+        def _priorizar(col_gesproy_right: str, col_h1: str, alias: str) -> pl.Expr:
+            cols_disponibles = df_consolidado.columns
+            if col_gesproy_right in cols_disponibles and col_h1 in cols_disponibles:
+                return pl.coalesce([pl.col(col_gesproy_right), pl.col(col_h1)]).alias(alias)
+            elif col_gesproy_right in cols_disponibles:
+                return pl.col(col_gesproy_right).alias(alias)
+            else:
+                return pl.col(col_h1).alias(alias)
+
         BPINes_version_anterior = df_consolidado.select(
                 "BPIN",
                 "ENTIDAD O SECRETARIA",
@@ -1299,6 +1313,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "VALOR OTRAS FUENTES NO SUIFP",
                 "VALOR TOTAL PROYECTO",
                 "VALOR PAGOS",
+                # ULTIMA FECHA PAGO: H1 no la tiene, viene solo de contratos (sin sufijo)
                 "ULTIMA FECHA PAGO",
                 "FECHA DE MIGRACIÓN A GESPROY",
                 "FECHA DE ASIGNACIÓN DE RECURSOS",
@@ -1307,10 +1322,11 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "AVANCE FINANCIERO",
                 "CPI",
                 "SPI",
-                "FECHA APROBACIÓN PROYECTO",
-                "FECHA DE APERTURA DEL PRIMER PROCESO",
-                "FECHA SUSCRIPCION",
-                "FECHA ACTA INICIO",
+                # Fechas con doble fuente: Gesproy (_right) tiene prioridad sobre H1
+                _priorizar("FECHA APROBACIÓN PROYECTO_right",            "FECHA APROBACIÓN PROYECTO",            "FECHA APROBACIÓN PROYECTO"),
+                _priorizar("FECHA DE APERTURA DEL PRIMER PROCESO_right", "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA DE APERTURA DEL PRIMER PROCESO"),
+                _priorizar("FECHA SUSCRIPCION_right",                    "FECHA SUSCRIPCION",                    "FECHA SUSCRIPCION"),
+                _priorizar("FECHA ACTA INICIO_right",                    "FECHA ACTA INICIO",                    "FECHA ACTA INICIO"),
                 "HORIZONTE DEL PROYECTO",
                 "FECHA DE FINALIZACIÓN",
                 pl.coalesce([pl.col("FECHA DE CORTE GESPROY"), fecha_corte]).alias("FECHA DE CORTE GESPROY"),
