@@ -1227,27 +1227,41 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         # Para detectar qué fechas el usuario ingresó manualmente (no vienen de Gesproy),
         # se compara la versión anterior con los reportes antes de hacer el join.
 
-        # Fechas que provienen de Gesproy (por archivo fuente)
+        # Detección de fechas manuales: comparar la versión anterior contra Gesproy
+        # por BPIN, para identificar casos donde Gesproy no tiene fecha pero el
+        # usuario sí ingresó una manualmente en la versión anterior.
+        #
+        # Importante: se considera "sin fecha en Gesproy" cuando el valor es null.
+        # Si Gesproy tiene el BPIN pero la fecha está vacía, cuenta como sin fecha.
+        # Si el BPIN no existe en Gesproy, también cuenta como sin fecha.
+
+        # Fuentes de fecha por columna (solo las que vienen de Gesproy)
         _fechas_gesproy = {
-            "FECHA APROBACIÓN PROYECTO":           regalias_cargue.select("BPIN", "FECHA APROBACIÓN PROYECTO"),
+            "FECHA APROBACIÓN PROYECTO":            regalias_cargue.select("BPIN", "FECHA APROBACIÓN PROYECTO"),
             "FECHA DE APERTURA DEL PRIMER PROCESO": regalias_contratos.select("BPIN", "FECHA DE APERTURA DEL PRIMER PROCESO"),
             "FECHA SUSCRIPCION":                    regalias_contratos.select("BPIN", "FECHA SUSCRIPCION"),
             "FECHA ACTA INICIO":                    regalias_contratos.select("BPIN", "FECHA ACTA INICIO"),
             "ULTIMA FECHA PAGO":                    regalias_contratos.select("BPIN", "ULTIMA FECHA PAGO"),
         }
 
-        # Detectar BPINs donde Gesproy no tiene fecha pero la versión anterior sí
+        # Tabla auxiliar con BPIN + NOMBRE PROYECTO (de Gesproy)
+        _bpin_nombre = regalias_proyectos.select("BPIN", "NOMBRE PROYECTO")
+
         filas_fechas_manuales = []
         for nombre_col, df_fuente in _fechas_gesproy.items():
             if nombre_col not in BPINes_version_anterior.columns:
                 continue
             comparacion = (
                 BPINes_version_anterior
-                .select("BPIN", "NOMBRE PROYECTO", pl.col(nombre_col).alias("fecha_manual"))
+                .select("BPIN", pl.col(nombre_col).alias("fecha_manual"))
+                # Obtener nombre del proyecto desde regalias_proyectos
+                .join(_bpin_nombre, on="BPIN", how="left")
+                # Comparar con la fecha de Gesproy
                 .join(
                     df_fuente.rename({nombre_col: "fecha_gesproy"}),
                     on="BPIN", how="left",
                 )
+                # Caso: Gesproy no tiene fecha (null) pero el usuario sí ingresó una
                 .filter(
                     pl.col("fecha_gesproy").is_null() &
                     pl.col("fecha_manual").is_not_null()
@@ -1256,7 +1270,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
             for row in comparacion.iter_rows(named=True):
                 filas_fechas_manuales.append({
                     "BPIN":             row["BPIN"],
-                    "Nombre proyecto":  row["NOMBRE PROYECTO"],
+                    "Nombre proyecto":  row.get("NOMBRE PROYECTO", ""),
                     "Columna":          nombre_col,
                     "Fecha conservada": str(row["fecha_manual"]),
                 })
