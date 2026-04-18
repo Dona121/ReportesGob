@@ -914,7 +914,10 @@ def inject_css():
         position: relative;
         cursor: pointer;
     }}
-    /* El popup NUNCA se muestra por CSS hover — solo JS lo controla */
+    /* El popup NUNCA se muestra por CSS hover — solo JS lo controla.
+     * Los estilos de posición/tamaño se aplican inline via JS cuando
+     * el popup se mueve al document.body. Aquí solo van los estilos
+     * de apariencia que deben heredarse. */
     .etip-popup {{
         display: none;
         position: fixed;
@@ -1090,33 +1093,63 @@ def inject_css():
         tip.style.left = left + 'px';
       }
 
-      // ── Posicionador dinámico para etip-popup (panel grande horizontal) ──
+      // ── Posicionador dinámico para etip-popup ────────────────────────────
+      // IMPORTANTE: el popup se MUEVE al body del documento principal al activarse.
+      // Esto lo saca del stacking context de .proy-table (border-radius + overflow:hidden)
+      // que atrapa position:fixed y causa el desborde visual.
       function posicionarEtip() {
         doc.querySelectorAll('.etip-trigger').forEach(function(trigger) {
           if (trigger._etipInit) return;
           trigger._etipInit = true;
 
+          // El popup hijo — guardamos referencia y lo movemos al body
+          var popup = trigger.querySelector('.etip-popup');
+          if (!popup) return;
+
+          // Guardamos la referencia al trigger en el popup para poder volver
+          popup._ownerTrigger = trigger;
+
           trigger.addEventListener('mouseenter', function() {
-            var popup = trigger.querySelector('.etip-popup');
-            if (!popup) return;
+            // 1. Mover al body si no está ya ahí
+            if (popup.parentNode !== doc.body) {
+              doc.body.appendChild(popup);
+            }
 
             var vw = win.innerWidth;
             var vh = win.innerHeight;
 
-            // 1. Fuera de pantalla y visible para medir altura real con overflow
-            popup.style.left       = '-9999px';
-            popup.style.top        = '-9999px';
-            popup.style.visibility = 'hidden';
-            popup.style.display    = 'block';
+            // 2. Posicionar fuera de vista para medir dimensiones reales
+            popup.style.cssText = [
+              'display:block',
+              'visibility:hidden',
+              'position:fixed',
+              'left:-9999px',
+              'top:-9999px',
+              'width:380px',
+              'max-height:86vh',
+              'overflow-y:auto',
+              'overflow-x:hidden',
+              'z-index:99999',
+              'box-sizing:border-box',
+              'background:#1a2332',
+              'border-radius:12px',
+              'padding:0.9rem 1.1rem',
+              'box-shadow:0 8px 40px rgba(0,0,0,0.45)',
+              'color:rgba(255,255,255,0.85)',
+              'font-size:0.71rem',
+              'line-height:1.55',
+              'pointer-events:none',
+            ].join(';');
 
-            // 2. getBoundingClientRect es mas fiable que offsetHeight con max-height
+            // 3. Medir altura real
             var pr = popup.getBoundingClientRect();
-            var pw = pr.width  || 660;
-            var ph = Math.min(pr.height || 360, vh * 0.88);
+            var pw = 380;
+            var ph = Math.min(pr.height || 360, vh * 0.86);
 
+            // 4. Posición del trigger en el viewport del parent
             var rect = trigger.getBoundingClientRect();
 
-            // 3. Horizontal: derecha, luego izquierda, luego anclado al borde
+            // 5. Calcular posición horizontal: derecha, luego izquierda, luego borde
             var left;
             if (rect.right + pw + 14 <= vw) {
               left = rect.right + 10;
@@ -1126,20 +1159,21 @@ def inject_css():
               left = Math.max(8, vw - pw - 12);
             }
 
-            // 4. Vertical: alinear con el trigger, subir si se sale por abajo
+            // 6. Calcular posición vertical: alinear con fila, subir si se sale
             var top = rect.top;
             if (top + ph > vh - 12) {
               top = Math.max(8, vh - ph - 12);
             }
 
+            // 7. Aplicar posición final y mostrar
             popup.style.left       = left + 'px';
             popup.style.top        = top  + 'px';
             popup.style.visibility = 'visible';
           });
 
           trigger.addEventListener('mouseleave', function() {
-            var popup = trigger.querySelector('.etip-popup');
-            if (popup) { popup.style.display = 'none'; popup.style.visibility = 'hidden'; }
+            popup.style.display    = 'none';
+            popup.style.visibility = 'hidden';
           });
         });
       }
