@@ -675,10 +675,14 @@ def _estado_tooltip_html(est_proy, row_data=None):
     )
 
     extra_style = "font-weight:700;" if eu == "SUSPENDIDO" else ""
+    # IMPORTANTE: usar <div> para el trigger y popup, NO <span>.
+    # Un <span> (inline) no puede contener <div>, <p>, <hr> — el browser
+    # los expulsa fuera del contenedor causando el desborde visual.
+    # El pill sigue viéndose igual; solo cambia el elemento contenedor.
     return (
-        f'<span class="proy-pill etip-trigger" '
-        f'style="background:{bg};color:{fg};border:1px solid {fg}40;{extra_style}cursor:pointer">'
+        f'<div class="proy-pill etip-trigger" '
+        f'style="display:inline-block;background:{bg};color:{fg};border:1px solid {fg}40;{extra_style}cursor:pointer">'
         f'{html.escape(est_proy)}&thinsp;<span class="etip-i">&#9432;</span>'
-        f'<span class="etip-popup">{tooltip_body}</span>'
-        f'</span>'
+        f'<div class="etip-popup">{tooltip_body}</div>'
+        f'</div>'
     )
