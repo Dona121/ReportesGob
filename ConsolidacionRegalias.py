@@ -968,6 +968,136 @@ with st.expander("Referencia: columnas esperadas por archivo"):
     with t5: mostrar_esquema(ESQUEMA_MATRIZ_DESC)
     with t6: mostrar_esquema(ESQUEMA_MATRIZ_MUN)
 
+with st.expander("Cómo funciona la consolidación"):
+    st.markdown("""
+### Visión general
+
+El aplicativo toma tres reportes de Gesproy (proyectos, contratos y cargue) más el archivo
+de la versión anterior de la Matriz, los cruza por BPIN y produce un nuevo Excel con las
+tres hojas de siempre. El resultado refleja el estado actual de Gesproy, complementado con
+la información que el equipo ha ingresado manualmente en la Matriz cuando Gesproy aún no
+tiene esa información disponible.
+
+---
+
+### Fuentes de información y qué aporta cada una
+
+| Archivo | Qué contiene | Qué aporta a la consolidación |
+|---|---|---|
+| **CG-proy** | Listado de todos los proyectos SGR | Base de proyectos activos. Se excluyen los estados *Cerrado* y *Desaprobado*. |
+| **CG-cttos** | Contratos de cada proyecto | Estado del contrato, tipo, fechas (apertura, suscripción, acta de inicio, última fecha de pago) y valor. Solo aparecen proyectos que ya tienen contrato. |
+| **CG-carga** | Avance físico y financiero | Porcentajes de avance y fecha de aprobación del proyecto. |
+| **Versión anterior** | Matriz del mes pasado | Información de contexto del proyecto (alcance, fuente, indicador MGA), datos ingresados manualmente (CPI, SPI, información solicitada/recibida, control externalidades, calificaciones) y fechas ingresadas cuando Gesproy no las tenía todavía. |
+
+---
+
+### Cómo se cruzan los datos (joins)
+
+El cruce se hace siempre por **BPIN**, que es el código único de cada proyecto.
+
+1. **Base:** se parte del listado de proyectos activos de CG-proy.
+2. Se le agrega la información de contexto de la versión anterior (alcance, entidad, indicador MGA, etc.).
+3. Se le agrega el contrato más representativo de cada BPIN (ver priorización abajo).
+4. Se le agrega el avance físico, financiero y fecha de aprobación del cargue.
+
+Si un proyecto no tiene contrato en Gesproy, las columnas de contrato quedan en blanco —
+pero si el usuario tenía fechas ingresadas manualmente, esas se conservan (ver más abajo).
+
+---
+
+### Priorización de contratos
+
+Cuando un proyecto tiene más de un contrato en Gesproy, el aplicativo selecciona uno solo
+siguiendo este orden de prioridad:
+
+1. Obra pública, Consultoría, Convenios de Cooperación, Interadministrativos
+2. Suministro, Contratos con entidades sin ánimo de lucro
+3. Cualquier otro tipo (el de mayor valor)
+
+Dentro de cada categoría se toma el de **mayor valor SGR**.
+
+---
+
+### Priorización de fechas: Gesproy vs. fechas manuales
+
+Esta es la regla más importante para entender cómo se manejan las fechas de contratación
+(`FECHA APROBACIÓN PROYECTO`, `FECHA DE APERTURA DEL PRIMER PROCESO`, `FECHA SUSCRIPCION`,
+`FECHA ACTA INICIO`, `ULTIMA FECHA PAGO`):
+
+| Situación | Qué hace el aplicativo |
+|---|---|
+| El BPIN **no aparece** en el archivo de contratos (proyecto sin contratar) | Conserva la fecha ingresada manualmente en la Matriz. |
+| El BPIN **sí aparece** en contratos, pero la fecha está **vacía** | Conserva la fecha ingresada manualmente en la Matriz. |
+| El BPIN **sí aparece** en contratos **y la fecha está registrada** | Usa la fecha de Gesproy (tiene prioridad). |
+
+Esto garantiza que las fechas que el equipo ingresó no se pierdan mientras el proyecto
+avanza en Gesproy. Cuando Gesproy finalmente registre la fecha oficial, el aplicativo la
+tomará automáticamente en la próxima consolidación.
+
+Al finalizar la generación, el aplicativo muestra una tabla con todas las fechas que se
+conservaron desde la versión anterior porque Gesproy aún no las tenía.
+
+---
+
+### Indicadores calculados automáticamente
+
+El aplicativo calcula los siguientes campos para la hoja principal y la de descentralizadas:
+
+**Días transcurridos** (solo para estados específicos):
+
+- **Días desde la aprobación hasta apertura del primer proceso** — se calcula únicamente
+  para proyectos en estado *Sin contratar*, como la diferencia entre la fecha de corte y
+  la fecha de aprobación del proyecto.
+- **Días desde la apertura hasta la firma del primer contrato** — se calcula únicamente
+  para proyectos en estado *Sin contratar* que ya tienen fecha de apertura de proceso.
+- **Días desde la suscripción hasta el acta de inicio** — se calcula únicamente para
+  proyectos en estado *Contratado sin acta de inicio*.
+
+**Calificación desempeño en la contratación** — evalúa qué tan oportuno fue el proceso de
+contratación según el estado del proyecto:
+
+- *Sin contratar, con aprobación pero sin apertura de proceso:* 100 puntos si han pasado
+  180 días o menos desde la aprobación; 0 si superan los 180 días.
+- *Sin contratar, con apertura de proceso pero sin suscripción:* 100 puntos si la apertura
+  tiene 120 días o menos; escala proporcional entre 120 y 180 días; 0 si supera los 180.
+- *Contratado sin acta de inicio:* 100 puntos si la suscripción tiene 30 días o menos;
+  escala proporcional entre 30 y 60 días; 0 si supera los 60 días.
+
+**Fórmulas en Excel** (calculadas dentro del archivo, no en Python):
+
+- *Desempeño en el cronograma (SPI)* y *Desempeño en el costo (CPI):* escala basada en el
+  valor del indicador. Por encima de 1.3 se penaliza; entre 0.84 y 1.2 es la zona óptima;
+  por debajo de 0.38 es 0.
+- *Brecha físico-financiera:* compara avance físico y avance financiero, considera el
+  estado del proyecto y aplica rangos de tolerancia según el nivel de avance.
+- *Calificación ejecución del proyecto:* pondera cronograma (40%), costo (20%) y brecha
+  físico-financiera (40%). Si hay externalidades registradas, aplica un factor de ajuste.
+- *Calificación información a tiempo* (solo hoja principal): evalúa el día en que se
+  recibió la información solicitada (día 10 = 100 pts, día 11 = 80, día 12 = 50, otro = 0).
+
+---
+
+### Manejo de la fecha de corte
+
+La fecha de corte se establece automáticamente como el **día 15 del mes actual**. Si la
+versión anterior ya tiene una fecha de corte registrada para un proyecto, esa se conserva;
+si no, se usa la calculada.
+
+---
+
+### Restricciones aplicadas
+
+- Solo se incluyen proyectos en estado **distinto** a *Cerrado* y *Desaprobado*.
+- Las columnas de fórmulas (desempeño, brecha, calificaciones) se **recalculan siempre**
+  al abrir el Excel — no se guardan valores fijos.
+- Las columnas auxiliares *Columna Apoyo* y *Columna Apoyo 2* están **ocultas** en el
+  Excel; son intermedias del cálculo de la brecha y la calificación de ejecución.
+- La hoja de **Municipios** no tiene fórmulas automáticas; toda su calificación es manual.
+- La hoja de **Descentralizadas** tiene fórmulas para desempeño y ejecución, pero la
+  *Calificación información a tiempo* es manual (la columna existe pero no tiene fórmula).
+""")
+
+
 st.divider()
 st.header("Generar Matriz")
 
