@@ -76,7 +76,7 @@ ESQUEMA_MATRIZ_H1 = {
     "FECHA DE RECIBO DE INFORMACIÓN":     ("Fecha",  "fecha"),
     "CONTROL EXTERNALIDADES":             ("Número", "numero"),
     "FECHA DE CORTE GESPROY":             ("Fecha",  "fecha"),
-    "CALIFICACIÓN CALIDAD INFORMACIÓN":   ("Número", "libre"),
+    "CALIFICACIÓN CALIDAD INFORMACIÓN":   ("Número", "numero"),
     "COMENTARIOS CALIFICACIÓN":           ("Texto",  "libre"),
 }
 
@@ -1277,7 +1277,10 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 continue
             secundarios = grupo.filter(pl.col("TIPO CONTRATO").is_in(tipos_secundarios))
             contratos.append(secundarios.head(1) if len(secundarios) > 0 else grupo.head(1))
-        regalias_contratos = pl.concat(contratos)
+        if not contratos:
+            regalias_contratos = regalias_contratos.clear()  # DataFrame vacío con mismo esquema
+        else:
+            regalias_contratos = pl.concat(contratos)
 
         # Cargue: normalizar_fecha maneja String o Date sin distinción
         regalias_cargue = normalizar_fecha(
@@ -1316,7 +1319,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
             "FECHA DE RECIBO DE INFORMACIÓN": pl.lit(None).cast(pl.Date),
             "CONTROL EXTERNALIDADES":         pl.lit(None).cast(pl.Float64),
             "FECHA DE CORTE GESPROY":         pl.lit(None).cast(pl.Date),
-            "CALIFICACIÓN CALIDAD INFORMACIÓN": pl.lit("").cast(pl.String),
+            "CALIFICACIÓN CALIDAD INFORMACIÓN": pl.lit(None).cast(pl.Float64),
             "COMENTARIOS CALIFICACIÓN":       pl.lit("").cast(pl.String),
         }
         _cols_faltantes_h1 = {
@@ -1375,26 +1378,48 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         }
 
         # ── Construir tabla de fechas consolidadas (Gesproy > manual) ─────────
-        # Para cada fecha: si Gesproy tiene valor → usar Gesproy; si no → usar manual.
-        # Se trabaja directamente con los DataFrames fuente antes del join principal,
-        # comparando por BPIN para garantizar que la lógica sea correcta.
-        _fecha_final = _fechas_manuales_h1.select("BPIN")
+        # Base: TODOS los BPINs activos de Gesproy (incluyendo proyectos nuevos).
+        # Para cada fecha: Gesproy tiene prioridad; si no tiene valor, se usa
+        # la fecha ingresada manualmente en la versión anterior.
+        # Proyectos nuevos (no están en la versión anterior) obtienen sus
+        # fechas directamente de Gesproy.
+        _fecha_final = regalias_proyectos.select("BPIN")
         filas_fechas_manuales = []
         _bpin_nombre = regalias_proyectos.select("BPIN", "NOMBRE PROYECTO")
 
         for col, df_gesproy in _fuentes_gesproy.items():
-            if col not in _fechas_manuales_h1.columns:
-                # No hay valor manual → usar Gesproy directamente
-                _fecha_final = _fecha_final.join(df_gesproy, on="BPIN", how="left")
-                continue
+            # _fecha_final parte de todos los BPINs activos.
+            # Para cada fecha, se hace:
+            #   1. left join de todos BPINs con Gesproy  → fecha_gesproy (null si no existe)
+            #   2. left join de todos BPINs con manuales → fecha_manual  (null si no existía en versión anterior)
+            #   3. coalesce(gesproy, manual)              → prioriza Gesproy; si no, conserva manual
+            #
+            # Proyectos nuevos: manual=null → resultado = Gesproy (o null si tampoco está en Gesproy)
+            # Proyectos sin contratar: gesproy=null, manual=valor → resultado = manual
+            # Proyectos contratados: gesproy=valor → resultado = Gesproy
 
-            # Hacer join: manual + gesproy por BPIN
-            combinado = (
-                _fechas_manuales_h1.select("BPIN", pl.col(col).alias("_manual"))
-                .join(
-                    df_gesproy.rename({col: "_gesproy"}),
+            todos_bpin = _fecha_final.select("BPIN")
+
+            # Fecha de Gesproy para todos los BPINs
+            con_gesproy = todos_bpin.join(
+                df_gesproy.rename({col: "_gesproy"}),
+                on="BPIN", how="left",
+            )
+
+            # Fecha manual para todos los BPINs (null si el BPIN no estaba en la versión anterior
+            # o si la columna no existe en la versión anterior)
+            if col in _fechas_manuales_h1.columns:
+                con_manual = todos_bpin.join(
+                    _fechas_manuales_h1.select("BPIN", pl.col(col).alias("_manual")),
                     on="BPIN", how="left",
                 )
+            else:
+                con_manual = todos_bpin.with_columns(pl.lit(None).cast(pl.Date).alias("_manual"))
+
+            # Combinar: coalesce(gesproy, manual)
+            combinado = (
+                con_gesproy
+                .join(con_manual, on="BPIN", how="left")
                 .select(
                     "BPIN",
                     pl.coalesce([pl.col("_gesproy"), pl.col("_manual")]).alias(col),
@@ -1403,7 +1428,7 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 )
             )
 
-            # Detectar casos donde Gesproy no tiene fecha pero el usuario sí
+            # Detectar casos donde Gesproy no tiene fecha pero el usuario sí ingresó una
             sin_gesproy_con_manual = combinado.filter(
                 pl.col(f"_gesproy_{col}").is_null() &
                 pl.col(f"_manual_{col}").is_not_null()
