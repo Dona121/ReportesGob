@@ -1215,29 +1215,28 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
         progress.progress(60, text="Consolidando datos...")
         fecha_corte = pl.date(datetime.now().year, datetime.now().month, 15)
 
-        # Construir el DataFrame consolidado.
-        # Las columnas de contratos y cargue no chocan con las de la versión anterior
-        # (H1 no tiene esas columnas), por lo que se agregan directamente sin sufijo.
-        # La priorización Gesproy > versión anterior aplica para las fechas que sí
-        # están en ambos lados: en este caso solo FECHA APROBACIÓN PROYECTO existe
-        # en la versión anterior (del esquema H1) Y en regalias_cargue.
-        # Para todas las demás fechas de Gesproy, simplemente se usan las de Gesproy
-        # porque la versión anterior no las contiene.
-        #
-        # Para detectar qué fechas el usuario ingresó manualmente (no vienen de Gesproy),
-        # se compara la versión anterior con los reportes antes de hacer el join.
+        # ── Leer fechas manuales de la versión anterior ──────────────────────
+        # La tabla MatrizSeguimientoEvaluacion contiene fechas de contratación
+        # ingresadas manualmente. Estas no forman parte de ESQUEMA_MATRIZ_H1
+        # (que solo carga columnas de contexto del proyecto), pero sí existen en
+        # el archivo. Las leemos aparte para poder hacer el coalesce correcto.
+        _FECHAS_MANUALES_COLS = [
+            "BPIN",
+            "FECHA APROBACIÓN PROYECTO",
+            "FECHA DE APERTURA DEL PRIMER PROCESO",
+            "FECHA SUSCRIPCION",
+            "FECHA ACTA INICIO",
+            "ULTIMA FECHA PAGO",
+        ]
+        # Solo leer las que realmente existen en el archivo
+        _cols_presentes = [c for c in _FECHAS_MANUALES_COLS if c in df_h1_raw.columns]
+        _fechas_manuales_h1 = normalizar_fecha(
+            df_h1_raw.select(_cols_presentes),
+            [c for c in _FECHAS_MANUALES_COLS[1:] if c in _cols_presentes],
+        )
 
-        # Detección de fechas manuales: comparar la versión anterior contra Gesproy
-        # por BPIN, para identificar casos donde Gesproy no tiene fecha pero el
-        # usuario sí ingresó una manualmente en la versión anterior.
-        #
-        # Importante: se considera "sin fecha en Gesproy" cuando el valor es null.
-        # Si Gesproy tiene el BPIN pero la fecha está vacía, cuenta como sin fecha.
-        # Si el BPIN no existe en Gesproy, también cuenta como sin fecha.
-
-        # Fuentes de fecha por columna (solo las que vienen de Gesproy)
-        # Nombre de la columna en H1 → fuente Gesproy para comparación
-        _fechas_gesproy = {
+        # ── Fuentes de Gesproy para cada fecha ────────────────────────────────
+        _fuentes_gesproy = {
             "FECHA APROBACIÓN PROYECTO":            regalias_cargue.select("BPIN", "FECHA APROBACIÓN PROYECTO"),
             "FECHA DE APERTURA DEL PRIMER PROCESO": regalias_contratos.select("BPIN", "FECHA DE APERTURA DEL PRIMER PROCESO"),
             "FECHA SUSCRIPCION":                    regalias_contratos.select("BPIN", "FECHA SUSCRIPCION"),
@@ -1245,57 +1244,69 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
             "ULTIMA FECHA PAGO":                    regalias_contratos.select("BPIN", "ULTIMA FECHA PAGO"),
         }
 
-        # Tabla auxiliar con BPIN + NOMBRE PROYECTO (de Gesproy)
+        # ── Construir tabla de fechas consolidadas (Gesproy > manual) ─────────
+        # Para cada fecha: si Gesproy tiene valor → usar Gesproy; si no → usar manual.
+        # Se trabaja directamente con los DataFrames fuente antes del join principal,
+        # comparando por BPIN para garantizar que la lógica sea correcta.
+        _fecha_final = _fechas_manuales_h1.select("BPIN")
+        filas_fechas_manuales = []
         _bpin_nombre = regalias_proyectos.select("BPIN", "NOMBRE PROYECTO")
 
-        filas_fechas_manuales = []
-        for nombre_col, df_fuente in _fechas_gesproy.items():
-            if nombre_col not in BPINes_version_anterior.columns:
+        for col, df_gesproy in _fuentes_gesproy.items():
+            if col not in _fechas_manuales_h1.columns:
+                # No hay valor manual → usar Gesproy directamente
+                _fecha_final = _fecha_final.join(df_gesproy, on="BPIN", how="left")
                 continue
-            comparacion = (
-                BPINes_version_anterior
-                .select("BPIN", pl.col(nombre_col).alias("fecha_manual"))
-                # Obtener nombre del proyecto desde regalias_proyectos
-                .join(_bpin_nombre, on="BPIN", how="left")
-                # Comparar con la fecha de Gesproy
+
+            # Hacer join: manual + gesproy por BPIN
+            combinado = (
+                _fechas_manuales_h1.select("BPIN", pl.col(col).alias("_manual"))
                 .join(
-                    df_fuente.rename({nombre_col: "fecha_gesproy"}),
+                    df_gesproy.rename({col: "_gesproy"}),
                     on="BPIN", how="left",
                 )
-                # Caso: Gesproy no tiene fecha (null) pero el usuario sí ingresó una
-                .filter(
-                    pl.col("fecha_gesproy").is_null() &
-                    pl.col("fecha_manual").is_not_null()
+                .select(
+                    "BPIN",
+                    pl.coalesce([pl.col("_gesproy"), pl.col("_manual")]).alias(col),
+                    pl.col("_manual").alias(f"_manual_{col}"),
+                    pl.col("_gesproy").alias(f"_gesproy_{col}"),
                 )
             )
-            for row in comparacion.iter_rows(named=True):
-                filas_fechas_manuales.append({
-                    "BPIN":             row["BPIN"],
-                    "Nombre proyecto":  row.get("NOMBRE PROYECTO", ""),
-                    "Columna":          nombre_col,
-                    "Fecha conservada": str(row["fecha_manual"]),
-                })
 
+            # Detectar casos donde Gesproy no tiene fecha pero el usuario sí
+            sin_gesproy_con_manual = combinado.filter(
+                pl.col(f"_gesproy_{col}").is_null() &
+                pl.col(f"_manual_{col}").is_not_null()
+            )
+            if len(sin_gesproy_con_manual) > 0:
+                con_nombre = sin_gesproy_con_manual.join(_bpin_nombre, on="BPIN", how="left")
+                for row in con_nombre.iter_rows(named=True):
+                    filas_fechas_manuales.append({
+                        "BPIN":             row["BPIN"],
+                        "Nombre proyecto":  row.get("NOMBRE PROYECTO", ""),
+                        "Columna":          col,
+                        "Fecha conservada": str(row[f"_manual_{col}"]),
+                    })
+
+            _fecha_final = _fecha_final.join(
+                combinado.select("BPIN", col),
+                on="BPIN", how="left",
+            )
+
+        # ── Join principal ────────────────────────────────────────────────────
         df_consolidado = (
             regalias_proyectos
             .join(BPINes_version_anterior, on="BPIN", how="left")
+            .join(_fecha_final,            on="BPIN", how="left")
             .join(regalias_contratos,      on="BPIN", how="left")
             .join(regalias_cargue,         on="BPIN", how="left")
         )
 
-        # En el join, las columnas que existen tanto en H1 (versión anterior) como en
-        # contratos/cargue reciben sufijo "_right" para las de Gesproy.
-        # La lógica es: coalesce(gesproy_right, h1) → Gesproy tiene prioridad;
-        # si Gesproy no tiene el BPIN o la fecha está vacía, se conserva la del usuario.
-        def _priorizar(col_gesproy_right: str, col_h1: str, alias: str) -> pl.Expr:
-            cols_disponibles = df_consolidado.columns
-            if col_gesproy_right in cols_disponibles and col_h1 in cols_disponibles:
-                return pl.coalesce([pl.col(col_gesproy_right), pl.col(col_h1)]).alias(alias)
-            elif col_gesproy_right in cols_disponibles:
-                return pl.col(col_gesproy_right).alias(alias)
-            else:
-                return pl.col(col_h1).alias(alias)
-
+        # En df_consolidado, las fechas de contrato ya vienen de _fecha_final
+        # (con la lógica Gesproy > manual aplicada). Los joins con contratos y
+        # cargue agregan columnas adicionales (ESTADO CONTRATO, TIPO CONTRATO, etc.)
+        # pero generan sufijos _right para las columnas de fecha que ya existen
+        # en _fecha_final. Se descartan esos _right usando los nombres sin sufijo.
         BPINes_version_anterior = df_consolidado.select(
                 "BPIN",
                 "ENTIDAD O SECRETARIA",
@@ -1313,7 +1324,6 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "VALOR OTRAS FUENTES NO SUIFP",
                 "VALOR TOTAL PROYECTO",
                 "VALOR PAGOS",
-                # ULTIMA FECHA PAGO: H1 no la tiene, viene solo de contratos (sin sufijo)
                 "ULTIMA FECHA PAGO",
                 "FECHA DE MIGRACIÓN A GESPROY",
                 "FECHA DE ASIGNACIÓN DE RECURSOS",
@@ -1322,11 +1332,11 @@ if st.button("Generar Matriz", type="primary", use_container_width=True):
                 "AVANCE FINANCIERO",
                 "CPI",
                 "SPI",
-                # Fechas con doble fuente: Gesproy (_right) tiene prioridad sobre H1
-                _priorizar("FECHA APROBACIÓN PROYECTO_right",            "FECHA APROBACIÓN PROYECTO",            "FECHA APROBACIÓN PROYECTO"),
-                _priorizar("FECHA DE APERTURA DEL PRIMER PROCESO_right", "FECHA DE APERTURA DEL PRIMER PROCESO", "FECHA DE APERTURA DEL PRIMER PROCESO"),
-                _priorizar("FECHA SUSCRIPCION_right",                    "FECHA SUSCRIPCION",                    "FECHA SUSCRIPCION"),
-                _priorizar("FECHA ACTA INICIO_right",                    "FECHA ACTA INICIO",                    "FECHA ACTA INICIO"),
+                # Fechas de contrato: vienen de _fecha_final (ya priorizadas)
+                "FECHA APROBACIÓN PROYECTO",
+                "FECHA DE APERTURA DEL PRIMER PROCESO",
+                "FECHA SUSCRIPCION",
+                "FECHA ACTA INICIO",
                 "HORIZONTE DEL PROYECTO",
                 "FECHA DE FINALIZACIÓN",
                 pl.coalesce([pl.col("FECHA DE CORTE GESPROY"), fecha_corte]).alias("FECHA DE CORTE GESPROY"),
