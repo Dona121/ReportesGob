@@ -747,7 +747,7 @@ def formulas_para_fila_h1(r: int) -> dict:
     ponderado   = f"({cron}*0.4+{cost}*0.2+{brecha}*0.4)"
     calculo     = f'IFERROR(IF(ISTEXT({info_sol}),{ponderado},""),"")'
     f_ejecucion = (
-        f'=IFERROR(IF(AND({en_ejecucion},{ext}>1),'
+        f'=IFERROR(IF(AND({en_ejecucion},{ext}>=1),'
         f'({calculo})*{col_apoyo2}/100,{calculo}),0)'
     )
     return {
@@ -812,7 +812,7 @@ def formulas_para_fila_desc(r: int) -> dict:
     ponderado   = f"({cron}*0.4+{cost}*0.2+{brecha}*0.4)"
     calculo     = f'IFERROR(IF(ISNUMBER({info_sol}),{ponderado},""),"")'
     f_ejecucion = (
-        f'=IFERROR(IF(AND({en_ejecucion},{ext}>1),'
+        f'=IFERROR(IF(AND({en_ejecucion},{ext}>=1),'
         f'({calculo})*{col_apoyo2}/100,{calculo}),0)'
     )
     return {
