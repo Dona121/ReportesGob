@@ -161,11 +161,23 @@ def inject_css():
         font-size: 0.74rem !important;
         font-weight: 600 !important;
         padding: 0.5rem 1rem !important;
-        transition: background 0.15s, border-color 0.15s !important;
+        transition: background 0.15s, border-color 0.15s, color 0.15s !important;
+    }}
+    /* Texto interno del botón — Streamlit lo envuelve en <p>/<div> que
+       heredan el color blanco global del sidebar. Forzamos el cian aquí. */
+    section[data-testid="stSidebar"] .stButton > button *,
+    section[data-testid="stSidebar"] .stButton > button p,
+    section[data-testid="stSidebar"] .stButton > button div {{
+        color: {C['cian']} !important;
     }}
     section[data-testid="stSidebar"] .stButton > button:hover {{
         background: rgba(71,177,213,0.22) !important;
         border-color: {C['cian']} !important;
+        color: white !important;
+    }}
+    section[data-testid="stSidebar"] .stButton > button:hover *,
+    section[data-testid="stSidebar"] .stButton > button:hover p,
+    section[data-testid="stSidebar"] .stButton > button:hover div {{
         color: white !important;
     }}
     section[data-testid="stSidebar"] .stButton > button:active,
@@ -173,6 +185,10 @@ def inject_css():
         background: rgba(71,177,213,0.30) !important;
         color: white !important;
         box-shadow: none !important;
+    }}
+    section[data-testid="stSidebar"] .stButton > button:active *,
+    section[data-testid="stSidebar"] .stButton > button:focus * {{
+        color: white !important;
     }}
 
     /* ── Header ── */
