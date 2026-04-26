@@ -151,8 +151,16 @@ def inject_css():
         border-bottom: 1px solid rgba(71,177,213,0.3);
     }}
 
-    /* Botón de recarga en sidebar */
-    section[data-testid="stSidebar"] .stButton > button {{
+    /* ── Botón de recarga en sidebar ──
+       Usamos múltiples selectores en cascada porque la estructura DOM del
+       <button> de Streamlit varía entre versiones: a veces vive dentro de
+       .stButton, otras dentro de [data-testid="stButton"], y siempre tiene
+       un atributo `kind`. El selector button[kind] es el más confiable.
+       Limitamos al sidebar con section[data-testid="stSidebar"] para no
+       afectar otros botones de la app (como el de descarga de Excel). */
+    section[data-testid="stSidebar"] button[kind],
+    section[data-testid="stSidebar"] [data-testid="stButton"] button,
+    section[data-testid="stSidebar"] .stButton button {{
         background: rgba(71,177,213,0.12) !important;
         color: {C['cian']} !important;
         border: 1.5px solid rgba(71,177,213,0.35) !important;
@@ -161,34 +169,46 @@ def inject_css():
         font-size: 0.74rem !important;
         font-weight: 600 !important;
         padding: 0.5rem 1rem !important;
+        box-shadow: none !important;
         transition: background 0.15s, border-color 0.15s, color 0.15s !important;
     }}
-    /* Texto interno del botón — Streamlit lo envuelve en <p>/<div> que
-       heredan el color blanco global del sidebar. Forzamos el cian aquí. */
-    section[data-testid="stSidebar"] .stButton > button *,
-    section[data-testid="stSidebar"] .stButton > button p,
-    section[data-testid="stSidebar"] .stButton > button div {{
+    /* Texto interno: Streamlit envuelve el label en <p>/<div> que heredan
+       el color blanco global del sidebar. Forzamos el cian. */
+    section[data-testid="stSidebar"] button[kind] *,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button *,
+    section[data-testid="stSidebar"] .stButton button * {{
         color: {C['cian']} !important;
     }}
-    section[data-testid="stSidebar"] .stButton > button:hover {{
-        background: rgba(71,177,213,0.22) !important;
+    /* Hover: intensificar fondo y pasar texto a blanco */
+    section[data-testid="stSidebar"] button[kind]:hover,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:hover,
+    section[data-testid="stSidebar"] .stButton button:hover {{
+        background: rgba(71,177,213,0.25) !important;
         border-color: {C['cian']} !important;
-        color: white !important;
+        color: #ffffff !important;
     }}
-    section[data-testid="stSidebar"] .stButton > button:hover *,
-    section[data-testid="stSidebar"] .stButton > button:hover p,
-    section[data-testid="stSidebar"] .stButton > button:hover div {{
-        color: white !important;
+    section[data-testid="stSidebar"] button[kind]:hover *,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:hover *,
+    section[data-testid="stSidebar"] .stButton button:hover * {{
+        color: #ffffff !important;
     }}
-    section[data-testid="stSidebar"] .stButton > button:active,
-    section[data-testid="stSidebar"] .stButton > button:focus {{
-        background: rgba(71,177,213,0.30) !important;
-        color: white !important;
-        box-shadow: none !important;
+    /* Active y focus: tono más intenso, texto blanco */
+    section[data-testid="stSidebar"] button[kind]:active,
+    section[data-testid="stSidebar"] button[kind]:focus,
+    section[data-testid="stSidebar"] button[kind]:focus-visible,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:active,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:focus {{
+        background: rgba(71,177,213,0.35) !important;
+        border-color: {C['cian']} !important;
+        color: #ffffff !important;
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(71,177,213,0.25) !important;
     }}
-    section[data-testid="stSidebar"] .stButton > button:active *,
-    section[data-testid="stSidebar"] .stButton > button:focus * {{
-        color: white !important;
+    section[data-testid="stSidebar"] button[kind]:active *,
+    section[data-testid="stSidebar"] button[kind]:focus *,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:active *,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:focus * {{
+        color: #ffffff !important;
     }}
 
     /* ── Header ── */
