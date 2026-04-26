@@ -151,6 +151,30 @@ def inject_css():
         border-bottom: 1px solid rgba(71,177,213,0.3);
     }}
 
+    /* Botón de recarga en sidebar */
+    section[data-testid="stSidebar"] .stButton > button {{
+        background: rgba(71,177,213,0.12) !important;
+        color: {C['cian']} !important;
+        border: 1.5px solid rgba(71,177,213,0.35) !important;
+        border-radius: 8px !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 0.74rem !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        transition: background 0.15s, border-color 0.15s !important;
+    }}
+    section[data-testid="stSidebar"] .stButton > button:hover {{
+        background: rgba(71,177,213,0.22) !important;
+        border-color: {C['cian']} !important;
+        color: white !important;
+    }}
+    section[data-testid="stSidebar"] .stButton > button:active,
+    section[data-testid="stSidebar"] .stButton > button:focus {{
+        background: rgba(71,177,213,0.30) !important;
+        color: white !important;
+        box-shadow: none !important;
+    }}
+
     /* ── Header ── */
     .page-header {{
         background: linear-gradient(120deg, {C['azul_oscuro']} 0%, {C['verde_oscuro']} 100%);
