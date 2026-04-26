@@ -41,6 +41,15 @@ inject_css()
 
 with st.sidebar:
     st.markdown("<div class='sidebar-section'>📁 Datos</div>", unsafe_allow_html=True)
+
+    # ── Botón de recarga ──────────────────────────────────────────────────────
+    # Limpia el caché de _cargar_desde_github (que tiene ttl=3600) para forzar
+    # una descarga fresca del repo. Útil cuando alguien acaba de subir cambios.
+    if st.button("🔄 Recargar datos del repositorio", use_container_width=True,
+                 help="Vuelve a descargar los archivos desde GitHub. Úsalo si acabas de actualizar el repositorio."):
+        st.cache_data.clear()
+        st.rerun()
+
     uploaded = st.file_uploader("Subir otro archivo Excel", type=["xlsx"], label_visibility="collapsed")
     if uploaded:
         st.success("Usando el archivo subido manualmente.")
@@ -226,38 +235,12 @@ HITOS = {
     "H5 · Proyectos terminados":          ("hito_5_val", "clasi_5"),
 }
 
-with st.sidebar:
-    st.markdown("<div class='sidebar-section'>Filtros</div>", unsafe_allow_html=True)
-
-    entidades     = sorted(df["ENTIDAD O SECRETARIA"].drop_nulls().unique().to_list())
-    sel_entidades = st.multiselect("Entidad / Secretaría", entidades, default=entidades)
-
-    estados_raw  = sorted(df["ESTADO PROYECTO"].drop_nulls().unique().to_list())
-    tiene_sin    = df["ESTADO PROYECTO"].is_null().any() or (df["ESTADO PROYECTO"] == "").any()
-    opciones_est = estados_raw + (["(Sin estado)"] if tiene_sin else [])
-    sel_estados  = st.multiselect("Estado del proyecto", opciones_est, default=opciones_est)
-
 # ─────────────────────────────────────────────────────────────────────────────
-# FILTRAR
+# UNIVERSO DE TRABAJO
+# Sin filtros globales en el sidebar — cada pestaña tiene sus propios filtros
+# que actúan sobre df_f directamente.
 # ─────────────────────────────────────────────────────────────────────────────
-filter_expr = pl.col("ENTIDAD O SECRETARIA").is_in(sel_entidades)
-if sel_estados:
-    incluir_sin    = "(Sin estado)" in sel_estados
-    estados_reales = [e for e in sel_estados if e != "(Sin estado)"]
-    if estados_reales and incluir_sin:
-        estado_expr = (
-            pl.col("ESTADO PROYECTO").is_in(estados_reales)
-            | pl.col("ESTADO PROYECTO").is_null()
-            | (pl.col("ESTADO PROYECTO") == "")
-        )
-    elif estados_reales:
-        estado_expr = pl.col("ESTADO PROYECTO").is_in(estados_reales)
-    elif incluir_sin:
-        estado_expr = pl.col("ESTADO PROYECTO").is_null() | (pl.col("ESTADO PROYECTO") == "")
-    else:
-        estado_expr = pl.lit(False)
-    filter_expr = filter_expr & estado_expr
-df_f = df.filter(filter_expr)
+df_f = df
 
 # ─────────────────────────────────────────────────────────────────────────────
 # KPIs
