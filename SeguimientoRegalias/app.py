@@ -45,7 +45,7 @@ with st.sidebar:
     # ── Botón de recarga ──────────────────────────────────────────────────────
     # Limpia el caché de _cargar_desde_github (que tiene ttl=3600) para forzar
     # una descarga fresca del repo. Útil cuando alguien acaba de subir cambios.
-    if st.button("🔄 Recargar datos del repositorio", use_container_width=True,
+    if st.button("Recargar datos del repositorio", use_container_width=True,
                  help="Vuelve a descargar los archivos desde GitHub. Úsalo si acabas de actualizar el repositorio."):
         st.cache_data.clear()
         st.rerun()
